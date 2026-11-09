@@ -1,0 +1,75 @@
+{
+ "root_material": "M_MonsterOutline",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "MonsterOutline_MainTex.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "338608ecdcc9c59e8a185c8a265ab65de280fd93"
+    ],
+    "base_pass_vs_hash": [
+     "3ba0d3724c059536d7000c18ae862cc5d4adfe60"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/misc/results_multi_final.json summary.misc_338608 (42 runs, o0 688128/688128 o1 688128/688128 o2 688128/688128 o3 688128/688128 o6 688128/688128 bit-exact); VS #121222 ported_wpo_verified (evidence/validation/shaderdiff/weapons/round3/misc/results_vs_wpo_misc_final.json (InnerB: WuwaMonsterOutlineWPO_InnerB, spec \"wpo\" block))",
+   "ps_archive_index": 121220,
+   "vs_archive_index": [
+    121222
+   ],
+   "vs_status": {
+    "3ba0d3724c059536d7000c18ae862cc5d4adfe60": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 6,
+   "roster_slot_uses": 12,
+   "entities": [
+    "character:Phrolova",
+    "skin:From the Beyond"
+   ],
+   "example_mis": [
+    "MI_EFuluoluoHekateMD10011Arms_OL",
+    "MI_EFuluoluoHekateMD10011Body_OL",
+    "MI_EFuluoluoHekateMD10011Down_OL",
+    "MI_EFuluoluoHekateMD10011Head_OL",
+    "MI_EFuluoluoHekateMD10011Weapon_OL",
+    "MI_EFuluoluoHekateMD10011Wings_OL"
+   ],
+   "notes": "Phrolova Hekate *_OL (6 MIs); MSM_ToonOutline id 13; inverted hull with the ported VS extrusion"
+  },
+  {
+   "spec": "MonsterOutline_MainTexPush.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "4847fc74d2b63a0fd49e7598345e47ff9ed7c398"
+    ],
+    "base_pass_vs_hash": [
+     "c48296ae5a4ac1e8ebc47694d0ec9a6c3630fa3f"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/misc/results_multi_final.json summary.misc_4847fc (27 runs, o0 442368/442368 o1 442368/442368 o2 442368/442368 o3 442368/442368 o6 442368/442368 bit-exact); VS #51848 ported_wpo_verified (evidence/validation/shaderdiff/weapons/round3/misc/results_vs_wpo_misc_final.json (Push: WuwaMonsterOutlineWPO_Push))",
+   "ps_archive_index": 51831,
+   "vs_archive_index": [
+    51848
+   ],
+   "vs_status": {
+    "c48296ae5a4ac1e8ebc47694d0ec9a6c3630fa3f": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Yangyang: Xuanling",
+    "skin:Boundless Azure"
+   ],
+   "example_mis": [
+    "MI_EXuanlingBirdMd10011_OL"
+   ],
+   "notes": "Yangyang Xuanling bird _OL; same PS code as 338608ecdc (other Material-UB layout)"
+  }
+ ]
+}

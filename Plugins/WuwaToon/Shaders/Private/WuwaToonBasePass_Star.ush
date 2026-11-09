@@ -1,0 +1,161 @@
+// WuwaToonBasePass_Star.ush — M_Char_XinHen ("XingHen" star mark) base pass, used by MI_3XingStar (Yangyang mesh slot 8).
+//
+//   Shading model MSM_ToonCommon (GBufferB id 12), BLEND_Masked, OpacityMaskClipValue 0.3333, not two-sided.
+//   It writes a toon GBuffer with a black surface (C = 0, B.rgb = 0, A.z = 0, D = 0): the visible result is the
+//   emissive term (o0) and the masked silhouette. The deferred toon resolve still applies (shading-model id 12).
+//
+// Line refs: S### = line in
+//   evidence/shaders/materials/MI_3XingStar/FGPUSkinPassthroughVertexFactory__TBasePassPSFNoLightMapPolicy__116382.asm.txt
+//   (ClientChunk_SM5 #116382, map BFD5ECD5..., shared by MI_3XingStar and its parent M_Char_XinHen).
+// research/hlsl/Star_BasePass.hlsl, research/shaders/Star.md.
+//
+// Material cbuffer (Kuro CB2) slots re-derived here from raw parameters (preshaders, research/shaders/Star_cb2.txt):
+//   cb2[23].xyz SDFColor02.rgb      cb2[26].xyz SDFColor.rgb*SDFColor.a   cb2[27].xyz SelectionColor.rgb
+//   cb2[33].y |ShakeNoiseInt|       cb2[33].z SDFColor02.a                cb2[34].x |ShakeNoiseInt|*3
+//   cb2[34].w min(XingHenControl, XingHenControlMax)
+//   cb2[35]   (SDFStart, SoundWaveTiling01, SoundWaveSpeed01, SoundWaveInt01)
+//   cb2[36]   (SoundWaveTiling02, SoundWaveSpeed02, SoundWaveInt02, saturate(|ShakeNoiseInt|))
+//   cb2[37]   (XHMax, ShakeNoiseInt*0.3, ShowMask, SelectionColor.a)
+// Textures (t0..t2, inferred from the UniformTextureParameters order E_Tex_NoiseTex(unused), D, Noise, Noise02):
+//   D = T_3XingStar_D (r: inner mask, g: SDF threshold, b: pulse source, a: alpha); Noise.r; Noise02.r (both G8).
+// Not ported: o4 velocity, o5 SV_Position.z copy (as in every WuwaToon base pass); the CustomAlphaTest PS permutation
+// (#116383: Kuro E_Dither_* / E_UseHeadMaskHide clip, identity at the parent defaults; research/shaders/Star.md §6).
+#pragma once
+
+#include "WuwaToonBasePass_WriteStencil.ush"   // WuwaPrimDitherClip (S144-161), shared Kuro primitive dither
+
+FWuwaToonGBuffer WuwaToonStarBasePass(
+	Texture2D D, SamplerState DSampler,
+	Texture2D Noise, SamplerState NoiseSampler,
+	Texture2D Noise02, SamplerState Noise02Sampler,
+	float2 UV0, float3 WorldTangent, float3 WorldNormal, float TangentSign, float3 WorldPosition, float2 SvPositionXY,
+	float GameTime,
+	float4 SDFColor, float4 SDFColor02, float4 SelectionColor,
+	float ShakeNoiseInt, float SDFStart, float XingHenControl, float XingHenControlMax,
+	float SoundWaveTiling01, float SoundWaveSpeed01, float SoundWaveInt01,
+	float SoundWaveTiling02, float SoundWaveSpeed02, float SoundWaveInt02,
+	float XHMax, float ShowMask,
+	float KuroPrimDitherEnable, float KuroPrimDitherFade,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask, out float OpacityMask)
+{
+	FWuwaToonGBuffer G;
+
+	// ---- S54-66: N = normalize(TangentToWorld * normalize(NormalOverride.xyz + NormalOverride.w * (0,0,1))) ----------
+	float3 B = cross(WorldNormal, WorldTangent) * TangentSign;
+	float3 nTS = NormalOverrideParameter.w * float3(0.0, 0.0, 1.0) + NormalOverrideParameter.xyz;
+	nTS = nTS * rsqrt(dot(nTS, nTS));
+	float3 N = B * nTS.y;
+	N = nTS.x * WorldTangent + N;
+	N = nTS.z * WorldNormal + N;
+	N = N * rsqrt(dot(N, N));
+
+	// ---- preshaders (CPU-side in Kuro; float32 arithmetic) ------------------------------------------------------------
+	float shakeAbs  = abs(ShakeNoiseInt);                       // cb2[33].y
+	float shake3    = shakeAbs * 3.0;                           // cb2[34].x
+	float xhc       = min(XingHenControl, XingHenControlMax);   // cb2[34].w
+	float shakeSat  = saturate(shakeAbs);                       // cb2[36].w
+	float shake03   = ShakeNoiseInt * asfloat(0x3E99999Au);     // cb2[37].y  (0.3)
+	float3 sdfPremul = SDFColor.rgb * SDFColor.a;               // cb2[26].xyz
+
+	// ---- S67-70: base colour (SDFColor02 weighted, +0.2 while the shake noise is on) ---------------------------------
+	float k = ((shakeAbs >= asfloat(0x3A83126Fu)) ? 0.2 : 0.0) + SDFColor02.a;   // 0.001, and 0x3e4ccccd
+	float3 Col = k * SDFColor02.rgb;
+
+	// ---- S71-77: D texture; inner mask (1 - D.r) faded out by the shake amount ---------------------------------------
+	float4 Dt = D.SampleBias(DSampler, UV0, MaterialTextureMipBias);
+	float inner = 1.0 - Dt.r;
+	float s = saturate(shake3);
+	s = s * s * (s * -2.0 + 3.0);
+	float mask = s * -inner + inner;
+
+	// ---- S78-79: (SDFStart, Tiling01, Speed01, Int01) lerped toward (1.2, 3.5, -0.2, 15) by XingHenControl -------------
+	float4 P1 = xhc * (float4(asfloat(0x3F99999Au), 3.5, asfloat(0xBE4CCCCDu), 15.0) - float4(SDFStart, SoundWaveTiling01, SoundWaveSpeed01, SoundWaveInt01))
+		+ float4(SDFStart, SoundWaveTiling01, SoundWaveSpeed01, SoundWaveInt01);
+
+	// ---- S80-88: sound wave 1 = Noise.r at UV0 * (1, Tiling) + (0, Speed) * Time -------------------------------------
+	float2 uv1 = UV0 * float2(1.0, P1.y) + float2(0.0, P1.z) * GameTime;
+	float n1 = Noise.SampleBias(NoiseSampler, uv1, MaterialTextureMipBias).r;
+	n1 = n1 * asfloat(0xBD6A0EC7u) + asfloat(0x3C1C0A8Du);       // -0.0571429, 0.00952381
+	n1 = n1 * max(P1.w * 0.5, 1.0);
+
+	// ---- S89-99: sound wave 2 = Noise02.r, (Tiling02, Speed02, Int02) lerped toward (2.8, -0.4, 15) ------------------
+	float3 P2 = xhc * (float3(asfloat(0x40333333u), asfloat(0xBECCCCCDu), 15.0) - float3(SoundWaveTiling02, SoundWaveSpeed02, SoundWaveInt02))
+		+ float3(SoundWaveTiling02, SoundWaveSpeed02, SoundWaveInt02);
+	float2 uv2 = UV0 * float2(1.0, P2.x) + float2(0.0, P2.y) * GameTime;
+	float n2 = Noise02.SampleBias(Noise02Sampler, uv2, MaterialTextureMipBias).r;   // t2.yxzw -> r3.y = texel.x
+	n2 = n2 * asfloat(0xBD6A0EC7u) + asfloat(0x3C1C0A8Du);
+
+	// ---- S100-104: left half of the UV (u <= 0.513) uses wave 1, right half wave 2 -----------------------------------
+	float side = (asfloat(0x3F0353F8u) >= UV0.x) ? 1.0 : 0.0;   // 0.513
+	float wave = side * (n2 * max(P2.z * 0.5, 1.0) - n1) + n1;
+	float thr = P1.x * 0.5 - wave;
+
+	// ---- S105-111: pulse source = min(D.b ^ (30 - 29.53*saturate(|Shake|)), 1), 0 for D.b <= 2^-25 ---------------------
+	float e = shakeSat * asfloat(0xC1EC3D71u) + 30.0;            // -29.53
+	float p = (asfloat(0x33000002u) >= Dt.b) ? 0.0 : min(exp2(log2(Dt.b) * e), 1.0);
+
+	// ---- S112-130: travelling pulse = smoothstep(frac(3*p + 3*fmod(Time,1000))) * smooth((x-1)/(XHMax-1)) -------------
+	float t = GameTime * asfloat(0x3A83126Fu);                   // * 0.001
+	t = (t >= -t) ? frac(abs(t)) : -frac(abs(t));
+	t = t * 3000.0;
+	float x = frac(p * 3.0 + t);
+	float sm1 = (x * x) * (x * -2.0 + 3.0);
+	float w = saturate((x + -1.0) * (1.0 / (XHMax + -1.0)));
+	w = (w * w) * (w * -2.0 + 3.0);
+	float p2 = p * (w * sm1);
+
+	// ---- S131-135: SDF step (D.g against the moving threshold) + pulse -> colour mask ----------------------------------
+	thr = -p2 * shake03 + thr;
+	float stepv = (thr >= Dt.g) ? 1.0 : 0.0;
+	mask = mask + stepv;
+	mask = p2 * shake03 + mask;
+
+	// ---- S136-141: emissive = lerp(k*SDFColor02, SDFColor*a, mask); ShowMask debug (wave); selection tint ----------------
+	Col = mask * (-SDFColor02.rgb * k + sdfPremul) + Col;
+	Col = ShowMask * (wave - Col) + Col;
+	Col = SelectionColor.a * (SelectionColor.rgb - Col) + Col;
+
+	// ---- S142-161: opacity (engine clip: OpacityMask - 0.3333 < 0) and the Kuro primitive dither --------------------
+	OpacityMask = saturate(Dt.a * mask);
+	clip(WuwaPrimDitherClip(KuroPrimDitherEnable, KuroPrimDitherFade, SvPositionXY));
+
+	// ---- S196-219 + S255-257 emissive tail; S220-263 encode (View[276]: A.w = 1 in mode 1, else 0) ---------------------
+	G.Emissive = WuwaBPFinalEmissive(Col, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+	G.A = float4(WuwaBPOctEncode(N), 0.0, (KuroGBufferMode == 1.0) ? 1.0 : 0.0);
+	G.B = float4(0.0, 0.0, 0.0, WuwaBPShadingModelByte(LightingChannelMask, 12u));
+	G.C = float4(0.0, 0.0, 0.0, 0.0);
+	G.D = float4(0.0, 0.0, 0.0, 0.0);
+	return G;
+}
+
+// Roster: M_Char_XinHen UseUVScale (PS __233683, MI_3XingStar_Bailian): every UV0 use (D, both sound waves, the side
+// split) reads UV = (UV0 - 0.5) * UVScale + 0.5 (PS l.42-43: add -0.5, mad UVScale, 0.5). The verified entry is reused.
+FWuwaToonGBuffer WuwaToonStarBasePass_UVScale(
+	Texture2D D, SamplerState DSampler,
+	Texture2D Noise, SamplerState NoiseSampler,
+	Texture2D Noise02, SamplerState Noise02Sampler,
+	float2 UV0, float3 WorldTangent, float3 WorldNormal, float TangentSign, float3 WorldPosition, float2 SvPositionXY,
+	float GameTime,
+	float4 SDFColor, float4 SDFColor02, float4 SelectionColor,
+	float ShakeNoiseInt, float SDFStart, float XingHenControl, float XingHenControlMax,
+	float SoundWaveTiling01, float SoundWaveSpeed01, float SoundWaveInt01,
+	float SoundWaveTiling02, float SoundWaveSpeed02, float SoundWaveInt02,
+	float XHMax, float ShowMask, float UVScale,
+	float KuroPrimDitherEnable, float KuroPrimDitherFade,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask, out float OpacityMask)
+{
+	float2 UVs = (UV0 + -0.5) * UVScale + 0.5;
+	return WuwaToonStarBasePass(D, DSampler, Noise, NoiseSampler, Noise02, Noise02Sampler,
+		UVs, WorldTangent, WorldNormal, TangentSign, WorldPosition, SvPositionXY, GameTime,
+		SDFColor, SDFColor02, SelectionColor, ShakeNoiseInt, SDFStart, XingHenControl, XingHenControlMax,
+		SoundWaveTiling01, SoundWaveSpeed01, SoundWaveInt01, SoundWaveTiling02, SoundWaveSpeed02, SoundWaveInt02,
+		XHMax, ShowMask, KuroPrimDitherEnable, KuroPrimDitherFade,
+		MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode,
+		KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds,
+		LightingChannelMask, OpacityMask);
+}

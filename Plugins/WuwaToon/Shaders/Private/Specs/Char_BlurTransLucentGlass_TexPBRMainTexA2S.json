@@ -1,0 +1,1046 @@
+{
+ "name": "Char_BlurTransLucentGlass_TexPBRMainTexA2S",
+ "entry": "WuwaFXBlurGlass_TexPBRMainTexA2S",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_BlurGlass.ush",
+ "kuro_shading_model": "MSM_ToonCommon in the forward translucent base pass (lit translucent toon)",
+ "kuro_asm": "M_Char_BlurTransLucentGlass PS 3ebbfe109d (#322245) / VS d4b41ab173 (#242957); switches UseToonMask, UseMainTexA, UseBreathLight, UseNormalMap, UsePBR, UsePBRMask, UseRampColor; two-sided",
+ "kuro_root_material": "M_Char_BlurTransLucentGlass",
+ "blend_mode": "BLEND_Translucent",
+ "two_sided": true,
+ "resolve": false,
+ "resolve_note": "lit translucent toon: X.Emissive = material emissive (blurred / refracted scene colour x glass tint, metal + motion emissive, selection colour); out ToonLit = Kuro forward ToonCommon lighting (ramp, Kuro view toon block, directional shadow, 16 local lights) / EyeAdaptation. UE: unlit translucent material, Emissive Color = Emissive + ToonLit, Opacity = X.Opacity (0/1 split-screen step; the glass look comes from the scene-colour taps, not from alpha blending). Engine tail not ported: opacity *= Kuro primitive fade (Primitive[43]); c = max(Emissive, 0) (*View[285] unless Primitive[42].w), OOB stripes; o0 = (max((ToonLit + c) * fog.a + fog.rgb, 0), opacity). Verified with that tail in tools/shaderdiff/weapons/hlsl/kuro_tail_blurglass.hlsli.",
+ "vs_note": null,
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "material Emissive Color (before the engine translucent tail: fog, OOB, Kuro effect grading)"
+  },
+  "Opacity": {
+   "type": "float",
+   "kuro": "material Opacity (o0.a = o1.a after the tail)"
+  },
+  "ToonLit": {
+   "type": "float3",
+   "kuro": "forward toon lighting / EyeAdaptation (added to the emissive before fog)"
+  }
+ },
+ "inputs": [
+  {
+   "name": "Normal_Roughness_Metallic",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Normal_Roughness_Metallic",
+   "default": "T_R2T1QianXiaMd10011Alpha_N",
+   "note": "reference MI MI_R2T1QianXiaMd10011Alpha: {'ObjectName': \"Texture2D'T_R2T1QianXiaMd10011Alpha_N'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleM/Qianxia/R2T1QianXiaMd10011/Model/T_R2T1QianXiaMd10011Alpha_N.1'}"
+  },
+  {
+   "name": "Normal_Roughness_MetallicSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Normal_Roughness_Metallic",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "Normal_Roughness_MetallicSampler"
+  },
+  {
+   "name": "MainTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "MainTex",
+   "default": "T_R2T1QianXiaMd10011Alpha_D",
+   "note": "reference MI MI_R2T1QianXiaMd10011Alpha: {'ObjectName': \"Texture2D'T_R2T1QianXiaMd10011Alpha_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleM/Qianxia/R2T1QianXiaMd10011/Model/T_R2T1QianXiaMd10011Alpha_D.1'}"
+  },
+  {
+   "name": "MainTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "MainTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MainTexSampler"
+  },
+  {
+   "name": "BlurNoise",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "BlurNoise",
+   "default": "Good64x64TilingNoiseHighFreq",
+   "note": "reference MI MI_R2T1QianXiaMd10011Alpha: {'ObjectName': \"Texture2D'Good64x64TilingNoiseHighFreq'\", 'ObjectPath': 'Engine/Content/EngineMaterials/Good64x64TilingNoiseHighFreq.0'}"
+  },
+  {
+   "name": "BlurNoiseSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "BlurNoise",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "BlurNoiseSampler"
+  },
+  {
+   "name": "DitherNoise",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": null,
+   "default": "Good64x64TilingNoiseHighFreq",
+   "note": "not a material parameter: Engine/EngineMaterials/Good64x64TilingNoiseHighFreq of the DitherTemporalAA material function (UE: DitherTemporalAA node)"
+  },
+  {
+   "name": "DitherNoiseSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "DitherNoise",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "DitherNoiseSampler"
+  },
+  {
+   "name": "Ramp",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Ramp",
+   "default": "T_R2T1ZhezhiMd10011_Skin",
+   "note": "reference MI MI_R2T1QianXiaMd10011Alpha: {'ObjectName': \"Texture2D'T_R2T1ZhezhiMd10011_Skin'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleM/Zhezhi/R2T1ZhezhiMd10011/Model/T_R2T1ZhezhiMd10011_Skin.0'}"
+  },
+  {
+   "name": "RampSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Ramp",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "RampSampler"
+  },
+  {
+   "name": "SceneColor",
+   "type": "Texture2D",
+   "kind": "engine_texture",
+   "kuro": "t3 (scene colour of the translucent pass; root material bHasSceneColor)",
+   "ue_expr": "SceneColor: UE SceneTexture:SceneColor / SceneColorLookup in a translucent material (the port does its own UV math: (screen uv * ViewSize + ViewRectMin) * BufferInvSize, clamped to BufferBilinearUVMinMax, then samples 4 taps with .x/.y/.y/.z)",
+   "note": "the generator must bind the scene colour texture; harness: random 64x64 texture"
+  },
+  {
+   "name": "SceneColorSampler",
+   "type": "SamplerState",
+   "kind": "engine_sampler",
+   "texture": "SceneColor",
+   "kuro": "s0",
+   "ue_expr": "SceneColorTextureSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "WorldTangent",
+   "type": "float3",
+   "kind": "worldtangent",
+   "ue_expr": "Parameters.TangentToWorld[0]"
+  },
+  {
+   "name": "WorldNormal",
+   "type": "float3",
+   "kind": "worldnormal",
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "TangentSign",
+   "type": "float",
+   "kind": "worldtangent",
+   "channel": "sign",
+   "ue_expr": "Parameters.TangentToWorldSign"
+  },
+  {
+   "name": "TwoSidedSign",
+   "type": "float",
+   "kind": "twosidedsign",
+   "ue_expr": "Parameters.TwoSidedSign"
+  },
+  {
+   "name": "VertexColorA",
+   "type": "float",
+   "kind": "vertexcolor",
+   "channel": "a",
+   "ue_expr": "Parameters.VertexColor.a",
+   "note": "VS: colour buffer component .w (GPU-skin passthrough colour fetch)"
+  },
+  {
+   "name": "LightDirVS",
+   "type": "float3",
+   "kind": "interpolator",
+   "source": "WuwaToonBaseVS_LightDir",
+   "note": "Kuro TEXCOORD2.xyz (Body-VS layout)"
+  },
+  {
+   "name": "MotionEmissiveMask",
+   "type": "float",
+   "kind": "interpolator",
+   "source": "WuwaToonBaseVS_WPO:MotionEmissiveMask",
+   "note": "Kuro TEXCOORD2.w"
+  },
+  {
+   "name": "SvPosition",
+   "type": "float4",
+   "kind": "svposition",
+   "ue_expr": "Parameters.SvPosition"
+  },
+  {
+   "name": "TranslatedWorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "translated",
+   "ue_expr": "GetTranslatedWorldPosition(Parameters)"
+  },
+  {
+   "name": "WorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "absolute",
+   "ue_expr": "WSHackToFloat(GetWorldPosition(Parameters))"
+  },
+  {
+   "name": "ViewRectMin",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewRectMin.xy",
+   "kuro": "View[134].xy"
+  },
+  {
+   "name": "ViewSizeAndInvSize",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewSizeAndInvSize",
+   "kuro": "View[135]"
+  },
+  {
+   "name": "SceneTextureInvSize",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": "ResolvedView.BufferSizeAndInvSize.zw",
+   "kuro": "View[138].zw"
+  },
+  {
+   "name": "SceneTextureUVMinMax",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.BufferBilinearUVMinMax",
+   "kuro": "View[139]"
+  },
+  {
+   "name": "TranslatedWorldToView",
+   "type": "float4x4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.TranslatedWorldToView",
+   "kuro": "Kuro View[12..15]"
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "NormalOverrideParameter",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.NormalOverrideParameter",
+   "kuro": "Kuro View[144] (stock member), default (0,0,0,1)",
+   "default": [
+    0,
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "name": "TemporalAAParamsX",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.TemporalAAParams.x",
+   "kuro": "View[158].x (TAA frame index, DitherTemporalAA)"
+  },
+  {
+   "name": "MPC_GlobalCharacterAmbientSkinColor",
+   "type": "float3",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalCharacterAmbientSkinColor",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "kuro": "cb3[23] (used as a light-direction target [U])"
+  },
+  {
+   "name": "MPC_GlobalCharacterDebugLightDirection",
+   "type": "float3",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalCharacterDebugLightDirection",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "kuro": "cb3[42] (base character light direction; must be written at runtime)"
+  },
+  {
+   "name": "MPC_GlobalCharSkyLightIntensity",
+   "type": "float",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalCharSkyLightIntensity",
+   "default": 0.75,
+   "kuro": "cb3[1].w"
+  },
+  {
+   "name": "ToonLight0",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 0,
+   "kuro": "ToonShadowLightData CB1[0]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "ToonLight1",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 1,
+   "kuro": "ToonShadowLightData CB1[1]",
+   "default": [
+    0,
+    0,
+    -1,
+    0
+   ],
+   "note": "[1].w is a raw uint bit pattern (type in bits 16..17): feed it bit-exactly"
+  },
+  {
+   "name": "ToonLight2",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 2,
+   "kuro": "ToonShadowLightData CB1[2]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "ToonLight3",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 3,
+   "kuro": "ToonShadowLightData CB1[3]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "ObjectWorldPosition",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "WSHackToFloat(GetObjectWorldPosition(Parameters))"
+  },
+  {
+   "name": "CPD1",
+   "type": "float",
+   "kind": "cpd",
+   "index": 1,
+   "role": "weight toward VS fixed-angle light"
+  },
+  {
+   "name": "CPD13",
+   "type": "float",
+   "kind": "cpd",
+   "index": 13,
+   "role": "toon local light anchor blend"
+  },
+  {
+   "name": "KuroView298XY",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    0.0
+   ],
+   "unknown": true,
+   "kuro": "View[298].xy: x = direct-light scale, y = weight of the directional shadow on the lit/shadow blend [U: Kuro View extension, meaning inferred from use]"
+  },
+  {
+   "name": "KuroView299",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true,
+   "kuro": "View[299].xyz: toon shadow-side light colour (near), lerped with View[306] by the distance factor [U: Kuro View extension, meaning inferred from use]"
+  },
+  {
+   "name": "KuroView300",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true,
+   "kuro": "View[300].xyz: toon lit-side light colour (near), lerped with View[305] [U: Kuro View extension, meaning inferred from use]"
+  },
+  {
+   "name": "KuroView302",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "unknown": true,
+   "kuro": "View[302].xyz: wrap vector for the local-light shadow mix ((2 * mix - 1) * View[302]) [U: Kuro View extension, meaning inferred from use]"
+  },
+  {
+   "name": "KuroView303",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "unknown": true,
+   "kuro": "View[303].xyz: x/y smoothstep range of the directional shadow, z shadow-mix weight [U: Kuro View extension, meaning inferred from use]"
+  },
+  {
+   "name": "KuroView304XY",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    0.0,
+    1.0
+   ],
+   "unknown": true,
+   "kuro": "View[304].xy: distance fade (saturate(SvPosition.w / max(x, 0.001)) ^ y) between near/far colours [U: Kuro View extension, meaning inferred from use]"
+  },
+  {
+   "name": "KuroView305",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true,
+   "kuro": "View[305].xyz: far lit-side colour [U: Kuro View extension, meaning inferred from use]"
+  },
+  {
+   "name": "KuroView306",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true,
+   "kuro": "View[306].xyz: far shadow-side colour [U: Kuro View extension, meaning inferred from use]"
+  },
+  {
+   "name": "KuroView286Z",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": null,
+   "default": 1.0,
+   "unknown": true,
+   "kuro": "View[286].z: directional-shadow multiplier [U: Kuro View extension, meaning inferred from use]"
+  },
+  {
+   "name": "KuroDirShadow",
+   "type": "float",
+   "kind": "kuro_forward",
+   "ue_expr": null,
+   "default": 1.0,
+   "kuro": "forward directional shadow factor computed by the engine (TranslucentBasePass CB2[291].z mode: < 0.5 screen shadow mask t4 .x * .z, 0.5..1.5 CSM: cascade split CB2[10..11] vs SvPosition.w, matrices CB2[12..27], bounds CB2[36..39], 2x2 gather of t0 with 4000 x depth slope, x mask .z; >= 1.5: 1)",
+   "note": "UE: no direct material equivalent (forward-shaded translucency: GetForwardDirectionalLightShadowing / translucency volume shadowing); harness: hlsl/kuro_tail_blurglass.hlsli KuroBlurGlassDirShadow"
+  },
+  {
+   "name": "EyeAdaptation",
+   "type": "float",
+   "kind": "kuro_forward",
+   "ue_expr": "EyeAdaptationLookup() (UE EyeAdaptation material node)",
+   "default": 1.0,
+   "kuro": "t2.Load(int3(0,0,0)).x; the toon-lit term is divided by it (exposure-independent character lighting)"
+  },
+  {
+   "name": "KuroLocalLights",
+   "type": "FWuwaKuroLocalLights",
+   "struct": "float4 V[145]",
+   "kind": "kuro_forward",
+   "ue_expr": null,
+   "kuro": "CB4[0..144]: Kuro forward local lights, 16 records x 9 float4 (layout in WuwaBGLocalLight) + count asuint(CB4[144].x)",
+   "note": "UE: forward light grid (ForwardLightData) - the generator / a Custom node must repack each light into the Kuro 9-float4 record; no direct equivalent"
+  },
+  {
+   "name": "LightingChannelMask",
+   "type": "uint",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitive_LightingChannelMask_FromFlags(GetPrimitiveData(Parameters).Flags)"
+  },
+  {
+   "name": "NormalStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "NormalStrength",
+   "default": 1.0
+  },
+  {
+   "name": "BaseColorTint",
+   "type": "float3",
+   "kind": "vector",
+   "param": "BaseColorTint",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "MetallicIntensityDebug",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MetallicIntensity(Debug)",
+   "default": 1.0
+  },
+  {
+   "name": "RoughnessIntensityDebug",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RoughnessIntensity(Debug))",
+   "default": 1.0
+  },
+  {
+   "name": "RaytracingReflectionFix",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RaytracingReflectionFix",
+   "default": 0.0
+  },
+  {
+   "name": "SpecularPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SpecularPower",
+   "default": 5.0
+  },
+  {
+   "name": "MetalSpecularPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MetalSpecularPower",
+   "default": 5000.0
+  },
+  {
+   "name": "LightOffset_Pitch",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightOffset_Pitch",
+   "default": 0.0
+  },
+  {
+   "name": "SolidShadowProcess",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowProcess",
+   "default": 0.20000000298023224
+  },
+  {
+   "name": "ShadowOffsetAdjustFactor",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowOffsetAdjustFactor",
+   "default": 1.0
+  },
+  {
+   "name": "ShadowOffsetPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowOffsetPower",
+   "default": 1.0
+  },
+  {
+   "name": "MaskShadowOffsetStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MaskShadowOffsetStrength",
+   "default": 0.0
+  },
+  {
+   "name": "ShadowProcess",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowProcess",
+   "default": 0.5
+  },
+  {
+   "name": "ShadowWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowWidth",
+   "default": 0.009999999776482582
+  },
+  {
+   "name": "SolidShadowWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowWidth",
+   "default": 0.10000000149011612
+  },
+  {
+   "name": "PBRRateIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "PBRRateIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "MetalEmissionStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MetalEmissionStrength",
+   "default": 2.0
+  },
+  {
+   "name": "E_Motion_Emissive",
+   "type": "float3",
+   "kind": "vector",
+   "param": "E_Motion_Emissive",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Thickness",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Thickness",
+   "default": 0.0
+  },
+  {
+   "name": "FresnelMaskWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FresnelMaskWidth",
+   "default": 1.0
+  },
+  {
+   "name": "FresnelMaskOffset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FresnelMaskOffset",
+   "default": 0.20000000298023224
+  },
+  {
+   "name": "EdgeFresnelWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EdgeFresnelWidth",
+   "default": 0.20000000298023224
+  },
+  {
+   "name": "EdgeFresnelColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "EdgeFresnelColor",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "ThickColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "ThickColor",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "BlurNoiseTiling",
+   "type": "float2",
+   "kind": "vector",
+   "param": "BlurNoiseTiling",
+   "channels": "rg",
+   "default": [
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "EdgeRefractStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EdgeRefractStrength",
+   "default": 0.10000000149011612
+  },
+  {
+   "name": "InnerRefractStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "InnerRefractStrength",
+   "default": 0.10000000149011612
+  },
+  {
+   "name": "ThickRefractStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ThickRefractStrength",
+   "default": 0.0
+  },
+  {
+   "name": "RefractionDistance",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RefractionDistance",
+   "default": 500.0
+  },
+  {
+   "name": "EdgeBlurIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EdgeBlurIntensity",
+   "default": 2.0
+  },
+  {
+   "name": "BlurIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BlurIntensity",
+   "default": 0.0
+  },
+  {
+   "name": "BlurDistance",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BlurDistance",
+   "default": 500.0
+  },
+  {
+   "name": "Noise_Min",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Noise_Min",
+   "default": 0.4000000059604645
+  },
+  {
+   "name": "Noise_Max",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Noise_Max",
+   "default": 1.600000023841858
+  },
+  {
+   "name": "EdgeDispStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EdgeDispStrength",
+   "default": 1.0
+  },
+  {
+   "name": "DispStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "DispStrength",
+   "default": 1.0
+  },
+  {
+   "name": "ThickDispStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ThickDispStrength",
+   "default": 2.0
+  },
+  {
+   "name": "GlassOpacity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "GlassOpacity",
+   "default": 0.10000000149011612
+  },
+  {
+   "name": "OpacityIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "OpacityIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "EmissionColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "EmissionColor",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "AniSwitch_ShadowColorBright",
+   "type": "float",
+   "kind": "scalar",
+   "param": "AniSwitch_ShadowColorBright",
+   "default": 1.0
+  },
+  {
+   "name": "Desaturation",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Desaturation",
+   "default": 0.0
+  },
+  {
+   "name": "E_Link_UseSplitScreen",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Link_UseSplitScreen",
+   "default": 0.0
+  },
+  {
+   "name": "E_Link_AngleLinePosLineDis",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Link_AngleLinePosLineDis",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.33000001311302185,
+    0.0
+   ]
+  },
+  {
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Link_AngleLinePosLineDis"
+   ],
+   "expr": "float8(cos(((E_Link_AngleLinePosLineDis.xyzw.x / 360) * 6.28319)), (sin(((E_Link_AngleLinePosLineDis.xyzw.x / 360) * 6.28319)) * -1))",
+   "ue_nodes": "AppendVector(Cosine(x / 360 * 6.28319), -Sine(x / 360 * 6.28319)), x = E_Link_AngleLinePosLineDis.x (CPU float32)",
+   "default": [
+    1.0,
+    -0.0
+   ],
+   "name": "E_Link_Rot0"
+  },
+  {
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Link_AngleLinePosLineDis"
+   ],
+   "expr": "float8(cos(((E_Link_AngleLinePosLineDis.xyzw.w / 360) * 6.28319)), (sin(((E_Link_AngleLinePosLineDis.xyzw.w / 360) * 6.28319)) * -1))",
+   "ue_nodes": "as E_Link_Rot0 with E_Link_AngleLinePosLineDis.w",
+   "default": [
+    1.0,
+    -0.0
+   ],
+   "name": "E_Link_Rot1"
+  },
+  {
+   "name": "E_LinkPos",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_LinkPos",
+   "default": 0.0
+  },
+  {
+   "name": "SolidShadow_RampPosition",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadow_RampPosition",
+   "default": 0.4000000059604645
+  },
+  {
+   "name": "RampPosition",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RampPosition",
+   "default": 0.5
+  },
+  {
+   "name": "RampInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RampInt",
+   "default": 1.0
+  },
+  {
+   "name": "SubsurfaceColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "SubsurfaceColor",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "SolidShadowStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowStrength",
+   "default": 1.0
+  },
+  {
+   "name": "DecodeShadowThreshold",
+   "type": "float",
+   "kind": "scalar",
+   "param": "DecodeShadowThreshold",
+   "default": 0.5
+  },
+  {
+   "name": "DecodeSpecThreshold",
+   "type": "float",
+   "kind": "scalar",
+   "param": "DecodeSpecThreshold",
+   "default": 0.8999999761581421
+  },
+  {
+   "name": "BreatheFrequency",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BreatheFrequency",
+   "default": 0.0
+  },
+  {
+   "name": "BreatheStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BreatheStrength",
+   "default": 2.0
+  },
+  {
+   "name": "BreathePropotion",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BreathePropotion",
+   "default": 0.5
+  },
+  {
+   "name": "EmissionStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EmissionStrength",
+   "default": 1.0
+  },
+  {
+   "name": "EmissionBreathThreshold",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EmissionBreathThreshold",
+   "default": 0.8999999761581421
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  },
+  {
+   "name": "ToonLit",
+   "type": "float3",
+   "kind": "output",
+   "note": "forward toon lighting / EyeAdaptation; add to Emissive (UE contract)"
+  }
+ ],
+ "notes": {
+  "textures": "slot 0 name (Normal_Roughness_Metallic) is from the cooked map; MainTex / BlurNoise / Ramp are MI overrides matched by use (MainTex = squared base colour + alpha, BlurNoise = UV0 * BlurNoiseTiling noise .x, Ramp = (u, RampPosition) ramp, MatCapTex = view-space matcap, roughness-selected channel, ScalarPBRMatCap only, t9 in place of Ramp) [U: slot order inferred]; DitherNoise is not a parameter: the Good64x64TilingNoiseHighFreq texture of UE's DitherTemporalAA material function (SvPosition / 64, + ((2y + x + TAA frame) % 5)) / 6). SceneColor (t3) is the engine scene colour."
+ },
+ "ue_material": {
+  "contract": "entry returns FWuwaFXOutput {Emissive, Opacity} plus out ToonLit - no toon GBuffer, no WuwaToonResolve",
+  "shading_model": "MSM_Unlit",
+  "blend_mode": "BLEND_Translucent",
+  "two_sided": true,
+  "connect": {
+   "EmissiveColor": "X.Emissive + ToonLit",
+   "Opacity": "X.Opacity"
+  },
+  "opacity_mask_clip_value": null,
+  "engine_inputs_required": [
+   "SceneColor",
+   "MPC_GlobalCharacterAmbientSkinColor",
+   "MPC_GlobalCharacterDebugLightDirection",
+   "MPC_GlobalCharSkyLightIntensity",
+   "ToonLight0",
+   "ToonLight1",
+   "ToonLight2",
+   "ToonLight3",
+   "CPD1",
+   "CPD13",
+   "KuroView298XY",
+   "KuroView299",
+   "KuroView300",
+   "KuroView302",
+   "KuroView303",
+   "KuroView304XY",
+   "KuroView305",
+   "KuroView306",
+   "KuroView286Z",
+   "KuroDirShadow",
+   "EyeAdaptation",
+   "KuroLocalLights"
+  ],
+  "note": "the material reads the scene colour and the Kuro forward light data: the generator must supply every input of kind engine_texture / kuro_forward / view (Kuro rows) / toonlight / mpc / cpd"
+ },
+ "generated_by": "tools/shaderdiff/weapons/r3/make_specs_blurglass.py"
+}

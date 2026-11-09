@@ -1,0 +1,3178 @@
+{
+ "root_material": "M_CharV2_Com",
+ "_doc": "Ported M_CharV2_Com base-pass variants (research/roster/Port_CharV2.md). An MI matches a variant only by base_pass_ps_hash (TBasePassPSFNoLightMapPolicy on FGPUSkinPassthroughVertexFactory, SM5 High map, resolved through the MI parent chain); no static_switches fallback is given because the V2 switch space is too wide for a subset match to be safe. All other V2 MIs stay material_unported:M_CharV2_Com.",
+ "variants": [
+  {
+   "spec": "ToonHairV2.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f4214b08ab8aae5115212bc64056e89c74acb069"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "36679c042a620803613075f5fb18a227603bde1f"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1AimisiMd10011Bangs",
+    "MI_R2T1AimisiMd10011Hair",
+    "MI_R2T1DaniyaMd10011Bangs2",
+    "MI_R2T1LuoselaMd10011Bangs",
+    "MI_R2T1LuoselaMd10011Hair",
+    "MI_R2T1MoneMd10011Bangs",
+    "MI_R2T1MoneMd10011Hair",
+    "MI_R2T1MoneMd20011Bangs",
+    "MI_R2T1MoneMd20011Hair",
+    "MI_R2T1PlayerFemaleMd10011Bangs",
+    "MI_R2T1PlayerFemaleMd10011Bangs_LOD2",
+    "MI_R2T1PlayerFemaleMd10011Hair",
+    "MI_R2T1PlayerFemaleMd10011Hair_LOD2",
+    "MI_R2T1PlayerFemaleMd20011Bangs",
+    "MI_R2T1PlayerFemaleMd20011Hair",
+    "MI_R2T1PlayerMaleMd10011Bangs",
+    "MI_R2T1PlayerMaleMd10011Bangs_LOD2",
+    "MI_R2T1PlayerMaleMd10011Hair",
+    "MI_R2T1PlayerMaleMd10011Hair_LOD2",
+    "MI_R2T1PlayerMaleMd20011Hair",
+    "MI_R2T1QianXiaMd10011Bangs",
+    "MI_R2T1QianXiaMd10011Hair",
+    "MI_R2T1SuisuiMd10011Bangs",
+    "MI_R2T1SuisuiMd10011Hair",
+    "MI_R2T1TaidaonvMd10011Bangs01",
+    "MI_R2T1TaidaonvMd10011Hair01",
+    "MI_R2T1XuanlingMd10011Bangs",
+    "MI_R2T1XuanlingMd10011Hair"
+   ],
+   "slot_uses": 116,
+   "entities": 43,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#hairv2",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 120,
+    "mrts": {
+     "o0": "1966080/1966080 bit-exact, max ULP 0",
+     "o1": "1966080/1966080 bit-exact, max ULP 0",
+     "o2": "1966080/1966080 bit-exact, max ULP 0",
+     "o3": "1966080/1966080 bit-exact, max ULP 0",
+     "o6": "1966080/1966080 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS light-dir/WPO use the M_Char_Com VS ports (not diffed for V2)."
+  },
+  {
+   "spec": "ToonHairV2_HETA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "16f3aff3112aa8c188136ddbb628691bc2e2102c"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "36679c042a620803613075f5fb18a227603bde1f"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1AimisiMd10011Bangs_HETA",
+    "MI_R2T1DaniyaMd10011Bangs_HETA",
+    "MI_R2T1LinnaeaMd10011Bangs_HETA",
+    "MI_R2T1LuoselaMd10011Bangs_HETA",
+    "MI_R2T1MoneMd10011Bangs_HETA",
+    "MI_R2T1MoneMd20011Bangs_HETA",
+    "MI_R2T1PlayerFemaleMd10011Bangs_HETA",
+    "MI_R2T1PlayerFemaleMd20011Bangs_HETA",
+    "MI_R2T1PlayerMaleMd1001Hair_HETA",
+    "MI_R2T1PlayerMaleMd2001Hair_HETA",
+    "MI_R2T1QianXiaMd10011Bangs_HETA",
+    "MI_R2T1SuisuiMd10011Bangs_HETA",
+    "MI_R2T1TaidaonvMd10011Bangs01_HETA",
+    "MI_R2T1XuanlingMd100111Bangs_HETA"
+   ],
+   "slot_uses": 46,
+   "entities": 45,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#hairv2_heta",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 78,
+    "mrts": {
+     "o0": "1277952/1277952 bit-exact, max ULP 0",
+     "o1": "1277952/1277952 bit-exact, max ULP 0",
+     "o2": "1277952/1277952 bit-exact, max ULP 0",
+     "o3": "1277952/1277952 bit-exact, max ULP 0",
+     "o6": "1277952/1277952 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS light-dir/WPO use the M_Char_Com VS ports (not diffed for V2)."
+  },
+  {
+   "spec": "ToonFaceV2.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "bef70fd249a6d6da6408fd57ccc1c8770a6eea6d"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "c9e8451f21d3dd99815a0d786d95cb50eb0b516a"
+   ],
+   "shading_model": [
+    "MSM_ToonFace"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1DaniyaMd10011Face1",
+    "MI_R2T1DaniyaMd10011Face2",
+    "MI_R2T1LucyMd10011Face",
+    "MI_R2T1LuoselaMd10011Face",
+    "MI_R2T1PlayerFemaleMd10011Face",
+    "MI_R2T1PlayerMaleMd10011Face",
+    "MI_R2T1RebeccaMd10011Face",
+    "MI_R2T1TaidaonvMd10011Face01"
+   ],
+   "slot_uses": 31,
+   "entities": 30,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#facev2",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 48,
+    "mrts": {
+     "o0": "786432/786432 bit-exact, max ULP 0",
+     "o1": "786432/786432 bit-exact, max ULP 0",
+     "o2": "786432/786432 bit-exact, max ULP 0",
+     "o3": "786432/786432 bit-exact, max ULP 0",
+     "o6": "786432/786432 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS light-dir/WPO use the M_Char_Com VS ports (not diffed for V2)."
+  },
+  {
+   "spec": "ToonBodyV2.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "63db557394bd3c754fc5118544995b842801fe5e"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "5554b36910d1790d9c79aada99ea488503eb89ba"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1PlayerFemaleMd10011Down",
+    "MI_R2T1PlayerFemaleMd10011Down_LOD2",
+    "MI_R2T1PlayerFemaleMd10011Up"
+   ],
+   "slot_uses": 24,
+   "entities": 8,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_63db55",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 39,
+    "mrts": {
+     "o0": "638976/638976 bit-exact, max ULP 0",
+     "o1": "638976/638976 bit-exact, max ULP 0",
+     "o2": "638976/638976 bit-exact, max ULP 0",
+     "o3": "638976/638976 bit-exact, max ULP 0",
+     "o6": "638976/638976 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DS.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "40e72453a648528acf388e56c69c4d40635a2ec0"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "992a262ddae958328034d189cde5cab41012a352"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1PlayerMaleMd10011Down",
+    "MI_R2T1PlayerMaleMd20011Up"
+   ],
+   "slot_uses": 13,
+   "entities": 12,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_40e724",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 36,
+    "mrts": {
+     "o0": "589824/589824 bit-exact, max ULP 0",
+     "o1": "589824/589824 bit-exact, max ULP 0",
+     "o2": "589824/589824 bit-exact, max ULP 0",
+     "o3": "589824/589824 bit-exact, max ULP 0",
+     "o6": "589824/589824 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_Iso.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0ca229304323592e0dcce1198bdd714e5098f6f4"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "528ab66a0d11af56c53f4b695b233ce48e48380e"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1PlayerMaleMd10011Down_2_LOD2"
+   ],
+   "slot_uses": 9,
+   "entities": 8,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_0ca229",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_TwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "13a292f4d089614ebf9f3673158cdf57b6ad46ee"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "5554b36910d1790d9c79aada99ea488503eb89ba"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1PlayerFemaleMd10011Up_LOD2"
+   ],
+   "slot_uses": 8,
+   "entities": 8,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_13a292",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoSkinRamp.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "2183309eca37ee61008d7c5c681c9cf9e03838f0"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "992a262ddae958328034d189cde5cab41012a352"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1PlayerFemaleMd20011Up"
+   ],
+   "slot_uses": 4,
+   "entities": 4,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_218330",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnel.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "24bb80e4046453f42a4a83543e7d1889f5af3ac5"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "c623860c670d8dc9e955f2ff079cc97a770681ef"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LucyMd10011Down",
+    "MI_R2T1PlayerMaleMd10011Up"
+   ],
+   "slot_uses": 11,
+   "entities": 10,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_24bb80",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 36,
+    "mrts": {
+     "o0": "589824/589824 bit-exact, max ULP 0",
+     "o1": "589824/589824 bit-exact, max ULP 0",
+     "o2": "589824/589824 bit-exact, max ULP 0",
+     "o3": "589824/589824 bit-exact, max ULP 0",
+     "o6": "589824/589824 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelNoSkinRamp.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "651f7a0bc1101946ea2b4bb6e8c22b6a0267a1ca"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "c623860c670d8dc9e955f2ff079cc97a770681ef"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LucyMd10011Hair"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_651f7a",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelNoSkinRampOneRamp.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "66e0e185714457f30c419fb4f35e10a5e829c8f9"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "62db5bb5ac0ebb4c5bfbc5bdea0e11977d8730dd"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1RebeccaMd10011Gloves"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_66e0e1",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_IsoNoFresnel.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "65e7235d537fd19565caef663beb23fa66c0aaa9"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "14fae35341c3cb3fbb6e16649f39953e48379d5a"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1PlayerMaleMd10011Up_2_LOD2"
+   ],
+   "slot_uses": 9,
+   "entities": 8,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_65e723",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoFresnel.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "aedbf5b54933902ca9eb953fb173c170ec9b0f94"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "7261c992076f15ebb6b120fefb240a8c9f00f2f8"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1TaidaonvMd10011Up01",
+    "MI_R2T1XuanlingMd10011Up"
+   ],
+   "slot_uses": 4,
+   "entities": 4,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_aedbf5",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 36,
+    "mrts": {
+     "o0": "589824/589824 bit-exact, max ULP 0",
+     "o1": "589824/589824 bit-exact, max ULP 0",
+     "o2": "589824/589824 bit-exact, max ULP 0",
+     "o3": "589824/589824 bit-exact, max ULP 0",
+     "o6": "589824/589824 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelNoSkinRampBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "05e0ca78d93db55ec6d95ee4eb51682a6452430d"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "14fae35341c3cb3fbb6e16649f39953e48379d5a"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_EXuanlingWeaponMd10011"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_05e0ca",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelBreathCloth.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ce915d70b6449c898d3bf3da7254c8919988b197"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "bd116d8ab873659e5fe9250dad123affba9b4e8b"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LinnaeaMd10011Up"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_ce915d",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelBreathClothHETA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b241def3362ea9070a9bdfbf66e817ddb60e3531"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "bd116d8ab873659e5fe9250dad123affba9b4e8b"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LinnaeaMd10011Up_HETA"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_b241de",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelSecond.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "81f20dd397e9b80e4a6bb1ba5cf74ffc1952b261"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "490ec3c672f82736090ef9b055fa6185ed91cad4"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1RebeccaMd10011Down"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_81f20d",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelSecondBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "68d7e4e512c51efc87f948fb41ecb40d9b44171a"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "485da7bc5ef89234fae67d2ade5730f41eaf81f3"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LucyMd10011Cloth"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_68d7e4",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoFresnelSecondRim.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "d562e5b5583f2eb88342819f0bc23720552ac4e1"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "35ce959b18f24ddee54de3a50d18f6901bfe216d"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1RebeccaMd10011Up",
+    "MI_R2T1RebeccaMd10011Up1"
+   ],
+   "slot_uses": 4,
+   "entities": 4,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_d562e5",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 36,
+    "mrts": {
+     "o0": "589824/589824 bit-exact, max ULP 0",
+     "o1": "589824/589824 bit-exact, max ULP 0",
+     "o2": "589824/589824 bit-exact, max ULP 0",
+     "o3": "589824/589824 bit-exact, max ULP 0",
+     "o6": "589824/589824 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoSkinRampSecondFlow.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "dbffa17934a4626635446b042f99f1cca9170014"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "62c34334e1c9bfdaf8927a223b3b4f4b93ea9aa4"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LuhesiMd10011Down"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_dbffa1",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelNoSkinRampSecondBump.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b959c3e77d7fae25e38800e63f2a661edd7deb7b"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "b4d13adc1f710ad1cc62cdc3400c7e01b9578e50"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1DaniyaMd10011Down2"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_b959c3",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelNoSkinRampHue.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "4ace99af5fed4c31017c7371ad46a4e384ca4ff5"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "d1ca4fb2da4ef51656858e995d78dfd23e18b8e4"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1XigelikaMd10011Down"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_4ace99",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoFresnelHue.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a3c654516c514b109c9802ab83b7b22ebebd09a3"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "f6becedc290693d3accb7990c05f7f883680d58b"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1RebeccaMd10011Hand"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_a3c654",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelBreathHue.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "1a9996f22a2d28231f2416b3b7bdbb29740adbf6"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "f6becedc290693d3accb7990c05f7f883680d58b"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1AimisiMd10011Item"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_1a9996",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelSecondHueBump.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "2f3e1cbcb20385aa36f3e56a93aa1f266bd7f083"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "3efaa7bb22f25fdd1c074aca01c406ddbd8f17c9"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LuoselaMd10011Up2"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_2f3e1c",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelSecondHue.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "d0e1b1ab169adf827929dfdba2c9f560c48bf97b"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "3efaa7bb22f25fdd1c074aca01c406ddbd8f17c9"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1MoneMd10011Up"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_d0e1b1",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoSkinRampOneRampHue.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0f6edc8d9e44385cc77848b8dc761ed5b9262823"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "528ab66a0d11af56c53f4b695b233ce48e48380e"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LinnaeaMd10011Cloth"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_0f6edc",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoFresnelNoSkinRampBreathSecondHueBump.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b018a39864dabc342de3a50d0f6766bece440a4c"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "fa8a3d16887937730aa3a233bc6f38563f31cd08"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1XuanlingMd10011Down"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_b018a3",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelNoSkinRampSecondMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "3e98158480076ba4d073c752662a3c8efb0d0a39"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "3e2aeb684efdf319307c058d382bcdb3d9b32a88"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1LuhesiMd10011Cloth"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_3e9815",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoSkinRampHueMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b5b8b3041c37bf2407fb7604b1a22853978702fa"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "2c4f1a32033832e230ac87659a06e4e021a900ca"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1TaidaonvMd10011Cloth01"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_b5b8b3",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_DSSecondMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "05b7766b5c2cf62422e10fe345a72503e8c0a44a"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "0f4f194bcf181be81a4e1cc99468fcb9f7b6c64e"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1LuhesiMd10011Up"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_05b776",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoFresnelSecondHueBumpMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "34069e3a4ed6170a98027810675ac34b62b7dc30"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "a95deee456ec314be270220977528c92201cf8fd"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1LuoselaMd10011Up1"
+   ],
+   "slot_uses": 4,
+   "entities": 4,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_34069e",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoFresnelNoSkinRampBreathSecondFlowBumpMasked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "fd02a3986d975275d15792c04e494b2d42cb7f57"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "2186a7110ebb2c65cdaaf1917548d4008bc4cfb9"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1MoneMd10011Cloth"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_fd02a3",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_DSSecondRimAlphaMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "af30c36338c857e6145c7734f1e3b2b1fc822ab5"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "e25ee6bdd8f7d7d09fcb18a2057913ca14f92e26"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1DaniyaMd10011Up02"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_af30c3",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelNoSkinRampSecondHueBumpAlphaMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "454690ab9cc7c4bcdac22720ab5b4528fc4f71e1"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "2c614be53a738a2fa3cd7ad16547ade4751cb5d8"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1XigelikaMd10011Cloth"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_454690",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelHueXingHen.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "2fc55fe0517c92e266065a511ee12d82d556edd0"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "f56599a0e930b18cd207a9502542d970640bd7aa"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1XigelikaMd10011Up"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_2fc55f",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSXingHen.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "527136a2be8bd2c3d59718b310d260d2e99cc6a6"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "b47c3cf82c8be4c1a8dc06d525892981287ef99e"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1PlayerMaleMd20011Down"
+   ],
+   "slot_uses": 4,
+   "entities": 4,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_527136",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelXingHen.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "7cd5563e0679248e43061ee70be34f80f4157a45"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "1944c77c838bb8e15358ee655a2261d1ac5adbd7"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LuhesiMd10011Glass"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_7cd556",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSXingHen.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "aae7c17a46d914a66ab36b817a0549ea5ff4c09d"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "44e29fa959bb1033640abf8c891d814f104a9d82"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LinnaeaMd10011Down"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_aae7c1",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoSkinRampXingHenMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a0e7668d71ea25245d3cd8bf0d2211914a4ad839"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "83b56ad99109084b1f01a5216025fa680f8ae441"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1PlayerFemaleMd20011Down"
+   ],
+   "slot_uses": 4,
+   "entities": 4,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_a0e766",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_DSHueSparkle.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b318cdb411d14651e0ad09b61c74e07e145d6c65"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "92b21ac9433cabb86c624ab47c1252cfcd50ffcd"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1AimisiMd10011Down01"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_b318cd",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoSkinRampBreathHueSparkle.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "c002aaf84286f47a286e67f01f439ff0141c70e1"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "48b2259d9c1f75532947d34202ccf2b99f67757a"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_EXuanlingWeaponMd10011_Yumao"
+   ],
+   "slot_uses": 4,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_c002aa",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSBreathHueSparkle.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6bdc7e2100f902e01ea2730acccd482a2053364f"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "48b2259d9c1f75532947d34202ccf2b99f67757a"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1SuisuiMd10011Cloth01"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_6bdc7e",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSHueSparkle.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "16372723316cf2a28450936822d26ca3b6e622f5"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "7ac6cdc833a18c1f50e2842fb3774d7453a93fb1"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1SuisuiMd10011Down"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_163727",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelSparkleXingHen.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "859c5db48c329f5d2d492e32b8f5701400b3e575"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "b2fc3b4ececed2ee8d534e8506bbf6dbdb5a883d"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LuoselaMd10011Down"
+   ],
+   "slot_uses": 4,
+   "entities": 4,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_859c5d",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelNoSkinRampBreathSparkleMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "2bfafbe16302bf4ed466d8b69e0b10eacc0a68c6"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "e2905bbaa33fdf7114efd11262876622d04932cd"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1XuanlingMd10011Cloth"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_2bfafb",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelNoSkinRampBreathClothSparkleMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "e7f5ba80f526de89966470ebe6d317c2c5fa0a15"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "4e94574c824aea7f6cdc430e95ff36b18d87c45e"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1XuanlingMd100111Cloth_HETA"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_e7f5ba",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelSecondHueBumpSparkleMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f739af0d7612f1ae903982971baea1cc1a8435d0"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "bb8ce51600c072a2c62bf5e56dd994445d534d81"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1AimisiMd10011Up01"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_f739af",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelNoSkinRampSecondHueBumpSparkleMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0c57d172a4e39d19a9dc058cef1333e807b5e13e"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "bb8ce51600c072a2c62bf5e56dd994445d534d81"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1LuoselaMd10011Cloth"
+   ],
+   "slot_uses": 4,
+   "entities": 4,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_0c57d1",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSBreathHueSparkleMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "076f14ed9e419d30899438214a774342f0ac6d53"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "d86774cace21c641cfff479a3d2e623a3ed03493"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1SuisuiMd10011Up01"
+   ],
+   "slot_uses": 4,
+   "entities": 4,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_076f14",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoSkinRampWet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "373d2cf99c35c6d417e682270237cd8b7dea4158"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "e7df9a851b61dbf6307f7a48a1330198a51b2305"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1JingranMd10011Down"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_373d2c",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSWet2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ba4dca56da3c35edd27de4781a60ae3f4debc6ee"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "e7df9a851b61dbf6307f7a48a1330198a51b2305"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1SuomingMd10011Down"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_ba4dca",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSWetHETA2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "183f9f1188ca220e4c6287faa4f2d2f71e4647d9"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "e7df9a851b61dbf6307f7a48a1330198a51b2305"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1SuomingMd10011Down_HETA"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_183f9f",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelNoSkinRampSecondBumpWet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "9492f4ec29cfab5468765469aed98198bd0f6530"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "66ef2665181551ca4f53aa23d634ca37ca6db79d"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1JingranMd10011Cloth"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_9492f4",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoSkinRampHueClothWet2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "655631459bce625f618c6c4bcd74fe82d5c3856f"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "56a3df559da5ec8567026d98bc79dd4427d7355c"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LinnaeaMd20011Cloth"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_655631",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoSkinRampHueClothWetHETA2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "920c0f0c0098b6c2f16f7deaedc586454f04db22"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "56a3df559da5ec8567026d98bc79dd4427d7355c"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LinnaeaMd20011Cloth_HETA"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_920c0f",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelBreathClothWetNoRID2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "8d01d9739ddc156873519fbc1aa870b845d0e93f"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "1bdbb9cc518dd76469996318280d4d5a15e0e882"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LinnaeaMd20011Glass"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_8d01d9",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelBreathClothWetHETANoRID2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "98d10894872b1a6c089858adec391995b7f0f68c"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "1bdbb9cc518dd76469996318280d4d5a15e0e882"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LinnaeaMd20011Glass_HETA"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_98d108",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQBreathWetMasked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a6f13c84e7a3b3bf507e35f5e318ed5e417c6b83"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "ade9237e1e347b1fd4dfd113c4e7d0d50049211d"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1QingxiaoMd10011Cloth"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_a6f13c",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoFresnelNoSkinRampBreathSecondWetMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "e60dc039965a10064a2fe54b2afeb8b1eb1a1f81"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "483ac7e23ccd97af5f57b59aa07bbed65a9bcf7b"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1QingxiaoMd10011Alpha"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_e60dc0",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSHueXingHen.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "1213dbcdaf98fde7578b5d246c942b07df6029b7"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "0f996c56a6c6d3b71d5d6d3e621572bb38d2ecac"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1TaidaonvMd10011Down01"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_1213db",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelSkinWet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "8f2605f4844fb2ff13857b7f30dfd626444568bb"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "6b7ab6d09b40c6ef9827790b3b6166daf9d5bc6b"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LinnaeaMd20011Up",
+    "MI_R2T1ShenXinMd10011Hand"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_8f2605",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 42,
+    "mrts": {
+     "o0": "688128/688128 bit-exact, max ULP 0",
+     "o1": "688128/688128 bit-exact, max ULP 0",
+     "o2": "688128/688128 bit-exact, max ULP 0",
+     "o3": "688128/688128 bit-exact, max ULP 0",
+     "o6": "688128/688128 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelSkinWetNoBlend.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0c0146c0feff6fa4e1f93ca51c83dd501b63b7f5"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "6b7ab6d09b40c6ef9827790b3b6166daf9d5bc6b"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1QianXiaMd20011Down"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_0c0146",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 39,
+    "mrts": {
+     "o0": "638976/638976 bit-exact, max ULP 0",
+     "o1": "638976/638976 bit-exact, max ULP 0",
+     "o2": "638976/638976 bit-exact, max ULP 0",
+     "o3": "638976/638976 bit-exact, max ULP 0",
+     "o6": "638976/638976 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelXingHenSkinWet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "7c269aa75c9770b7030f151ae39c75fa3db8062c"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "967de5c2d302d524cb987517a13933a1e10c3d72"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1SuomingMd10011Up"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_7c269a",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 39,
+    "mrts": {
+     "o0": "638976/638976 bit-exact, max ULP 0",
+     "o1": "638976/638976 bit-exact, max ULP 0",
+     "o2": "638976/638976 bit-exact, max ULP 0",
+     "o3": "638976/638976 bit-exact, max ULP 0",
+     "o6": "638976/638976 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelSparkleXingHenSkinWet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "bee01f34709334f93fb1b7a51216669e3a76382a"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "e59589c0940129eee2199590f766185e23fddee1"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1QianXiaMd20011Up"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_bee01f",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 39,
+    "mrts": {
+     "o0": "638976/638976 bit-exact, max ULP 0",
+     "o1": "638976/638976 bit-exact, max ULP 0",
+     "o2": "638976/638976 bit-exact, max ULP 0",
+     "o3": "638976/638976 bit-exact, max ULP 0",
+     "o6": "638976/638976 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSSecondSparkleSkinWet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "c7d90fffd7fef2c5791f4b2a299c921c2473ca3d"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "96ad4357f3c15fb5ec65cbc7b1dc8d86937ca53b"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1XinMd10011Up"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_c7d90f",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 39,
+    "mrts": {
+     "o0": "638976/638976 bit-exact, max ULP 0",
+     "o1": "638976/638976 bit-exact, max ULP 0",
+     "o2": "638976/638976 bit-exact, max ULP 0",
+     "o3": "638976/638976 bit-exact, max ULP 0",
+     "o6": "638976/638976 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSSecondSkinWet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b5b45f933cdaa08d684b661e60d8ec10604644d7"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "ed1308117794f7866b8d5aa9ca6af293b0dda35f"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1ShenXinMd10011Down"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_b5b45f",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 39,
+    "mrts": {
+     "o0": "638976/638976 bit-exact, max ULP 0",
+     "o1": "638976/638976 bit-exact, max ULP 0",
+     "o2": "638976/638976 bit-exact, max ULP 0",
+     "o3": "638976/638976 bit-exact, max ULP 0",
+     "o6": "638976/638976 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSClothSparkleXingHenSkinWet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "694be65ce6d6c97fc2278e3df551d3f2a94398fd"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "fd4e96eb41c4a03d9199cefe543fc21d791fdaa7"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1QingxiaoMd10011Up"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_694be6",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 39,
+    "mrts": {
+     "o0": "638976/638976 bit-exact, max ULP 0",
+     "o1": "638976/638976 bit-exact, max ULP 0",
+     "o2": "638976/638976 bit-exact, max ULP 0",
+     "o3": "638976/638976 bit-exact, max ULP 0",
+     "o6": "638976/638976 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSClothSparkleXingHenSkinWetHETA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ad1669129eef63dd28d200bb00aa98b7d2f65676"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "fd4e96eb41c4a03d9199cefe543fc21d791fdaa7"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1QingxiaoMd10011Up_HETA"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_ad1669",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 39,
+    "mrts": {
+     "o0": "638976/638976 bit-exact, max ULP 0",
+     "o1": "638976/638976 bit-exact, max ULP 0",
+     "o2": "638976/638976 bit-exact, max ULP 0",
+     "o3": "638976/638976 bit-exact, max ULP 0",
+     "o6": "638976/638976 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSSkinWetMasked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "e542307e6016bfa4ff60987763c8152df5b690d4"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "ade9237e1e347b1fd4dfd113c4e7d0d50049211d"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1QingxiaoMd10011Down"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_e54230",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 39,
+    "mrts": {
+     "o0": "638976/638976 bit-exact, max ULP 0",
+     "o1": "638976/638976 bit-exact, max ULP 0",
+     "o2": "638976/638976 bit-exact, max ULP 0",
+     "o3": "638976/638976 bit-exact, max ULP 0",
+     "o6": "638976/638976 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelSparkleSkinWetMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "da522bdfb3a9437d4c5d975a5bc5c832d4592bd4"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "6eeeb413d884721aaac081509a6dc59450787672"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1XinMd10011Down"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_da522b",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 39,
+    "mrts": {
+     "o0": "638976/638976 bit-exact, max ULP 0",
+     "o1": "638976/638976 bit-exact, max ULP 0",
+     "o2": "638976/638976 bit-exact, max ULP 0",
+     "o3": "638976/638976 bit-exact, max ULP 0",
+     "o6": "638976/638976 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelHueXingHenSkinWetMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "3ca969d464e7f7db56f43e7e6640ca36315c4bb7"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "a5fea7a0939295fa941071d873efbd22110edf70"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1LinnaeaMd20011Down"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_3ca969",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 39,
+    "mrts": {
+     "o0": "638976/638976 bit-exact, max ULP 0",
+     "o1": "638976/638976 bit-exact, max ULP 0",
+     "o2": "638976/638976 bit-exact, max ULP 0",
+     "o3": "638976/638976 bit-exact, max ULP 0",
+     "o6": "638976/638976 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSSecondSparkleLegacySkinWet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "fbe302451b809655de23c71710ea8d49991dbb71"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "96ad4357f3c15fb5ec65cbc7b1dc8d86937ca53b"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1ShenXinMd10011Up"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_fbe302",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 39,
+    "mrts": {
+     "o0": "638976/638976 bit-exact, max ULP 0",
+     "o1": "638976/638976 bit-exact, max ULP 0",
+     "o2": "638976/638976 bit-exact, max ULP 0",
+     "o3": "638976/638976 bit-exact, max ULP 0",
+     "o6": "638976/638976 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_DSSecondBumpSparkleLegacyWet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "2c3c3d16d3bfa0b0244b6d3e823f8a029d40f5c0"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "68a7ddf64b2f09f80f66d2819ccee4a1b7656b70"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1SuomingMd10011Cloth"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_2c3c3d",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoSkinRampClothSparkleWet2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b3f06742ad1b65c4e6492d7d2f4af2191eb7f6c4"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "3c7e671839f81974f66ecb6f95f61f82ba03cbc1"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1QianXiaMd20011Alpha"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_b3f067",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6) in this registry run. VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2CommonWPO_Body (UseCommonWPO VS 3c7e6718, verified bit-exact against the original VS: evidence/validation/shaderdiff/basepass_v2_hairface/vs/results_cwpo.json)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoSkinRampClothSparkleWetHETA2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "1a8fdef92a90598a6da8efacac4a206883104193"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "3c7e671839f81974f66ecb6f95f61f82ba03cbc1"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1QianXiaMd20011Alpha_HETA"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_1a8fde",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6) in this registry run. VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2CommonWPO_Body (UseCommonWPO VS 3c7e6718, verified bit-exact against the original VS: evidence/validation/shaderdiff/basepass_v2_hairface/vs/results_cwpo.json)."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelNoSkinRampNoNrmWetAlphaMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0a7bbb485f6c23a7b2720f928a5e109f528fee95"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "2a6325d5b2939397488d2c98ac50f3e6a4fe8b9d"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1QianXiaMd20011Cloth"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_0a7bbb",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoSkinRampOneRampHueSparkleNoRIDAlphaMasked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "dde811a7e1e60bfd6709c0844f204c5419fcc18f"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "25943a0a8d59a03cb779c9fd7c37ffdb6f1fefd4"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R5Sword509Md20001_Effcet"
+   ],
+   "slot_uses": 4,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_dde811",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoFresnelNoSkinRampEffectMaskSparkleWetMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "7381ba4d4af3ed11fc2008962fad32adb6f5875d"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "f803ebdedb6b2f75588c9df87d55ba567ca6a7bd"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1ShenXinMd10011Cloth"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_7381ba",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoSkinRampSecondObjBumpSparkleWet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a555095766d5ac7a5ed3cdad8a0ede71b29cf76d"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "0f14373cc294cde9a96f3ca8499e74713fb59d9b"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1XinMd10011Cloth"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_a55509",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_NoFresnelNoSkinRampOneRampSecondFlowBumpAlphaSparkleNoTM.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "c8d4bf2b08b7feb8e980bad36659a6dfb3a8e231"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "c3fba981baccda398b4ecafd4c9d4604dc575024"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_ETaidaonvGongMd10011_Ice"
+   ],
+   "slot_uses": 4,
+   "entities": 4,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_c8d4bf",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_NoFresnelNoSkinRampOneRampSecondFlowBumpRimAlphaSparkleNoTM.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "002ec063e6c556b8e39b5e1f47ed46d7b411616c"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "976f83c0f4ef51de666ebefb06fe9b8fca60cea7"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_ETaidaonvDaShenDaoMd10011_Ice"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_002ec0",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoSkinRampBreathSecondObjRimFur.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6b7c6be02eb6afa5b475761cda9b41a17741f59d"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "50bef421b98106a66bd677a2accbf16673c4325a"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1DaniyaMd10011Fur"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_6b7c6b",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 48,
+    "mrts": {
+     "o0": "786432/786432 bit-exact, max ULP 0",
+     "o1": "786432/786432 bit-exact, max ULP 0",
+     "o2": "786432/786432 bit-exact, max ULP 0",
+     "o3": "786432/786432 bit-exact, max ULP 0",
+     "o6": "786432/786432 bit-exact, max ULP 0",
+     "depth": "786432/786432 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). UseFurry: extra outputs OpacityMask (constant 1) and PixelDepthOffset (material Pixel Depth Offset pin); SV_DepthLessEqual compared through a D32 depth buffer (UE ApplyPixelDepthOffset emulated in the harness wrapper). BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoSkinRampSecondObjParallaxMasked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "8dec27d637990a66d97fb34d7d25cd4fe6464dd2"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "ffd49f34cd8489d84357888992594006401bbec4"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1MoneMd20011Cloth"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_8dec27",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_BodyV2_8dec27_BodyV2_201ac5_BodyV2_b71227_round5_spotfix.json",
+    "runs": 48,
+    "mrts": {
+     "o0": "786432/786432 bit-exact, max ULP 0",
+     "o1": "786432/786432 bit-exact, max ULP 0",
+     "o2": "786432/786432 bit-exact, max ULP 0",
+     "o3": "786432/786432 bit-exact, max ULP 0",
+     "o6": "786432/786432 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). UseFurryParallax: verified with controlled screen-space derivatives (interp_vs_grad.hlsl) and full mip chains on HeightMap / FlowmapMap. BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoSkinRampBreathSecondObjRimParallaxMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "201ac5d0563bbcfa1b52ac41c63ed7e7d2ae330d"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "f857d26f7cb339d6f295e94c11bae4af2899cfdc"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1DaniyaMd10011Cloth"
+   ],
+   "slot_uses": 4,
+   "entities": 4,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_201ac5",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_BodyV2_8dec27_BodyV2_201ac5_BodyV2_b71227_round5_spotfix.json",
+    "runs": 48,
+    "mrts": {
+     "o0": "786432/786432 bit-exact, max ULP 0",
+     "o1": "786432/786432 bit-exact, max ULP 0",
+     "o2": "786432/786432 bit-exact, max ULP 0",
+     "o3": "786432/786432 bit-exact, max ULP 0",
+     "o6": "786432/786432 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). UseFurryParallax: verified with controlled screen-space derivatives (interp_vs_grad.hlsl) and full mip chains on HeightMap / FlowmapMap. BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelSkinWetParallax.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b712274a6a2959dd4142590593456047da8899c1"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "8af02fba593fcf8cc7a1414e3a3a741a2777a3b2"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1JingranMd10011Up"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_b71227",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_BodyV2_8dec27_BodyV2_201ac5_BodyV2_b71227_round5_spotfix.json",
+    "runs": 54,
+    "mrts": {
+     "o0": "884736/884736 bit-exact, max ULP 0",
+     "o1": "884736/884736 bit-exact, max ULP 0",
+     "o2": "884736/884736 bit-exact, max ULP 0",
+     "o3": "884736/884736 bit-exact, max ULP 0",
+     "o6": "884736/884736 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). UseFurryParallax: verified with controlled screen-space derivatives (interp_vs_grad.hlsl) and full mip chains on HeightMap / FlowmapMap."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoSkinRampParallaxFurTangent.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "bd79aa0751581686c2902781788e2946de7a63a4"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "2aaac810a12c0135095fd8a7a73c92d5136245c3"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1MoneMd20011Down"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_bd79aa",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 48,
+    "mrts": {
+     "o0": "786432/786432 bit-exact, max ULP 0",
+     "o1": "786432/786432 bit-exact, max ULP 0",
+     "o2": "786432/786432 bit-exact, max ULP 0",
+     "o3": "786432/786432 bit-exact, max ULP 0",
+     "o6": "786432/786432 bit-exact, max ULP 0",
+     "depth": "786432/786432 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). UseFurry: extra outputs OpacityMask (constant 1) and PixelDepthOffset (material Pixel Depth Offset pin); SV_DepthLessEqual compared through a D32 depth buffer (UE ApplyPixelDepthOffset emulated in the harness wrapper). UseFurryParallax: verified with controlled screen-space derivatives (interp_vs_grad.hlsl) and full mip chains on HeightMap / FlowmapMap. BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_DSAlphaParallaxFurTangent.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "5cc6b5a3aa4eabce224b063fa75377f987d46d87"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "2aaac810a12c0135095fd8a7a73c92d5136245c3"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1MoneMd20011Up"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_5cc6b5",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 48,
+    "mrts": {
+     "o0": "786432/786432 bit-exact, max ULP 0",
+     "o1": "786432/786432 bit-exact, max ULP 0",
+     "o2": "786432/786432 bit-exact, max ULP 0",
+     "o3": "786432/786432 bit-exact, max ULP 0",
+     "o6": "786432/786432 bit-exact, max ULP 0",
+     "depth": "786432/786432 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical). UseFurry: extra outputs OpacityMask (constant 1) and PixelDepthOffset (material Pixel Depth Offset pin); SV_DepthLessEqual compared through a D32 depth buffer (UE ApplyPixelDepthOffset emulated in the harness wrapper). UseFurryParallax: verified with controlled screen-space derivatives (interp_vs_grad.hlsl) and full mip chains on HeightMap / FlowmapMap. BLEND_Masked: the entry discards (see the spec notes.masked); discarded pixels compared as untouched targets."
+  },
+  {
+   "spec": "ToonBodyV2_HQDSNoFresnelXingHenTextRain.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "285ecf0a11acf8eea620166b31c316c5d219ab7e"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "e57f86fe3beb7dd5fb397a6d251f6f5618a00484"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LucyMd10011Up"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/validation/ShaderDiff_BasePass_V2.md#bodyv2_285ecf",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/basepass_v2/results_round5.json",
+    "runs": 33,
+    "mrts": {
+     "o0": "540672/540672 bit-exact, max ULP 0",
+     "o1": "540672/540672 bit-exact, max ULP 0",
+     "o2": "540672/540672 bit-exact, max ULP 0",
+     "o3": "540672/540672 bit-exact, max ULP 0",
+     "o6": "540672/540672 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS only (o0/o1/o2/o3/o6). VS: WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO; verified on the V2 hair/face VS, body VS assumed identical)."
+  }
+ ]
+}

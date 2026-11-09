@@ -1,0 +1,38 @@
+{
+ "root_material": "M_FlashDiamond_MP",
+ "generated_by": "round 7 singletons (research/roster/round7/singletons.md#m_flashdiamond_mp), hand-written from the saved results",
+ "contract": "Specs/registry/README.md",
+ "note": "Brand-new root (no earlier M_FlashDiamond_MP registry file). One variant: the round-3 PS port (WuwaFlashDiamondMP_StructureDiamond, WuwaToonBasePass_DepthFX.ush) with the round-7 port of the VS vertex-animation-texture WPO (WuwaFlashDiamondMPVATWPO, WuwaToonBasePass_SpecialDiamond.ush). Forward translucent unlit (resolve: false): the material part (Emissive, Opacity) is bit-exact; the Kuro engine translucent tail (primitive fade, vertex fog, emissive scale / OOB, Kuro effect colour grading) is not ported and UE applies its own translucent unlit blending and fog (approximation, as stated in the spec resolve_note). IMPORTER CAVEAT: MorphTexture is not set anywhere in the MI chain (root default T_DefaultColorBlack_Linear_D [I]); wuwa_generate_materials.Builder.texture() falls back to /Engine/EngineResources/WhiteSquareTexture for an unresolved texture parameter, which would make the VAT offset (L2W[0]+L2W[1]+L2W[2]) * VertexAnim_Strength instead of 0. The importer must bind a black (0,0,0) linear texture for MorphTexture (e.g. honour the spec input default or use /Engine/EngineResources/Black).",
+ "variants": [
+  {
+   "spec": "FlashDiamond_MP_StructureDiamond_VATWPO.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "5756a3d8afe7bf96fc0416b90ee261147dcd0498"
+    ],
+    "base_pass_vs_hash": [
+     "68344a278ec8e3387869c693fabce53ae64c1d19"
+    ]
+   },
+   "verified": "research/roster/round7/singletons.md#m_flashdiamond_mp; PS #185987: evidence/validation/shaderdiff/roster_charcom/round7/singletons/flashdiamond/results_depthfx_5756a3_r7.json (36 runs, o0 589824/589824 bit-exact, every Material parameter randomised in rand_a..d; same as round 3 results_multi_final.json; negative control round3/depthfx/results_depthfx_5756a3_neg_pbr1ulp.json). VS #185988: light direction TEXCOORD1.xyz symbolically identical to the verified body VS #35700 (round3/depthfx/vs_status_depthfx.json); VAT WPO WuwaFlashDiamondMPVATWPO bit-exact on SV_POSITION 1277952/1277952 components, TEXCOORD0 1277952/1277952 (round7/singletons/flashdiamond/results_vs_wpo_flashdiamond.json; Strength +1 ulp negative 1038001/1277952, no-WPO control 163840/1277952 = only the black-texture / zero-strength runs). Material part bit-exact; engine translucent tail not ported (approximation).",
+   "ps_archive_index": 185987,
+   "vs_archive_index": [
+    185988
+   ],
+   "vs_status": {
+    "68344a278ec8e3387869c693fabce53ae64c1d19": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Iuno",
+    "skin:The Unmeasured One"
+   ],
+   "example_mis": [
+    "MI_EYounuoYuegongMd10011_Suishi"
+   ]
+  }
+ ]
+}

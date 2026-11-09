@@ -1,0 +1,51 @@
+{
+ "root_material": "M_CharMonster_SP",
+ "generated_by": "tools/shaderdiff/weapons/r7/build_registry_monster_r7.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 7 (research/roster/round7/singletons.md): new root M_CharMonster_SP (Roccia prop MI_ELuokekeRuanniguaiMd10011B, MI directly on the root). One variant per WARP-verified base-pass PS hash, keyed with the VS hash whose Ghost WPO is ported and verified (ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "CharMonster_SP_GhostFaceAni2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "caca5ab54d9a559db260a3fae8f5bc0006ca0dee"
+    ],
+    "base_pass_vs_hash": [
+     "815bd27ed7be539c65bd694a2d938a5efb2dcf18"
+    ]
+   },
+   "verified": "research/roster/round7/singletons.md#m_charmonster_sp; evidence/validation/shaderdiff/roster_charcom/round7/singletons/monster/results_monster_sp_caca5a_final.json summary.monster_sp_caca5a (33 runs, o0/o1/o2/o3/o6 540672/540672 bit-exact, 0 discard differences); VS #236944 ported_wpo_verified (evidence/validation/shaderdiff/roster_charcom/round7/singletons/monster/results_vs_wpo_monster_sp_final.json: SV_POSITION 884736/884736, COLOR0 / TEXCOORD0 / TEXCOORD1 / TEXCOORD10 / TEXCOORD11 bit-exact vs the stock GPU-skin passthrough; spec wpo block WuwaToonMonsterSPGhostWPO)",
+   "ps_archive_index": 236962,
+   "vs_archive_index": [
+    236944
+   ],
+   "vs_status": {
+    "815bd27ed7be539c65bd694a2d938a5efb2dcf18": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "two_sided": true,
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Roccia",
+    "skin:What's in the Box"
+   ],
+   "example_mis": [
+    "MI_ELuokekeRuanniguaiMd10011B"
+   ],
+   "negative_controls": {
+    "neg_mud08": {
+     "o0": 58
+    },
+    "neg_ghostrim": {
+     "o2": 147456
+    },
+    "neg_lum1ulp": {
+     "o3": 58978
+    }
+   },
+   "notes": "GBufferB.a uses shading-model id 15 when Ghost_ToonRimColorMask > 0 (12 otherwise); WuwaToonResolve currently only distinguishes 12 / 13 - id 15 (Kuro toon + rim-colour mask) is passed through as written by the original."
+  }
+ ]
+}

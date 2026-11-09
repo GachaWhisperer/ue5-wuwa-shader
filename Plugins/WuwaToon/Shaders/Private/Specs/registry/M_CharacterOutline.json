@@ -1,0 +1,677 @@
+{
+ "root_material": "M_CharacterOutline",
+ "generated_by": "tools/shaderdiff/roster_charcom/build_registry.py",
+ "contract": "Specs/registry/README.md",
+ "note": "one variant per verified (PS, VS set); MIs whose PS/VS pair is not listed fall back to M_Wuwa_Unported. research/roster/Port_CharCom_Coverage.md",
+ "variants": [
+  {
+   "spec": "Outline_B_MainTex.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "35c67eba30b6f25d0bc866410024ad8adad637bd"
+    ],
+    "base_pass_vs_hash": [
+     "09bcc48edc3ffec564fcd941ff7b87d91ddab402"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_216346 (327680/327680 px bit-exact); VS #7634",
+   "ps_archive_index": 216346,
+   "vs_archive_index": [
+    7634
+   ],
+   "roster_mis": 208,
+   "example_mis": [
+    "MI_EAimisiWeaponMd10011_Benti_OL",
+    "MI_EAimisiWeaponMd10011_Peijian_OL",
+    "MI_EAogusitaTaiyangguanMd10011_OL",
+    "MI_ECalbrenaBulletMd10011_OL",
+    "MI_ECalbrenaDaheihuaMd10011_OL",
+    "MI_ECalbrenaShotgunMd10011_OL"
+   ],
+   "static_switches_informational": {}
+  },
+  {
+   "spec": "Outline_A_MainTex.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "216d419e2c6219d243313144fa5dcc6f6740dac6"
+    ],
+    "base_pass_vs_hash": [
+     "117d528d1f0f57ba5063e22921b5ee0b1bc90bee"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_83834 (327680/327680 px bit-exact); VS #83829",
+   "ps_archive_index": 83834,
+   "vs_archive_index": [
+    83829
+   ],
+   "roster_mis": 71,
+   "example_mis": [
+    "MI_EAogusitaDajianMd10011_Hilt_OL",
+    "MI_EAogusitaDajianMd10011_Scabbard_OL",
+    "MI_EAogusitaDajianMd10011_Sword_OL",
+    "MI_EBulanteGunMd10011Gun_OL",
+    "MI_EBulanteGunMd10011Nail_OL",
+    "MI_EFeibiQuanzhangMd10011_OL"
+   ],
+   "static_switches_informational": {}
+  },
+  {
+   "spec": "Outline_B_Color.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "74a8642bcee6e6b75a7b1355dc37dca5bef6b514"
+    ],
+    "base_pass_vs_hash": [
+     "6a2f4f3512dfd9597f8d043a0dda227ae3284cd9"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_114160 (327680/327680 px bit-exact); VS #114157",
+   "ps_archive_index": 114160,
+   "vs_archive_index": [
+    114157
+   ],
+   "roster_mis": 70,
+   "example_mis": [
+    "MI_EBulanteJuziMd10011_OL",
+    "MI_EFuluoluoWandMd10011_OL",
+    "MI_ELingyangLionHeadMd10011_OL",
+    "MI_ELupaBiaoqiangMd10011_OL",
+    "MI_EQiuyuanZhuzhangMd10011_OL",
+    "MI_R2T1AimisiMd10011Face_OL"
+   ],
+   "static_switches_informational": {}
+  },
+  {
+   "spec": "Outline_BC_MainTex.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "9f8cf7041ea1bcb6b10840d7d2c2dea946fb3e6a"
+    ],
+    "base_pass_vs_hash": [
+     "5b4567b8a567614ab3af0d5d7acf812bd340e1d1"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_80102 (327680/327680 px bit-exact); VS #80094",
+   "ps_archive_index": 80102,
+   "vs_archive_index": [
+    80094
+   ],
+   "roster_mis": 39,
+   "example_mis": [
+    "MI_R2T1AimisiMd10011Bangs_OL",
+    "MI_R2T1AogusitaMd10011Hair_OL",
+    "MI_R2T1BulanteMd10011Hair_OL",
+    "MI_R2T1BulingMd10011Bangs_OL",
+    "MI_R2T1DaniyaMd10011Bangs2_OL",
+    "MI_R2T1DaniyaMd10011Hair2_OL"
+   ],
+   "static_switches_informational": {
+    "UseVertexGreen_OutlineWidth": true,
+    "UseVertexColorB_InnerOutline": true,
+    "UseCurvature": true
+   }
+  },
+  {
+   "spec": "Outline_ANoVG_MainTex.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ce7a31bf82fda274e3c14d749e5ed15afed73127"
+    ],
+    "base_pass_vs_hash": [
+     "a02033a3936f159588925326222b20e7e668551d"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_72676 (327680/327680 px bit-exact); VS #72657",
+   "ps_archive_index": 72676,
+   "vs_archive_index": [
+    72657
+   ],
+   "roster_mis": 31,
+   "example_mis": [
+    "MI_EAogusitaChangjianMd10011_OL",
+    "MI_ELuokekeBaozhuMd10011_OL",
+    "MI_EQianXiaJiandaoRedMd10011_OL",
+    "MI_EQingxiaoDajianMd10011_OL",
+    "MI_ERebeccaMachinegunMd10011_OL",
+    "MI_ERebeccaShotgunMd10011_OL"
+   ],
+   "static_switches_informational": {
+    "UseVertexGreen_OutlineWidth": false,
+    "UseVertexColorB_InnerOutline": false
+   }
+  },
+  {
+   "spec": "Outline_B_MainTex.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "1eee542cdd0ee73de5cd2b2a15247417a0adf2d9"
+    ],
+    "base_pass_vs_hash": [
+     "6e99ddc2d463d9dff816fd5ae9cf893657c7b4ef"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_82870 (327680/327680 px bit-exact); VS #82884 == #114157 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 82870,
+   "vs_archive_index": [
+    82884
+   ],
+   "roster_mis": 28,
+   "example_mis": [
+    "MI_R2T1DaniyaMd10011Up2_OL",
+    "MI_R2T1LinnaeaMd20011Cloth_OL",
+    "MI_R2T1LinnaeaMd20011Down_OL",
+    "MI_R2T1LinnaeaMd20011Glass_OL",
+    "MI_R2T1LuhesiMd10011Cloth_OL",
+    "MI_R2T1LuhesiMd10011Up_OL"
+   ],
+   "static_switches_informational": {}
+  },
+  {
+   "spec": "Outline_BC_Color.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "15ff6f707da7488f6ea1382979c6739f1c0d2689"
+    ],
+    "base_pass_vs_hash": [
+     "f7ce5297fbf8254fe3ad945b50f086d2b89e5e66"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_323588 (327680/327680 px bit-exact); VS #323613",
+   "ps_archive_index": 323588,
+   "vs_archive_index": [
+    323613
+   ],
+   "roster_mis": 19,
+   "example_mis": [
+    "MI_R2T1BaerMd10011Hair_OL",
+    "MI_R2T1FuludelisiMd10011Hair_OL",
+    "MI_R2T1JingranMd10011Hair_OL",
+    "MI_R2T1JinxiMd10011Bangs_OL",
+    "MI_R2T1JueyuanMd10011Face_OL",
+    "MI_R2T1JueyuanMd10011Hair_OL"
+   ],
+   "static_switches_informational": {
+    "UseVertexGreen_OutlineWidth": true,
+    "UseVertexColorB_InnerOutline": true,
+    "UseCurvature": true
+   }
+  },
+  {
+   "spec": "Outline_A_Color.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0925e3a826e1c7f2cc919377bc760102fa89cda0"
+    ],
+    "base_pass_vs_hash": [
+     "399eac45450748fbd5816cd0d7a59008836d244c"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_137566 (327680/327680 px bit-exact); VS #207702",
+   "ps_archive_index": 137566,
+   "vs_archive_index": [
+    207702
+   ],
+   "roster_mis": 17,
+   "example_mis": [
+    "MI_EDarkNanzhuWingMd10011_Wing_OL",
+    "MI_ELinnaeaSprayMd10011_OL",
+    "MI_EQiushuiMd10011_OL",
+    "MI_ESuomingSanMd10011Sanmian_OL",
+    "MI_EZanniZhedieyiMd10011_OL",
+    "MI_EZhezhiMaobixiaoMd10011_OL"
+   ],
+   "static_switches_informational": {}
+  },
+  {
+   "spec": "Outline_ANoVG_Color.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "5838457b9bea4a8baaebe34738cecbc48c96f1ea"
+    ],
+    "base_pass_vs_hash": [
+     "0090dcf6d3b7693d3b9674748b577a17d5d7971c"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_132326 (327680/327680 px bit-exact); VS #132315",
+   "ps_archive_index": 132326,
+   "vs_archive_index": [
+    132315
+   ],
+   "roster_mis": 8,
+   "example_mis": [
+    "MI_DahuojiMd10011_OL",
+    "MI_ECalbrenaChimeraMd10011Helmet_OL",
+    "MI_MB1ZhenwuguanzheMd00601_Weapon_OL",
+    "MI_R2T1SanhuaHuiyingMd10011_OL",
+    "MI_R2T1TaohuaMd10011Bag_OL",
+    "MI_R5Device503Md20001_OL"
+   ],
+   "static_switches_informational": {
+    "UseVertexGreen_OutlineWidth": false,
+    "UseVertexColorB_InnerOutline": false
+   }
+  },
+  {
+   "spec": "Outline_ANoVGMax_MainTex.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "65a7b38abb851f7182ee86f88bfdf3870f0345d9"
+    ],
+    "base_pass_vs_hash": [
+     "8e5d90e455c373e6bf6ea3d9147db855d37f3a4a"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_316672 (327680/327680 px bit-exact); VS #316679",
+   "ps_archive_index": 316672,
+   "vs_archive_index": [
+    316679
+   ],
+   "roster_mis": 7,
+   "example_mis": [
+    "MI_ELeizhudunMd10011_01_OL",
+    "MI_ELeizhudunMd10011_02_OL",
+    "MI_ELeizhujianMd10011_OL",
+    "MI_ETaidaonvDaShenDaoMd10011_OL",
+    "MI_ETaidaonvGongMd10011_Ice_OL",
+    "MI_ETaidaonvGongMd10011_OL"
+   ],
+   "static_switches_informational": {
+    "UseVertexGreen_OutlineWidth": false,
+    "UseVertexColorB_InnerOutline": false,
+    "UseOutlineMax": true
+   }
+  },
+  {
+   "spec": "Outline_C_MainTex.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ccc835054abe28b1edfe7f4ea92f5763671e38c7"
+    ],
+    "base_pass_vs_hash": [
+     "b52b4f81232858ff7e7e6225f5dd4e7406d90918"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_92320 (327680/327680 px bit-exact); VS #92318 == #201129 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 92320,
+   "vs_archive_index": [
+    92318
+   ],
+   "roster_mis": 6,
+   "example_mis": [
+    "MI_R2T1BailianMd10011Hair_OL",
+    "MI_R2T1JueyuanMd10011Up_OL",
+    "MI_R2T1LingyangMd10011Bangs_OL",
+    "MI_R2T1LingyangMd10011Hair_OL",
+    "MI_R2T1YinLinMd10011Hair_OL",
+    "MI_R2T1ZhezhiMd10011Hair_OL"
+   ],
+   "static_switches_informational": {
+    "UseVertexGreen_OutlineWidth": true,
+    "UseCurvature": true
+   }
+  },
+  {
+   "spec": "Outline_BMax_MainTex.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "216d419e2c6219d243313144fa5dcc6f6740dac6"
+    ],
+    "base_pass_vs_hash": [
+     "65c117afded7240e82e38704dd1db43c9b0c03e3"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_83834 (327680/327680 px bit-exact); VS #219899",
+   "ps_archive_index": 83834,
+   "vs_archive_index": [
+    219899
+   ],
+   "roster_mis": 6,
+   "example_mis": [
+    "MI_ELuoselaCameraMd10011_OL",
+    "MI_R2T1KatixiyaMd10011Alpha_OL",
+    "MI_R2T1LuokekeMd10011Down_OL",
+    "MI_R2T1LuokekeMd10011Up_OL",
+    "MI_R5Scabbard507Md20001_OL",
+    "MI_R5Sword510Md20001_OL"
+   ],
+   "static_switches_informational": {
+    "UseVertexGreen_OutlineWidth": true,
+    "UseVertexColorB_InnerOutline": true,
+    "UseOutlineMax": true
+   }
+  },
+  {
+   "spec": "Outline_C_Color.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "18c2209e367d764032ac78e5aa868a3a3d15825f"
+    ],
+    "base_pass_vs_hash": [
+     "63f5bf570b45366a924c9bb61555de11f8880fc9"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_104919 (327680/327680 px bit-exact); VS #201129",
+   "ps_archive_index": 104919,
+   "vs_archive_index": [
+    201129
+   ],
+   "roster_mis": 5,
+   "example_mis": [
+    "MI_R2T1AnkeMd10011Hair_OL",
+    "MI_R2T1JiyanMd10011Bangs_OL",
+    "MI_R2T1JiyanMd10011Hair_OL",
+    "MI_R2T1YangyangMd10011Bangs_OL",
+    "MI_R2T1YangyangMd10011Hair_OL"
+   ],
+   "static_switches_informational": {}
+  },
+  {
+   "spec": "Outline_B_Color.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0c499167172894485d818f96c6f3f95f7909954a"
+    ],
+    "base_pass_vs_hash": [
+     "7dc2a53abba2ad533d14b1312880f6bcc2bfdf1b"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_330154 (327680/327680 px bit-exact); VS #330164 == #114157 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 330154,
+   "vs_archive_index": [
+    330164
+   ],
+   "roster_mis": 3,
+   "example_mis": [
+    "MI_R2T1JingranMd10011Face_OL",
+    "MI_R2T1LuhesiMd10011Face_OL",
+    "MI_R2T1ShenXinMd10011Face_OL"
+   ],
+   "static_switches_informational": {}
+  },
+  {
+   "spec": "Outline_BCMax_Color.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "18c2209e367d764032ac78e5aa868a3a3d15825f"
+    ],
+    "base_pass_vs_hash": [
+     "7c80b772fdd3479528e45172744176e2c9336e59"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_104919 (327680/327680 px bit-exact); VS #104935",
+   "ps_archive_index": 104919,
+   "vs_archive_index": [
+    104935
+   ],
+   "roster_mis": 3,
+   "example_mis": [
+    "MI_R2T1KamolaMd10011Bangs_2_OL",
+    "MI_R2T1KamolaMd10011Bangs_3_OL",
+    "MI_R2T1KamolaMd20011Bangs_2_OL"
+   ],
+   "static_switches_informational": {
+    "UseVertexGreen_OutlineWidth": true,
+    "UseVertexColorB_InnerOutline": true,
+    "UseCurvature": true,
+    "UseOutlineMax": true
+   }
+  },
+  {
+   "spec": "Outline_BNoVG_MainTex.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "216d419e2c6219d243313144fa5dcc6f6740dac6"
+    ],
+    "base_pass_vs_hash": [
+     "f8136dac1a9c8bc243de38360b96a83233ced10f"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_83834 (327680/327680 px bit-exact); VS #214662",
+   "ps_archive_index": 83834,
+   "vs_archive_index": [
+    214662
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_EFuludelisiMingshijianMd10011_OL",
+    "MI_EMoneNutrientMd10011_OL"
+   ],
+   "static_switches_informational": {
+    "UseVertexGreen_OutlineWidth": false,
+    "UseVertexColorB_InnerOutline": true
+   }
+  },
+  {
+   "spec": "Outline_BCMax_MainTex.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ccc835054abe28b1edfe7f4ea92f5763671e38c7"
+    ],
+    "base_pass_vs_hash": [
+     "d9ff3bd583646e70e73a710132fbc134dab34a45"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_92320 (327680/327680 px bit-exact); VS #304446",
+   "ps_archive_index": 92320,
+   "vs_archive_index": [
+    304446
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1KamolaMd10011Bangs_OL",
+    "MI_R2T1KamolaMd20011Bangs_OL"
+   ],
+   "static_switches_informational": {
+    "UseVertexGreen_OutlineWidth": true,
+    "UseVertexColorB_InnerOutline": true,
+    "UseCurvature": true,
+    "UseOutlineMax": true
+   }
+  },
+  {
+   "spec": "Outline_Translucent_MainTex.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "d2b313e200095d1f397049c6dc1805db470faa4c"
+    ],
+    "base_pass_vs_hash": [
+     "68622cd354db191431fb95c72f5f3ba82fa8480f",
+     "e309cb313b903020a20156458dfa849051542400"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4--eyeoutline; PS: evidence/validation/shaderdiff/roster_eyeoutline/outline/results_translucent.json variants.translucent_maintex_105645 (720896/720896 px bit-exact, o0 through the transpiled Kuro forward tail); VS #272265 SV_POSITION == #114157 (WPO_B (verified binary)) symbolic, vertex-fog loop removed (evidence/validation/shaderdiff/roster_eyeoutline/outline/vs_translucent_equiv.json); VS #105649 SV_POSITION == #114157 (WPO_B (verified binary)) symbolic, vertex-fog loop removed (evidence/validation/shaderdiff/roster_eyeoutline/outline/vs_translucent_equiv.json)",
+   "ps_archive_index": 105645,
+   "vs_archive_index": [
+    272265,
+    105649
+   ],
+   "roster_mis": 6,
+   "example_mis": [
+    "MI_ELuhesiTesttube01Md10011Pingai_OL",
+    "MI_ELuhesiTesttubeMd10011Pingai_OL",
+    "MI_R2T1LinnaeaMd10011Alpha_OL",
+    "MI_R2T1MoneMd10011Alpha_OL",
+    "MI_R2T1MoneMd10011Down_OL",
+    "MI_R2T1MoneMd20011Glass_OL"
+   ],
+   "static_switches_informational": {
+    "UseMainTex": true,
+    "UseVertexColorB_InnerOutline": true,
+    "UseVertexGreen_OutlineWidth": true,
+    "UseClipSpaceOutline": true
+   },
+   "round": "4",
+   "note": "\"resolve\": false (forward translucent, no toon GBuffer): the importer needs a lit translucent template for this spec"
+  },
+  {
+   "spec": "Outline_Translucent_MainTex_A.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "7e3928be22f3e4d2f2098407b2cd285289edfb24"
+    ],
+    "base_pass_vs_hash": [
+     "ca2fa288cc9d4c932e194ba514e9702676c144d7"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4--eyeoutline; PS: evidence/validation/shaderdiff/roster_eyeoutline/outline/results_translucent.json variants.translucent_maintex_133206 (393216/393216 px bit-exact, o0 through the transpiled Kuro forward tail); VS #133216 SV_POSITION == #207702 (WPO_A (verified binary)) symbolic, vertex-fog loop removed (evidence/validation/shaderdiff/roster_eyeoutline/outline/vs_translucent_equiv.json)",
+   "ps_archive_index": 133206,
+   "vs_archive_index": [
+    133216
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ERebeccaDrinkMd10011_OL"
+   ],
+   "static_switches_informational": {
+    "UseMainTex": true,
+    "UseCurvature": false,
+    "UseVertexGreen_OutlineWidth": true
+   },
+   "round": "4",
+   "note": "\"resolve\": false (forward translucent, no toon GBuffer): the importer needs a lit translucent template for this spec"
+  },
+  {
+   "spec": "Outline_Translucent_Color.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0737d824c0c5b8f82786fde7484faeb5ab191646"
+    ],
+    "base_pass_vs_hash": [
+     "500be969a3a500ee32113931b140dd7e3d9dfa19"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4--eyeoutline; PS: evidence/validation/shaderdiff/roster_eyeoutline/outline/results_translucent.json variants.translucent_color_17017 (458752/458752 px bit-exact, o0 through the transpiled Kuro forward tail); VS #297907 SV_POSITION == #114157 (WPO_B (verified binary)) symbolic, vertex-fog loop removed (evidence/validation/shaderdiff/roster_eyeoutline/outline/vs_translucent_equiv.json)",
+   "ps_archive_index": 17017,
+   "vs_archive_index": [
+    297907
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1AogusitaMd10011Alpha_OL",
+    "MI_R2T1LuhesiMd10011Glass_OL"
+   ],
+   "static_switches_informational": {
+    "UseMainTex": false,
+    "UseVertexColorB_InnerOutline": true,
+    "UseVertexGreen_OutlineWidth": true,
+    "UseClipSpaceOutline": true
+   },
+   "round": "4",
+   "note": "\"resolve\": false (forward translucent, no toon GBuffer): the importer needs a lit translucent template for this spec"
+  },
+  {
+   "spec": "Outline_Ghost_ColorMasked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "4a29db2c6d96d9f3e41887e1a89a8f0dc273f908"
+    ],
+    "base_pass_vs_hash": [
+     "7a6a63370eb6544eead77aa352ed8dd0c6d6e84a"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4--eyeoutline; PS: evidence/validation/shaderdiff/roster_eyeoutline/outline/results_ps.json variants.ghost_colormasked_182932 (361642/361642 px bit-exact); evidence/validation/shaderdiff/roster_eyeoutline/outline/results_ps.json variants.ghost_colormasked_182932_corn (270712/270712 px bit-exact); VS #182943 port verified (evidence/validation/shaderdiff/roster_eyeoutline/outline/results_vs.json, outline_vs_diff --roster4: pvt0 sets 100% SV_POSITION)",
+   "ps_archive_index": 182932,
+   "vs_archive_index": [
+    182943
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1AimisiGDMd10011Corn_OL",
+    "MI_R2T1AimisiMd10011Fx_OL"
+   ],
+   "static_switches_informational": {
+    "UseGhost": true,
+    "UseIDMask": false,
+    "UseVertexColorB_InnerOutline": true,
+    "UseVertexGreen_OutlineWidth": true
+   },
+   "round": "4"
+  },
+  {
+   "spec": "Outline_Ghost_Color.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "79940de749efe90e52779e7580f6360f61c596e3"
+    ],
+    "base_pass_vs_hash": [
+     "9e34d8af21ea63078c13fd5c2ecd15f8a7a027a2"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4--eyeoutline; PS: evidence/validation/shaderdiff/roster_eyeoutline/outline/results_ps.json variants.ghost_color_302239 (458752/458752 px bit-exact); VS #302243 port verified (evidence/validation/shaderdiff/roster_eyeoutline/outline/results_vs.json, outline_vs_diff --roster4: pvt0 sets 100% SV_POSITION)",
+   "ps_archive_index": 302239,
+   "vs_archive_index": [
+    302243
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1AimisiMd10011Item_OL"
+   ],
+   "static_switches_informational": {
+    "UseGhost": true,
+    "UseIDMask": false,
+    "UseVertexColorB_InnerOutline": true,
+    "UseVertexGreen_OutlineWidth": true
+   },
+   "round": "4"
+  },
+  {
+   "spec": "Outline_Ghost_MainTex.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ee4fe2beba65ed3361e4dc81f2b9cba52f7cf0b4"
+    ],
+    "base_pass_vs_hash": [
+     "02febca2f4b3229d03e1d262afad916bbe337e9c"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4--eyeoutline; PS: evidence/validation/shaderdiff/roster_eyeoutline/outline/results_ps.json variants.ghost_maintex_280251 (458752/458752 px bit-exact); VS #280223 port verified (evidence/validation/shaderdiff/roster_eyeoutline/outline/results_vs.json, outline_vs_diff --roster4: pvt0 sets 100% SV_POSITION)",
+   "ps_archive_index": 280251,
+   "vs_archive_index": [
+    280223
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ELuokekeRuanniguaiMd10011B_OL"
+   ],
+   "static_switches_informational": {
+    "UseGhost": true,
+    "UseIDMask": false,
+    "UseMainTex": true,
+    "UseVertexColorB_InnerOutline": true,
+    "UseVertexGreen_OutlineWidth": true
+   },
+   "round": "4"
+  },
+  {
+   "spec": "Outline_B_MainTexMasked2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "7b9978341820fa9aa3f1ffb244c0038282605f97"
+    ],
+    "base_pass_vs_hash": [
+     "6e99ddc2d463d9dff816fd5ae9cf893657c7b4ef"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4--eyeoutline; PS: evidence/validation/shaderdiff/roster_eyeoutline/outline/results_ps.json variants.maintex_masked2s_163686 (314218/314218 px bit-exact); VS #82884 == #114157 (WPO_B) symbolic (roster_charcom/vs_equiv.json)",
+   "ps_archive_index": 163686,
+   "vs_archive_index": [
+    82884
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1QianXiaMd20011Cloth_OL"
+   ],
+   "static_switches_informational": {
+    "UseMainTex": true,
+    "UseVertexColorB_InnerOutline": true,
+    "UseVertexGreen_OutlineWidth": true,
+    "UseClipSpaceOutline": true
+   },
+   "round": "4"
+  }
+ ],
+ "appended_by": [
+  "tools/shaderdiff/roster_eyeoutline/outline_registry.py (round 4)"
+ ]
+}

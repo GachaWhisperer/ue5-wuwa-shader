@@ -1,0 +1,213 @@
+// WuwaToonBasePass_WriteStencil.ush — eye parallax helper + M_WriteStencil (HET) base pass, shared by
+// WuwaToonBasePass_Eye.ush (Eye, Eye_HET) and WuwaToonBasePass_Face.ush (Face_HET).
+//
+// Line refs:
+//   E###  Eye PS      evidence/shaders/materials/MI_R2T1YangyangMd10011Eye/..TBasePassPSFNoLightMapPolicy__67697.asm.txt
+//   EH### Eye_HET PS  evidence/shaders/materials/MI_R2T1YangyangMd10011Eye_HET/..TBasePassPSFNoLightMapPolicy__176953.asm.txt
+//   WS### Face_HET PS evidence/shaders/materials/M_WriteStencil/..TBasePassPSFNoLightMapPolicy__259313.asm.txt (parent map;
+//                     Face_HET has no shader map of its own, research/shaders/ToonFace.md §8)
+#pragma once
+
+#include "WuwaToonBasePassShared.ush"
+
+// ---------------------------------------------------------------------------------------------------------------
+// Eye parallax occlusion loop (E149-182, E326-353, EH109-155). Height = EM.g in every instance: the swizzles are
+// t1.xyzw -> r8.y (E165), t1.xzwy -> r4.w (E336), t0.yxzw -> r7.x (EH) and all select component y.
+// (research/hlsl/ToonEye_BasePass.hlsl labels the first loop "EM.r"; the asm swizzle says G — the asm is followed.)
+// The step count is floor(min(|Vts.z|,1)*4+4) + 2, compared as float; gradients are ddx/ddy_coarse(UV0).
+// ---------------------------------------------------------------------------------------------------------------
+float2 WuwaEyePOM(Texture2D EM, SamplerState EMSampler, float2 UV0, float2 P, float VtsZ)
+{
+	float nl = min(abs(VtsZ), 1.0) * 4.0 + 4.0;
+	float iters = floor(nl) + 2.0;
+	float stepSize = 1.0 / nl;
+	float2 stepVec = stepSize * P;
+	float2 dx = ddx_coarse(UV0);
+	float2 dy = ddy_coarse(UV0);
+	float  layer = 1.0, prevLayer = 1.0, prevH = 1.0;
+	float2 off = float2(0.0, 0.0);
+	int i = 0;
+	[loop]
+	while (true)
+	{
+		if ((float)i >= iters) break;
+		float h = EM.SampleGrad(EMSampler, off + UV0, dx, dy).g;
+		if (layer < h)
+		{
+			float dl = prevLayer - prevH;
+			float dh = h - layer;
+			float t = dh / (dh + dl);
+			off = -t * stepVec + off;
+			break;
+		}
+		float nextLayer = -stepSize + layer;
+		off = P * stepSize + off;
+		i = i + 1;
+		prevLayer = layer;
+		prevH = h;
+		layer = nextLayer;
+	}
+	return off;
+}
+
+// Tangent-space view vector and the parallax direction P (E138-148, EH114-125).
+//   ParallaxOffset mirrored per eye: lerp((-PO.x, PO.y, PO.z), PO, EyeSide)  (EyeSide = vertex colour G).
+//   P = -(po + Vts).xy / (po + Vts).z * HeightScale.
+float2 WuwaEyeParallaxDir(float3 WorldTangent, float3 Bitangent, float3 WorldNormal, float3 V, float3 ParallaxOffset,
+	float EyeSide, float HeightScale, out float VtsZ)
+{
+	float3 Vts = float3(dot(WorldTangent, V), dot(Bitangent, V), dot(WorldNormal, V));
+	float3 po = float3(ParallaxOffset.x * -1.0, ParallaxOffset.y, ParallaxOffset.z);   // preshaders -PO.x, PO.y, PO.z
+	po = EyeSide * (ParallaxOffset - po) + po;
+	float3 r = po + Vts;
+	VtsZ = Vts.z;
+	return (-r.xy / r.z) * HeightScale;
+}
+
+// Iris scale about the centre inside the EM.a mask (E183-191, EH156-166):
+//   scale = mad(smoothstep(sat((0.9 - EM.a) * 1/0.7)), EyeScale*EyeSize - 1, 1).
+float2 WuwaEyeIrisScale(float EMa, float EyeScale, float2 EyeSize)
+{
+	float s = saturate((0.9 - EMa) * asfloat(0x3FB6DB6Eu));   // 1.42857146
+	s = (s * s) * (s * -2.0 + 3.0);
+	precise float2 ess = EyeScale * EyeSize;                 // preshader EyeScale * EyeSize.xy (rounded before the -1)
+	return s * (ess + -1.0) + 1.0;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// E_Link split-screen mask (EH79-107, WS69-96). E_Link_AngleLinePosLineDis = (angle1°, linePos, lineDis, angle2°).
+// Returns 1 when E_Link_UseSplitScreen < 0.1. ScreenUV = (SvPosition.xy - ViewRectMin) * ViewSizeAndInvSize.zw.
+// ---------------------------------------------------------------------------------------------------------------
+float WuwaLinkSplitMask(float E_Link_UseSplitScreen, float4 E_Link_AngleLinePosLineDis, float E_LinkPos,
+	float2 ScreenUV, float4 ViewSizeAndInvSize)
+{
+	float link = 1.0;
+	if (E_Link_UseSplitScreen >= 0.1)
+	{
+		const float k = asfloat(0x40C90FDBu);   // preshader constant 6.28319 (2*pi float)
+		// preshader x / 360 * 2pi: precise keeps the true division (fxc otherwise emits x * (1/360), fix WS1)
+		precise float a1 = (E_Link_AngleLinePosLineDis.x / 360.0) * k;
+		precise float a2 = (E_Link_AngleLinePosLineDis.w / 360.0) * k;
+		float2 r1 = float2(cos(a1), sin(a1) * -1.0);          // preshader rows cb[49].xy / cb[51].xy
+		float2 r2 = float2(cos(a2), sin(a2) * -1.0);
+		float  linePos  = E_Link_AngleLinePosLineDis.y;
+		float  linePos2 = E_Link_AngleLinePosLineDis.y + E_Link_AngleLinePosLineDis.z;
+		float  aspect = max(ViewSizeAndInvSize.x / ViewSizeAndInvSize.y, 1.0);
+		float  x1 = aspect * linePos;
+		float  ux = ScreenUV.x * aspect;
+		float  d1 = dot(float2(ux, ScreenUV.y) - float2(x1, 0.5), r1);
+		d1 = aspect * linePos + d1;
+		bool   b1 = (d1 >= x1);
+		float  f1 = b1 ? 1.0 : 0.0;
+		float  x2 = aspect * linePos2;
+		float  d2 = dot(float2(ux, ScreenUV.y) - float2(x2, 0.5), r2);
+		d2 = linePos2 * aspect + d2;
+		bool   b2 = (d2 >= x2);
+		float  f2 = b2 ? 1.0 : 0.0;
+		float  m = (b2 ? -1.0 : -0.0) + f1;
+		m = max(m, 0.0);
+		float  zA = b1 ? 0.0 : 1.0;
+		float  zB = b1 ? -0.0 : -1.0;
+		m = m + zB;
+		m = saturate(E_LinkPos * 2.0) * m + zA;                 // preshader saturate(E_LinkPos*2)
+		m = saturate(E_LinkPos * 2.0 - 1.0) * (f2 - m) + m;     // preshader saturate(E_LinkPos*2 - 1)
+		link = m;
+	}
+	return min(link, 1.0);
+}
+
+// Kuro per-primitive screen dither (EH170-186, WS111-126). Primitive[43].x > 0 enables, .y = fade (Kuro extension [U]).
+// Returns the value the PS feeds to discard (< 0 discards).
+float WuwaPrimDitherClip(float KuroPrimDitherEnable, float KuroPrimDitherFade, float2 SvPositionXY)
+{
+	float f = (0.0 < KuroPrimDitherEnable) ? saturate(KuroPrimDitherFade) : 1.0;
+	bool  partial = (f < 1.0);
+	float thr = (f + f) / (f + 1.0);
+	float2 cell = floor(SvPositionXY * 0.25);
+	float n = frac(dot(cell, float2(asfloat(0x3D897143u), asfloat(0x3BBF4590u))));   // 0.0671105608, 0.00583714992
+	n = frac(n * asfloat(0x4253EE82u));                                             // 52.9829178
+	thr = thr - n;
+	return partial ? thr : 1.0;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// M_WriteStencil base pass (MSM_ToonCommon id 12, BLEND_Masked, clip 0.3333). Colour targets are null; it writes the
+// normal + flags, i.e. the material exists for depth/stencil (stencil state is pipeline state, not in DXBC [U]).
+//   bParallax = static switch UseParallax (Eye_HET true; Face_HET false).
+// OpacityMask: route to the material's Opacity Mask (clip value 0.3333 reproduces "mad(x, fade, -0.3333)" < 0).
+// The primitive dither is applied inside with clip() (equivalent to the asm's min(dither, mask) < 0 discard).
+// ---------------------------------------------------------------------------------------------------------------
+// UVMask = UV for the parallax march and the mask (UV0; UseUV2 -> TEXCOORD1.xy, PS __261099); EM.a keeps UV0.
+// bDiffColorEyes (M_WriteStencil UseDifferentColorEyes, PS __143118 l.125-140): two eyes side by side in the atlas; the
+// iris-scale centre is (0.25, 0.5) when the parallaxed U <= 0.5, else (0.75, 0.5), instead of (0.5, 0.5). Yangyang: false.
+FWuwaToonGBuffer WuwaToonWriteStencil_Impl(const bool bParallax, const bool bDiffColorEyes,
+	Texture2D EM, SamplerState EMSampler, Texture2D Mask, SamplerState MaskSampler,
+	float2 UV0, float2 UVMask, float EyeSide, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 CameraVector, float2 SvPositionXY,
+	float4 SelectionColor, float E_Link_UseSplitScreen, float4 E_Link_AngleLinePosLineDis, float E_LinkPos,
+	float3 ParallaxOffset, float ParallaxHeight, float EyeScale, float2 EyeSize, float E_Dissolve_Progress, float UseEyeHET,
+	float KuroPrimDitherEnable, float KuroPrimDitherFade,
+	float4 ViewSizeAndInvSize, float2 ViewRectMin, float MaterialTextureMipBias, float4 NormalOverrideParameter,
+	float KuroGBufferMode, float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask,
+	float3 ObjectWorldPosition, float3 ObjectBounds, uint LightingChannelMask, out float OpacityMask)
+{
+	FWuwaToonGBuffer G;
+	// EH58-60: bitangent; EH61-62: screen UV
+	float3 B = cross(WorldNormal, WorldTangent) * TangentSign;
+	float2 ScreenUV = (SvPositionXY - ViewRectMin) * ViewSizeAndInvSize.zw;
+	float3 V = CameraVector;
+
+	// EH68-77: N = normalize(TangentToWorld * normalize(NormalOverride.xyz + NormalOverride.w * (0,0,1)))
+	float3 nTS = NormalOverrideParameter.w * float3(0.0, 0.0, 1.0) + NormalOverrideParameter.xyz;
+	nTS = nTS * rsqrt(dot(nTS, nTS));
+	float3 N = B * nTS.y;
+	N = nTS.x * WorldTangent + N;
+	N = nTS.z * WorldNormal + N;
+	N = N * rsqrt(dot(N, N));
+
+	// EH78: emissive = SelectionColor.rgb * SelectionColor.a
+	float3 E = SelectionColor.rgb * SelectionColor.a;
+
+	// EH79-108: split-screen link mask
+	float link = WuwaLinkSplitMask(E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis, E_LinkPos, ScreenUV, ViewSizeAndInvSize);
+
+	// EH109-155: parallax (Eye_HET only; height scale is ParallaxHeight alone, no (1 - EM.g) factor)
+	float2 off = float2(0.0, 0.0);
+	if (bParallax)
+	{
+		float VtsZ;
+		float2 P = WuwaEyeParallaxDir(WorldTangent, B, WorldNormal, V, ParallaxOffset, EyeSide, ParallaxHeight, VtsZ);
+		off = WuwaEyePOM(EM, EMSampler, UVMask, P, VtsZ);
+	}
+
+	// EH156-169 / WS99-110: iris-scaled mask sample, opacity
+	float2 uvc = (off + UVMask) + -0.5;
+	float  linkM = link + asfloat(0xBEAA7EFAu);                                    // -0.333
+	float  emA = EM.SampleBias(EMSampler, UV0, MaterialTextureMipBias).a;
+	float2 sc  = WuwaEyeIrisScale(emA, EyeScale, EyeSize);
+	float  m;
+	if (bDiffColorEyes)
+	{
+		float2 uvp = off + UVMask;
+		float2 cen = (0.5 >= uvp.x) ? float2(0.25, 0.5) : float2(0.75, 0.5);
+		m = Mask.SampleBias(MaskSampler, (uvp - cen) * sc + cen, MaterialTextureMipBias).r;
+	}
+	else
+	{
+		m = Mask.SampleBias(MaskSampler, uvc * sc + 0.5, MaterialTextureMipBias).r;
+	}
+	float  fade = saturate(1.0 - saturate(E_Dissolve_Progress + UseEyeHET));      // preshader
+	OpacityMask = min(m, linkM) * fade;                                            // engine: clip(OpacityMask - 0.3333)
+
+	// EH170-188: Kuro primitive dither
+	clip(WuwaPrimDitherClip(KuroPrimDitherEnable, KuroPrimDitherFade, SvPositionXY));
+
+	// EH221-282: outputs
+	G.Emissive = WuwaBPFinalEmissive(E, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+	G.A = float4(WuwaBPOctEncode(N), 0.0, (KuroGBufferMode == 1.0) ? 1.0 : 0.0);
+	G.B = float4(0.0, 0.0, 0.0, WuwaBPShadingModelByte(LightingChannelMask, 12u));
+	G.C = float4(0.0, 0.0, 0.0, 0.0);
+	G.D = float4(0.0, 0.0, 0.0, 0.0);
+	return G;
+}

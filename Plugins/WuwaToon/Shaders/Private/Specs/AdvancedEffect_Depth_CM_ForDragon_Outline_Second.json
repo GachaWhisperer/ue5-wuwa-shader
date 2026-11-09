@@ -1,0 +1,1045 @@
+{
+ "name": "AdvancedEffect_Depth_CM_ForDragon_Outline_Second",
+ "entry": "WuwaDepthFX_DragonSecond",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_DepthFX.ush",
+ "kuro_shading_model": "MSM_ToonCommon in the root material, but the base pass is forward unlit (no lighting, no GBuffer)",
+ "kuro_asm": "M_AdvancedEffect_Depth_CM_ForDragon_Outline PS 689667b14e (#310093) / VS 306aa3ba (#310091); Second + Dissolve + Mask + BumpNoise (outline shell)",
+ "kuro_root_material": "M_AdvancedEffect_Depth_CM_ForDragon_Outline",
+ "blend_mode": "BLEND_Translucent",
+ "two_sided": false,
+ "resolve": false,
+ "resolve_note": "\"Depth\" is a DEPTH DITHER of the opacity, not a scene-depth read (no SceneDepth / SceneTexture in the PS): threshold = UE DitherTemporalAA ((uint(Pix.x + TAA.x) + 2 uint(Pix.y + TAA.x)) % 5 + noise(Pix/64).r) / 6 against op * lerp(DepthDitherFactorNight, DepthDitherFactorDay, lerp(MPC GlobalDayNightFactor, 1, UseWholeDayDither >= 0.2)); soft form: Opacity = saturate(op * (op * f + dither - 0.5)). forward translucent unlit: Emissive + Opacity to a UE translucent unlit material. Kuro engine tail (not ported, UE applies its own): opacity *= Kuro primitive fade (Primitive[43]); colour = max(E, 0) (*View[285] unless Primitive[42].w), OOB stripes, vertex fog (TEXCOORD7 inscatter + transmittance) / volumetric fog; o0 = (max(rgb * fogT + fogI, 0), opacity), single target (no o1, no Kuro effect grading).",
+ "vs_note": "VS 306aa3ba10 (#310091): inverted-hull outline extrusion; material reads only OutlineClipWidth / OutlineHoldDistance / InnerOutlineOffset = the character-outline WPO family A_NoVG. Verified bit-exact on SV_POSITION against WuwaToonOutlineWPO_A_NoVG (tools/shaderdiff/weapons/r3/depthfx_vs_wpo.py, evidence/validation/shaderdiff/weapons/round3/depthfx/results_vs_wpo_depthfx_final.json).",
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "material Emissive Color (before the engine translucent tail: fog, OOB, Kuro effect grading)"
+  },
+  "Opacity": {
+   "type": "float",
+   "kuro": "material Opacity (o0.a = o1.a after the tail)"
+  }
+ },
+ "inputs": [
+  {
+   "name": "Second",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Second",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "SecondSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Second",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "SecondSampler"
+  },
+  {
+   "name": "Base",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Base",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "BaseSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Base",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "BaseSampler"
+  },
+  {
+   "name": "Dissolve",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Dissolve",
+   "default": "T_Mask_80010",
+   "note": "reference MI MI_Trans_Snake_Outline_80020_CM: {'ObjectName': \"Texture2D'T_Mask_80010'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/Mask/T_Mask_80010.1'}"
+  },
+  {
+   "name": "DissolveSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Dissolve",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "DissolveSampler"
+  },
+  {
+   "name": "Mask",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Mask",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "MaskSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Mask",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MaskSampler"
+  },
+  {
+   "name": "BumpNoise",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "BumpNoise",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "BumpNoiseSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "BumpNoise",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "BumpNoiseSampler"
+  },
+  {
+   "name": "DitherNoise",
+   "type": "Texture2D",
+   "kind": "engine_texture",
+   "default": "Good64x64TilingNoiseHighFreq",
+   "asset": "/Engine/EngineMaterials/Good64x64TilingNoiseHighFreq",
+   "ue_expr": "Texture Object /Engine/EngineMaterials/Good64x64TilingNoiseHighFreq (the texture of UE's DitherTemporalAA material function; not a parameter)",
+   "kuro": "material ReferencedTextures: Engine/Content/EngineMaterials/Good64x64TilingNoiseHighFreq (sampled .r at (SvPosition.xy - ViewRectMin) / 64, wrap)"
+  },
+  {
+   "name": "DitherNoiseSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "DitherNoise",
+   "sampler_source": "wrap (engine texture sampler)",
+   "ue_expr": "DitherNoiseSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "UV1",
+   "type": "float2",
+   "kind": "uv",
+   "index": 1
+  },
+  {
+   "name": "UV2",
+   "type": "float2",
+   "kind": "uv",
+   "index": 2
+  },
+  {
+   "name": "UV3",
+   "type": "float2",
+   "kind": "uv",
+   "index": 3
+  },
+  {
+   "name": "SvPositionXY",
+   "type": "float2",
+   "kind": "svposition",
+   "ue_expr": "Parameters.SvPosition.xy"
+  },
+  {
+   "name": "ViewRectMin",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewRectMin.xy",
+   "kuro": "View[134].xy"
+  },
+  {
+   "name": "ViewSizeAndInvSize",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewSizeAndInvSize",
+   "kuro": "View[135]"
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  },
+  {
+   "name": "TemporalAAParamsX",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.TemporalAAParams.x",
+   "kuro": "View[158].x",
+   "note": "DitherTemporalAA frame offset (integer-valued; 0 without TAA)"
+  },
+  {
+   "name": "KuroViewLightColorA",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true,
+   "kuro": "View[193].xyz (Kuro view colour, averaged with View[292] for the effect \"light colour\" tint) [U]"
+  },
+  {
+   "name": "KuroViewLightColorB",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true,
+   "kuro": "View[292].xyz (see KuroViewLightColorA) [U]"
+  },
+  {
+   "name": "UseSpecificTime",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseSpecificTime",
+   "default": 0.0
+  },
+  {
+   "name": "EffectTime",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EffectTime",
+   "default": 0.0
+  },
+  {
+   "name": "EffectTimeScale",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EffectTimeScale",
+   "default": 1.0
+  },
+  {
+   "name": "Second_UVSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Second_UVSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Second_bScreenUV",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Second_bScreenUV",
+   "default": 0.0
+  },
+  {
+   "name": "Second_RotCos",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Second_Rotation"
+   ],
+   "expr": "cos(Second_Rotation * 6.2831855)",
+   "ue_nodes": "Cosine[Period 0](Multiply(ScalarParameter \"Second_Rotation\", 6.2831855 = 0x40C90FDB))",
+   "default": 1.0
+  },
+  {
+   "name": "Second_RotSin",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Second_Rotation"
+   ],
+   "expr": "sin(Second_Rotation * 6.2831855)",
+   "ue_nodes": "Sine[Period 0](Multiply(ScalarParameter \"Second_Rotation\", 6.2831855 = 0x40C90FDB))",
+   "default": 0.0
+  },
+  {
+   "name": "Second_UV",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Second_UV",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Second_UV_Offset",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Second_UV_Offset",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Second_bClamp",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Second_bClamp",
+   "default": 0.0
+  },
+  {
+   "name": "Second_Contorl",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Second_Contorl",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Base_UVSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Base_UVSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Base_bScreenUV",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Base_bScreenUV",
+   "default": 0.0
+  },
+  {
+   "name": "Base_RotCos",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Base_Rotation"
+   ],
+   "expr": "cos(Base_Rotation * 6.2831855)",
+   "ue_nodes": "Cosine[Period 0](Multiply(ScalarParameter \"Base_Rotation\", 6.2831855 = 0x40C90FDB))",
+   "default": 1.0
+  },
+  {
+   "name": "Base_RotSin",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Base_Rotation"
+   ],
+   "expr": "sin(Base_Rotation * 6.2831855)",
+   "ue_nodes": "Sine[Period 0](Multiply(ScalarParameter \"Base_Rotation\", 6.2831855 = 0x40C90FDB))",
+   "default": 0.0
+  },
+  {
+   "name": "Base_UV",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Base_UV",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Base_UV_Offset",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Base_UV_Offset",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Base_bClamp",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Base_bClamp",
+   "default": 0.0
+  },
+  {
+   "name": "Base_EmissiveSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Base_EmissiveSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Base_bUseChannelAsEmissive",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Base_bUseChannelAsEmissive",
+   "default": 0.0
+  },
+  {
+   "name": "Base_Refine",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Base_Refine",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    0.5
+   ]
+  },
+  {
+   "name": "Base_Emissive_Add",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Base_Emissive_Add",
+   "default": 0.0
+  },
+  {
+   "name": "Base_bAddSecond",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Base_bAddSecond",
+   "default": 0.0
+  },
+  {
+   "name": "Base_ColorTint",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Base_ColorTint",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Base_AlphaSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Base_AlphaSwitch",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Base_Alpha_Multiply",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Base_Alpha_Multiply",
+   "default": 1.0
+  },
+  {
+   "name": "Dissolve_UVSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Dissolve_UVSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Dissolve_bScreenUV",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_bScreenUV",
+   "default": 0.0
+  },
+  {
+   "name": "Dissolve_RotCos",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "DIssolve_Rotation"
+   ],
+   "expr": "cos(DIssolve_Rotation * 6.2831855)",
+   "ue_nodes": "Cosine[Period 0](Multiply(ScalarParameter \"DIssolve_Rotation\", 6.2831855 = 0x40C90FDB))",
+   "default": 1.0
+  },
+  {
+   "name": "Dissolve_RotSin",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "DIssolve_Rotation"
+   ],
+   "expr": "sin(DIssolve_Rotation * 6.2831855)",
+   "ue_nodes": "Sine[Period 0](Multiply(ScalarParameter \"DIssolve_Rotation\", 6.2831855 = 0x40C90FDB))",
+   "default": 0.0
+  },
+  {
+   "name": "Dissolve_UV",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Dissolve_UV",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "DIssolve_TimeOffset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "DIssolve_TimeOffset",
+   "default": 0.0
+  },
+  {
+   "name": "Dissolve_bClamp",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_bClamp",
+   "default": 0.0
+  },
+  {
+   "name": "Dissolve_UOffset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_UOffset",
+   "default": 0.0
+  },
+  {
+   "name": "Dissolve_VOffset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_VOffset",
+   "default": 0.0
+  },
+  {
+   "name": "Dissolve_ChannelSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Dissolve_ChannelSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Dissolve_MaskLerp",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_MaskLerp",
+   "default": 0.0
+  },
+  {
+   "name": "Dissolve_Invert",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_Invert",
+   "default": 0.0
+  },
+  {
+   "name": "Dissolve_Smooth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_Smooth",
+   "default": 5.0
+  },
+  {
+   "name": "Dissolve_Dissolve",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_Dissolve",
+   "default": 1.0
+  },
+  {
+   "name": "Dissolve_EdgeColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Dissolve_EdgeColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Mask_UVSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Mask_UVSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Mask_bScreenUV",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Mask_bScreenUV",
+   "default": 0.0
+  },
+  {
+   "name": "Mask_RotCos",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Mask_Rotation"
+   ],
+   "expr": "cos(Mask_Rotation * 6.2831855)",
+   "ue_nodes": "Cosine[Period 0](Multiply(ScalarParameter \"Mask_Rotation\", 6.2831855 = 0x40C90FDB))",
+   "default": 1.0
+  },
+  {
+   "name": "Mask_RotSin",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Mask_Rotation"
+   ],
+   "expr": "sin(Mask_Rotation * 6.2831855)",
+   "ue_nodes": "Sine[Period 0](Multiply(ScalarParameter \"Mask_Rotation\", 6.2831855 = 0x40C90FDB))",
+   "default": 0.0
+  },
+  {
+   "name": "Mask_UV",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Mask_UV",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Mask_UV_Offset",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Mask_UV_Offset",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Mask_bClamp",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Mask_bClamp",
+   "default": 0.0
+  },
+  {
+   "name": "Mask_AlphaSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Mask_AlphaSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Mask_Invert",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Mask_Invert",
+   "default": 0.0
+  },
+  {
+   "name": "Mask_Alpha_Multiply",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Mask_Alpha_Multiply",
+   "default": 1.0
+  },
+  {
+   "name": "LightColorStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightColorStrength",
+   "default": 0.10000000149011612
+  },
+  {
+   "name": "NiagaraShiftLowGrayColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "NiagaraShiftLowGrayColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "name": "NiagaraShiftHighGrayColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "NiagaraShiftHighGrayColor",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "NiagaraShiftColorParam",
+   "type": "float",
+   "kind": "scalar",
+   "param": "NiagaraShiftColorParam",
+   "default": 0.0
+  },
+  {
+   "name": "BumpOffsetTexUV_S_O",
+   "type": "float4",
+   "kind": "vector",
+   "param": "BumpOffsetTexUV_S_O",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "BumpNoiseColorMul",
+   "type": "float4",
+   "kind": "vector",
+   "param": "BumpNoiseColorMul",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Lerp",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Lerp",
+   "default": 0.0
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Dither_DitherValue",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_DitherValue",
+   "default": 1.2000000476837158
+  },
+  {
+   "name": "E_Dither_UseDither",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_UseDither",
+   "default": 0.0
+  },
+  {
+   "name": "UseWholeDayDither",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseWholeDayDither",
+   "default": 1.0
+  },
+  {
+   "name": "DepthDitherFactorDay",
+   "type": "float",
+   "kind": "scalar",
+   "param": "DepthDitherFactorDay",
+   "default": 4.0
+  },
+  {
+   "name": "DepthDitherFactorNight",
+   "type": "float",
+   "kind": "scalar",
+   "param": "DepthDitherFactorNight",
+   "default": 0.0
+  },
+  {
+   "name": "MPC_KuroEffectColorGradingDesaturate",
+   "type": "float",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "KuroEffectColorGradingDesaturate",
+   "default": 0.0,
+   "kuro": "cb3[16].y"
+  },
+  {
+   "name": "MPC_KuroEffectColorGradingTint",
+   "type": "float3",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "KuroEffectColorGradingTint",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    0.0
+   ],
+   "kuro": "cb3[55]"
+  },
+  {
+   "name": "MPC_GlobalDayNightFactor",
+   "type": "float",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalDayNightFactor",
+   "default": 0.0,
+   "kuro": "cb3[1].z (scalar 6)"
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  }
+ ],
+ "generated_by": "tools/shaderdiff/weapons/r3/make_specs_depthfx.py",
+ "notes": {
+  "textures": "t-slot <-> texture parameter assignment inferred from usage [U] (cooked maps keep only the first name; the names are the root material's texture parameters Noise / NoiseMask / Second / Base / Dissolve / Mask / BumpNoise, matched by role and by the MI overrides). DitherNoise is not a parameter: the engine texture Good64x64TilingNoiseHighFreq (DitherTemporalAA)."
+ },
+ "ue_material": {
+  "contract": "entry returns FWuwaFXOutput {float3 Emissive; float Opacity;} - no toon GBuffer, no WuwaToonResolve",
+  "shading_model": "MSM_Unlit",
+  "blend_mode": "BLEND_Translucent",
+  "two_sided": false,
+  "connect": {
+   "EmissiveColor": "X.Emissive",
+   "Opacity": "X.Opacity"
+  },
+  "opacity_mask_clip_value": null,
+  "note": "standard translucent unlit (SrcAlpha / InvSrcAlpha); UE applies fog"
+ },
+ "kuro_mis": [
+  "MI_Trans_Snake_Outline_80020_CM"
+ ],
+ "wpo": {
+  "entry": "WuwaToonOutlineWPO_A_NoVG",
+  "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_OutlineVS2.ush",
+  "connect": "World Position Offset (material output pin); offset in (translated) world space",
+  "inputs": [
+   {
+    "name": "UV1",
+    "type": "float2",
+    "kind": "uv",
+    "index": 1,
+    "note": "smoothed octahedral normal in texcoord 1 (Kuro outline bake)"
+   },
+   {
+    "name": "VertexColor",
+    "type": "float4",
+    "kind": "constant",
+    "value": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "note": "unused by A_NoVG"
+   },
+   {
+    "name": "VertexTangentWS",
+    "type": "float3",
+    "kind": "worldtangent",
+    "ue_expr": "Parameters.TangentToWorld[0]",
+    "ue_expr_note": "Round 4 compile fixes: was kind 'vs', ue_expr 'TangentToWorld[0] (VS, LocalToWorld * InvNonUniformScale basis)' (vertex-stage basis = the standard VS binding)",
+    "stage": "vs"
+   },
+   {
+    "name": "VertexBitangentWS",
+    "type": "float3",
+    "kind": "worldtangent",
+    "ue_expr": "Parameters.TangentToWorld[1]",
+    "ue_expr_note": "Round 4 compile fixes: was kind 'vs', ue_expr 'TangentToWorld[1] (VS)' (vertex-stage basis = the standard VS binding)",
+    "channel": "bitangent",
+    "stage": "vs"
+   },
+   {
+    "name": "VertexNormalWS",
+    "type": "float3",
+    "kind": "worldnormal",
+    "ue_expr": "Parameters.TangentToWorld[2]",
+    "ue_expr_note": "Round 4 compile fixes: was kind 'vs', ue_expr 'TangentToWorld[2] (VS)' (vertex-stage basis = the standard VS binding)",
+    "stage": "vs"
+   },
+   {
+    "name": "ObjectAxisScale",
+    "type": "float3",
+    "kind": "primitive",
+    "ue_expr": "GetPrimitiveData(Parameters).NonUniformScale.xyz",
+    "ue_expr_note": "Round 4 compile fixes: was 'float3(length(LocalToWorld[0].xyz), length(LocalToWorld[1].xyz), length(LocalToWorld[2].xyz))' (LocalToWorld row lengths = Primitive NonUniformScale.xyz (as Outline_*))"
+   },
+   {
+    "name": "TranslatedWorldPosition",
+    "type": "float3",
+    "kind": "worldposition",
+    "note": "the original uses absolute WP (TWP - PreViewTranslation) with WorldToClip / ClipToWorld; equivalent translated form in UE"
+   },
+   {
+    "name": "TranslatedWorldCameraOrigin",
+    "type": "float3",
+    "kind": "view",
+    "ue_expr": "ResolvedView.TranslatedWorldCameraOrigin"
+   },
+   {
+    "name": "TranslatedWorldToClip",
+    "type": "float4x4",
+    "kind": "view",
+    "ue_expr": "ResolvedView.TranslatedWorldToClip",
+    "kuro": "View[4..7] WorldToClip"
+   },
+   {
+    "name": "ClipToTranslatedWorld",
+    "type": "float4x4",
+    "kind": "view",
+    "ue_expr": "ResolvedView.ClipToTranslatedWorld",
+    "kuro": "View[8..11] ClipToWorld"
+   },
+   {
+    "name": "PreViewTranslation",
+    "type": "float3",
+    "kind": "view",
+    "ue_expr": "ResolvedView.PreViewTranslation"
+   },
+   {
+    "name": "ClipToView00",
+    "type": "float",
+    "kind": "view",
+    "kuro": "View[36].x"
+   },
+   {
+    "name": "ClipToView11",
+    "type": "float",
+    "kind": "view",
+    "kuro": "View[37].y"
+   },
+   {
+    "name": "ViewSizeAndInvSize",
+    "type": "float4",
+    "kind": "view",
+    "kuro": "View[135]"
+   },
+   {
+    "name": "KuroOutlinePixelScale",
+    "type": "float",
+    "kind": "view",
+    "kuro": "View[280].y",
+    "ue_expr": null,
+    "default": 1.0
+   },
+   {
+    "name": "OutlineClipWidth",
+    "type": "float",
+    "kind": "scalar",
+    "param": "OutlineClipWidth",
+    "default": 1.0
+   },
+   {
+    "name": "OutlineHoldDistance",
+    "type": "float",
+    "kind": "scalar",
+    "param": "OutlineHoldDistance",
+    "default": 0.5
+   },
+   {
+    "name": "InnerOutlineOffset",
+    "type": "float",
+    "kind": "scalar",
+    "param": "InnerOutlineOffset",
+    "default": 0.5
+   },
+   {
+    "name": "KuroEnablePrimitiveOffset",
+    "type": "float",
+    "kind": "view",
+    "kuro": "View[308].x",
+    "default": 0.0
+   },
+   {
+    "name": "KuroPrimitiveOffset",
+    "type": "float4",
+    "kind": "primitive",
+    "kuro": "Primitive[44]",
+    "default": [
+     0,
+     0,
+     0,
+     0
+    ]
+   }
+  ]
+ }
+}

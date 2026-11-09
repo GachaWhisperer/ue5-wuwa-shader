@@ -1,0 +1,220 @@
+// WuwaToonCommon.ush — shared helpers recovered from Kuro's compiled shaders.
+// Provenance for every function: research/hlsl/KuroToonShading_Deferred.hlsl (asm line citations there).
+#pragma once
+
+static const float3 WUWA_LUMA = float3(0.3, 0.59, 0.11);   // Kuro luma weights (not UE's Rec.709)
+
+// x*x*(3-2x); the compiled shaders inline this as mad(x,-2,3)*x*x everywhere.
+float  WuwaSmooth01(float x)  { return x * x * (3.0 - 2.0 * x); }
+float3 WuwaSmooth01(float3 x) { return x * x * (3.0 - 2.0 * x); }
+
+// GBufferA toon normal decode (FKuroToonShadingPS L66-80). Standard octahedral mapping.
+float3 WuwaOctDecode(float2 Enc01)
+{
+	float2 o = Enc01 * 2.0 - 1.0;
+	float3 n = float3(o, 1.0 - (abs(o.x) + abs(o.y)));   // L70-71: dp2(|o|) then 1 - sum
+	float  t = max(-n.z, 0.0);
+	n.xy -= float2(o.x >= 0.0 ? 0.5 : -0.5, o.y >= 0.0 ? 0.5 : -0.5) * t * 2.0;   // per-component: HLSL 2021 forbids vector ?:
+	return normalize(n);
+}
+
+// Inverse of WuwaOctDecode, for writing toon normals in the same encoding.
+float2 WuwaOctEncode(float3 N)
+{
+	N /= (abs(N.x) + abs(N.y) + abs(N.z));
+	float2 o = N.z >= 0.0 ? N.xy : (1.0 - abs(N.yx)) * float2(N.x >= 0.0 ? 1.0 : -1.0, N.y >= 0.0 ? 1.0 : -1.0);
+	return o * 0.5 + 0.5;
+}
+
+// RGB->HSV exactly as compiled (UE RGBtoHCV with epsilon 0.001, S = C/(V+0.001)).
+float3 WuwaRGBtoHSV(float3 I)
+{
+	// L213-225: compiled as lerp(.., .., step()) (Hocevar), not a select: b + 1*(g-b) and 2/3 - 1 round differently.
+	float4 P = lerp(float4(I.b, I.g, -1.0, 2.0 / 3.0), float4(I.g, I.b, 0.0, -1.0 / 3.0), step(I.b, I.g));
+	float4 Q = lerp(float4(P.x, P.y, P.w, I.r), float4(I.r, P.y, P.z, P.x), step(P.x, I.r));
+	float  C = Q.x - min(Q.w, Q.y);
+	return float3(abs((Q.w - Q.y) / (6.0 * C + 0.001) + Q.z), C / (Q.x + 0.001), Q.x);
+}
+
+float3 WuwaHSVtoRGB(float3 HSV)
+{
+	float3 rgb = saturate(abs(frac(HSV.x + float3(1.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0);
+	return ((rgb - 1.0) * HSV.y + 1.0) * HSV.z;
+}
+
+// Mirrors the Kuro View uniform additions consumed by FKuroToonShadingPS (View[286..306]).
+// In this project they are supplied by AWuwaToonEnvironment through a Material Parameter Collection.
+struct FWuwaToonAmbientParams
+{
+	float  AOStrength;        // View[286].z
+	float2 GIEnable;          // View[289].xy : x = HSV indirect path, y = GI tint path
+	float3 AmbientParams;     // View[298].xyz: x shadow-ambient scale, y AO-term blend, z rim albedo blend
+	float3 AmbientA_Far;      // View[299]
+	float3 AmbientB_Far;      // View[300]
+	float3 MainLightColor;    // View[301]
+	float3 MainLightDir;      // View[302]
+	float3 AORemap;           // View[303].xyz: min, max, blend
+	float2 DepthGradient;     // View[304].xy : distance, exponent
+	float3 AmbientB_Near;     // View[305]
+	float3 AmbientA_Near;     // View[306]
+};
+
+struct FWuwaToonAmbientResult
+{
+	float3 Ambient;           // final toon ambient before local lights (r0.xyw after L363)
+	float3 LitForLocal;       // r8: colour used as the "lit" base for toon local lights
+	float  MixF;              // r11.x
+	float  S4;                // r11.y
+};
+
+// FKuroToonShadingPS L157-363. FactorZ = GBufferA.z, FlagW = GBufferA.w, AmbShadowFactor = GBufferD.z.
+// IndirectDiffuse is only read when P.GIEnable.x != 0 && PassGIEnable.
+FWuwaToonAmbientResult WuwaToonAmbient(FWuwaToonAmbientParams P, float Depth, float AO, float3 Albedo, float3 ShadowColor,
+	float FactorZ, float FlagW, float AmbShadowFactor, bool bIsOutline, bool PassGIEnable, float3 IndirectDiffuse)
+{
+	FWuwaToonAmbientResult R;
+	float  aoScaled = AO * P.AOStrength;
+	float  depthT = exp2(log2(saturate(Depth / max(P.DepthGradient.x, 0.001))) * P.DepthGradient.y);
+	float3 colA = lerp(P.AmbientA_Near, P.AmbientA_Far, depthT);
+	float3 colB = lerp(P.AmbientB_Near, P.AmbientB_Far, depthT);
+	float  s1 = WuwaSmooth01(saturate(FactorZ + FactorZ));
+	float  s2 = WuwaSmooth01(saturate((FactorZ - 0.5) * 2.0));
+	float  s3 = WuwaSmooth01(min(dot(abs(colB - colA), WUWA_LUMA) * 10.0, 1.0));
+	float  invR = 1.0 / (P.AORemap.y - P.AORemap.x);
+	float  k1 = s2 * s3 * WuwaSmooth01(saturate((aoScaled - P.AORemap.x) * invR));
+	float  aoAdj = P.AORemap.z * (aoScaled - k1) + k1;
+	float  k2 = s2 * s3 * WuwaSmooth01(saturate((aoAdj - P.AORemap.x) * invR));
+	float  mixF = P.AORemap.z * (s2 * s3 - k2) + k2;
+	float  shadowAmbW = AmbShadowFactor * aoAdj * 10.0;
+	float  aoTerm = P.AmbientParams.y * (aoAdj - 1.0) + 1.0;
+
+	bool   giOn = (P.GIEnable.x != 0) && PassGIEnable;
+	float3 tint = 1.0;
+	if (giOn)
+	{
+		float3 hsv = WuwaRGBtoHSV(IndirectDiffuse);
+		bool   flag = (uint)(FlagW * 3.1) == 1;
+		float2 sv = flag ? float2(0.70000005, 1.0) : float2(0.64, 0.9);   // 0x3f333334 (L235)
+		float  S1 = min(hsv.y * sv.x, 0.25);
+		// L239-241: (H,S1,1) * lerp(0.9, 1, mixF), distributed; 0.100000024 = 1 - 0.9f (0x3dccccd0)
+		const float kG = 0.100000024;
+		float3 rgb = WuwaHSVtoRGB(float3(hsv.x * 0.9 + (mixF * hsv.x) * kG, saturate(S1 * 0.9 + (mixF * S1) * kG), saturate(0.9 + mixF * kG)));
+		tint = sv.y * (rgb * (S1 + 1.0) - 1.0) + 1.0;
+	}
+	float3 shadowAmb = lerp(colA * 0.2, colB * 0.5, aoTerm) * P.AmbientParams.x * Albedo;
+	float3 mb = max(Albedo * 2.0404 - 0.3324 + Albedo * -4.7951 + Albedo * 2.7552 + 1.332, 1.0);
+	float3 litAmb = colA * mb * Albedo;
+	float  wLit = s1 * 0.3 + 0.7;
+	float3 litAmbW = wLit * litAmb;
+	float3 A0 = litAmb * wLit + shadowAmb * ShadowColor;
+	A0 = shadowAmb * ShadowColor * shadowAmbW + A0;
+	A0 = lerp(A0, Albedo * colB, mixF);
+	float3 A1 = (Albedo * colB - litAmbW) * mixF * 0.4 + litAmbW;   // L272-274 order
+	float3 ambient;
+	if (giOn) { A1 = A1 * tint + shadowAmb * ShadowColor; ambient = lerp(A1, A0 * tint, aoTerm); }
+	else      { A1 = shadowAmb * ShadowColor + A1;          ambient = lerp(A1, A0, aoTerm); }
+
+	float3 outlineAmb = (P.GIEnable.x != 0) ? (ambient * 0.1 + P.AmbientA_Far) * Albedo : Albedo * P.AmbientA_Far;
+	R.Ambient     = bIsOutline ? outlineAmb : ambient;
+	R.LitForLocal = bIsOutline ? outlineAmb : litAmbW;
+	R.MixF        = bIsOutline ? 0.0 : mixF;
+	R.S4          = bIsOutline ? 0.0 : WuwaSmooth01(saturate((FactorZ - 0.4) * 10.000001));
+	return R;
+}
+
+// One toon local light (ToonLocalLightData record of 9 float4; FKuroToonShadingPS L370-463).
+// Accum/Transm are carried across lights in order, exactly as the compiled loop does.
+void WuwaToonLocalLight(float4 L0, float4 L1, float4 L2, float4 L3, float4 L4, float4 L5, float4 L6, float4 L7, float4 L8,
+	float3 WorldPos, float3 N, float3 Albedo, float3 LitForLocal, float3 MainLightDir, float MixF, float S4,
+	uint SelectiveBits, inout float3 Accum, inout float Transm)
+{
+	if (L4.x == 0) return;
+	// Lighting-channel test (bfi 3,5): GBufferB.a bits 5..7 against the light's 3-bit mask in L7.w.
+	if ((SelectiveBits & (((uint)L7.w & 7) << 5)) == 0) return;
+	float3 toL = L0.xyz - WorldPos;
+	float  d2 = dot(toL, toL);
+	float  dn = L0.w * L0.w * d2;
+	if (!(dn <= 1.0)) return;
+	float  edge = 1.0 - WuwaSmooth01(saturate(dn * 2.5 - 1.5));
+	float3 Ld = toL * rsqrt(d2);
+	float  lo = L5.w * 0.94 - 0.5 * L8.x, hi = L8.x * 1.5 + L5.w;
+	float  stepT = min(WuwaSmooth01(saturate(((dot(N, Ld) + 1.0) * 0.5 - lo) * (1.0 / (hi - lo)))), 1.0);   // L404-407: rcp then mul_sat
+	float3 shadowC = LitForLocal * L6.xyz;
+	float3 lit = lerp(shadowC, Albedo * L5.xyz, stepT) * L7.x;
+	float3 u = toL * L0.w;
+	float  att = 1.0 / (dot(u, u) * L4.x + L4.y + 0.0001) - 1.0;
+	att = min((att * L4.z) * (att * L4.z), 1.0);
+	if ((((uint)L1.w >> 16) & 3) == 2)                // spot. Packed as uint bits in Kuro's cbuffer; see WuwaToon docs.
+	{
+		float c = saturate((dot(Ld, L1.xyz) - L2.x) * L2.y);
+		att *= (c * c) * (c * c);
+	}
+	float3 lightAxis = lerp(-MainLightDir, MainLightDir, MixF);   // L365-366: MixF*(L+L) - L
+	float  facing = saturate(dot(lightAxis, Ld) * 0.5 + 0.5);
+	float  fw = L4.w * (S4 * facing - MixF) + MixF;
+	float3 base = LitForLocal * L3.w;
+	base = fw * (Albedo - base) + base;
+	float  occl = saturate((L3.x + L3.y + L3.z + L7.x) * 10.0) * L7.y;
+	float  edgeAtt = L6.w * (edge - att) + att;
+	float3 shadowTerm = edgeAtt * shadowC * occl;
+	float3 hardRes = (att * (base * L3.xyz - shadowTerm) + shadowTerm + lit * att) * Transm + Accum;
+	float3 softRes = (base * L3.xyz * att + att * lit) * Transm + Accum;
+	Accum = (0.0 < L8.y) ? hardRes : softRes;
+	Transm *= 1.0 - edgeAtt * occl;
+}
+
+// Screen-space depth rim, part 1 (FKuroToonShadingPS L469-553): returns the UV offset (in view-rect
+// normalized units) at which the character depth must be sampled, plus values needed by part 2.
+struct FWuwaToonRimSetup { float2 Offset; float P; float DepthRange; float Intensity; };
+
+FWuwaToonRimSetup WuwaToonRimSetup(float RimParam, float RimWidthScale, float3 N, float3 Nview, float3 V, float3 L,
+	float Depth, float AOScaled, float FOVRelated)
+{
+	FWuwaToonRimSetup S;
+	S.P = saturate(RimParam - 0.1);
+	float  width = saturate(RimParam * 10.0) * RimWidthScale * 0.8 + 2.0 * S.P;
+	S.DepthRange = S.P * 2000.0 + 50.0;
+	float  NdL = dot(L, N);
+	float  wrap = WuwaSmooth01(saturate((NdL + 0.2) * 5.0));
+	float  NdH = saturate(dot(N, normalize(V + L)));
+	float  d = 1.0 - 0.8 * NdH * NdH;
+	float  spec = 0.2 / (d * d * 3.14159265) * AOScaled;
+	float  VdL = dot(L, V);
+	float  back = WuwaSmooth01(saturate((-0.5 - VdL) * 2.0)) + 1.0;
+	float  fres = max(0.8 - saturate(dot(V, N)), 0.0) * 1.5;
+	float  fovN = min(max(FOVRelated, 0.0), 1.74532926) * 0.57295781;   // 0x3fdf66f3, 0x3f12ad5d
+	float  dA = (3000.0 - min(max(Depth, 0.0), 3000.0)) * (1.0 / 3000.0);   // 0x39aec33e (asm prints 0.000333)
+	float  dB = (50.0 - min(max(Depth, 0.0), 50.0)) * 0.02;
+	float  distK = fovN * ((dA * dA) * (dA * dA) * (dA * dA) * (dA * dA) + dB - 1.0) + 1.0;
+	distK = S.P * (1.0 - distK) + distK;
+	float  rimW = fres * ((NdL + 1.0) * 0.25 + 0.5) * distK * back * 0.01;
+	float2 dir = normalize(Nview.xy + 0.0001);
+	float2 wd = width * dir;                                   // L540-543 grouping
+	S.Offset = float2(rimW * wd.x, -0.5 * (rimW * wd.y));
+	S.Intensity = ((1.0 - VdL) * 0.4 * (wrap * 0.8 + 0.2) + wrap * spec * 1.5) * (AOScaled * 0.5 + 0.5);
+	return S;
+}
+
+// Part 2 (L556-594): RimDepth is the linear character depth sampled at the offset UV.
+float3 WuwaToonRimColor(FWuwaToonRimSetup S, float RimDepth, float Depth, float3 Albedo, float3 MainLightColor,
+	float AOScaled, float RimAlbedoBlend, float3 RimTint, out float RimMask)
+{
+	float dd = max(RimDepth - Depth, 0.0001) - S.P * 1000.0;
+	RimMask = min(WuwaSmooth01(saturate(dd * (1.0 / S.DepthRange))), 1.0);   // L563-564: rcp then mul_sat
+	float  ll = dot(MainLightColor, WUWA_LUMA);
+	float3 desat = (MainLightColor - ll) * 0.75 + ll;
+	float3 rc = lerp(desat, MainLightColor, AOScaled) * S.Intensity * 0.1;
+	float3 rcA = rc * (Albedo + 1.0);
+	float3 k = WuwaSmooth01(saturate(-(Albedo * 1.2 - 1.0))) * 14.0 + 1.0;
+	float3 rim = lerp(rcA, rc * k * Albedo, RimAlbedoBlend) * RimMask;
+	rim *= (5000.0 - min(max(Depth - 10000.0, 0.0), 5000.0)) * 0.0002;
+	return rim * RimTint;
+}
+
+// L599-605: hair pixels darken toward the shadow tint under the rim mask instead of adding rim light.
+float3 WuwaToonCompose(float3 Ambient, float3 Rim, float RimMask, float3 ShadowColor, float3 MainLightColor, bool bIsHair, bool bIsOutline)
+{
+	float3 hairRes = RimMask * (ShadowColor * Ambient * MainLightColor * 0.5 - Ambient) + Ambient;
+	float3 res = bIsHair ? hairRes : Ambient + Rim;
+	return bIsOutline ? Ambient : res;
+}

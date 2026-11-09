@@ -1,0 +1,199 @@
+{
+ "name": "EffectSpaceWrite_CharacterUse_Masked",
+ "entry": "WuwaFXEffectSpaceWriteCharacterUse",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_MiscProps.ush",
+ "kuro_shading_model": "MSM_Unlit",
+ "kuro_asm": "M_EffectSpaceWrite_CharacterUse PS b3a7a91657 (#318976, 60 instr) / VS 6fec6c1964 (#42862)",
+ "kuro_root_material": "M_EffectSpaceWrite_CharacterUse",
+ "blend_mode": "BLEND_Masked",
+ "two_sided": false,
+ "resolve": false,
+ "resolve_note": "masked unlit, deferred: Kuro writes GBuffer = 0 (unlit) and o0 = emissive tail (max 0, *View[285] unless Primitive[42].w, OOB, unlit grade View[280].z / View[277]); port: UE masked unlit material, Emissive + Opacity Mask (= the entry Opacity, clip 0.3333); the Kuro primitive dither is clipped inside.",
+ "vs_note": null,
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "material Emissive Color (before the engine translucent tail: fog, OOB, Kuro effect grading)"
+  },
+  "Opacity": {
+   "type": "float",
+   "kuro": "material Opacity (o0.a = o1.a after the tail)"
+  }
+ },
+ "inputs": [
+  {
+   "name": "MaskTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "MaskTex",
+   "default": "T_R2T1DaniyaMd10011Fx_D",
+   "note": "reference MI MI_R2T1DaniyaMd10011Fx: {'ObjectName': \"Texture2D'T_R2T1DaniyaMd10011Fx_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleMS/Daniya/R2T1DaniyaMd10011/Model/T_R2T1DaniyaMd10011Fx_D.1'}"
+  },
+  {
+   "name": "MaskTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "MaskTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MaskTexSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "SvPositionXY",
+   "type": "float2",
+   "kind": "svposition",
+   "ue_expr": "Parameters.SvPosition.xy"
+  },
+  {
+   "name": "ViewRectMin",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewRectMin.xy",
+   "kuro": "View[134].xy"
+  },
+  {
+   "name": "ViewSizeAndInvSize",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewSizeAndInvSize",
+   "kuro": "View[135]"
+  },
+  {
+   "name": "EmissiveMul",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EmissiveMul",
+   "default": 3.0
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Link_UseSplitScreen",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Link_UseSplitScreen",
+   "default": 0.0
+  },
+  {
+   "name": "E_Link_AngleLinePosLineDis",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Link_AngleLinePosLineDis",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.33000001311302185,
+    0.0
+   ]
+  },
+  {
+   "name": "E_LinkPos",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_LinkPos",
+   "default": 0.0
+  },
+  {
+   "name": "E_Link_Rot1Cos",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Link_AngleLinePosLineDis"
+   ],
+   "expr": "cos((E_Link_AngleLinePosLineDis.x / 360) * 6.2831855)",
+   "expr_note": "Kuro preshader (rotation row (cos, -sin)); float32: true division by 360, x 0x40C90FDB, cos/sin",
+   "default": 1.0
+  },
+  {
+   "name": "E_Link_Rot1Sin",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Link_AngleLinePosLineDis"
+   ],
+   "expr": "sin((E_Link_AngleLinePosLineDis.x / 360) * 6.2831855)",
+   "expr_note": "Kuro preshader (rotation row (cos, -sin)); float32: true division by 360, x 0x40C90FDB, cos/sin",
+   "default": 0.0
+  },
+  {
+   "name": "E_Link_Rot2Cos",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Link_AngleLinePosLineDis"
+   ],
+   "expr": "cos((E_Link_AngleLinePosLineDis.w / 360) * 6.2831855)",
+   "expr_note": "Kuro preshader (rotation row (cos, -sin)); float32: true division by 360, x 0x40C90FDB, cos/sin",
+   "default": 1.0
+  },
+  {
+   "name": "E_Link_Rot2Sin",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Link_AngleLinePosLineDis"
+   ],
+   "expr": "sin((E_Link_AngleLinePosLineDis.w / 360) * 6.2831855)",
+   "expr_note": "Kuro preshader (rotation row (cos, -sin)); float32: true division by 360, x 0x40C90FDB, cos/sin",
+   "default": 0.0
+  },
+  {
+   "name": "KuroPrimDitherEnable",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[43].x",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "KuroPrimDitherFade",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[43].y",
+   "ue_expr": null,
+   "default": 1.0,
+   "unknown": true
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  }
+ ],
+ "generated_by": "tools/shaderdiff/weapons/r3/make_specs_misc.py",
+ "notes": {
+  "textures": "slot 0 MaskTex (cooked map name; MI override T_R2T1DaniyaMd10011Fx_D). E_Tex_NoiseTex is in the map but not sampled."
+ },
+ "ue_material": {
+  "contract": "entry returns FWuwaFXOutput {float3 Emissive; float Opacity;} - no toon GBuffer, no WuwaToonResolve",
+  "shading_model": "MSM_Unlit",
+  "blend_mode": "BLEND_Masked",
+  "two_sided": false,
+  "connect": {
+   "EmissiveColor": "X.Emissive",
+   "OpacityMask": "X.Opacity"
+  },
+  "opacity_mask_clip_value": 0.3333,
+  "note": "masked unlit: the entry already clips the Kuro primitive dither"
+ }
+}

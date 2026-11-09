@@ -1,0 +1,37 @@
+{
+ "root_material": "M_CharWeapon_Com",
+ "generated_by": "tools/shaderdiff/weapons/build_registry_r2.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 2 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes that are symbolically identical to a verified WuwaToon base VS (toon entries) or whose material WPO is ported and verified (VSWPO). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "CharWeapon_Com_BaseColWarpSecondBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "2fcffab40a8f55ffa89e70e1ad28a987ce609c52"
+    ],
+    "base_pass_vs_hash": [
+     "d58fe67961e5899d241b41b3dc0ba33167af47f0"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-2; evidence/validation/shaderdiff/weapons/results_r2_final.json summary.CharWeapon_2fcffa (24 runs, o0 393216/393216 o1 393216/393216 o2 393216/393216 o3 393216/393216 o6 393216/393216 bit-exact); VS #11181 symbolically identical to the verified base VS #35700 on TEXCOORD2 + SV_POSITION (evidence/validation/shaderdiff/weapons/vs_status_r2.json)",
+   "ps_archive_index": 11132,
+   "vs_archive_index": [
+    11181
+   ],
+   "vs_status": {
+    "d58fe67961e5899d241b41b3dc0ba33167af47f0": "symbolic"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 1,
+   "entities": [
+    "weapon:Unspoken Rue"
+   ],
+   "example_mis": [
+    "MI_R5Scabbard512Md20001"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,417 @@
+{
+ "root_material": "M_CharMonster",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "CharMonster_TwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "8c9c45e4d2d100b2b19323c5113e2d033712582d"
+    ],
+    "base_pass_vs_hash": [
+     "b0b7325fcc80959a419e197028b3e0104226dabb"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/monster/results_multi_final.json summary.monster_8c9c45 (36 runs, o0 589824/589824 o1 589824/589824 o2 589824/589824 o3 589824/589824 o6 589824/589824 bit-exact); VS #240952 gated_wpo (evidence/validation/shaderdiff/weapons/round3/monster/vs_status_monster.json (UV3-dissolve WPO x UseShadowLordMaterialDynamic = 0, finite, at MI_EFuluoluoHekateMD10011Arms, MI_EFuluoluoHekateMD10011Head, MI_EFuluoluoHekateMD10011Weapon))",
+   "ps_archive_index": 262861,
+   "vs_archive_index": [
+    240952
+   ],
+   "vs_status": {
+    "b0b7325fcc80959a419e197028b3e0104226dabb": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 3,
+   "roster_slot_uses": 6,
+   "entities": [
+    "character:Phrolova",
+    "skin:From the Beyond"
+   ],
+   "example_mis": [
+    "MI_EFuluoluoHekateMD10011Arms",
+    "MI_EFuluoluoHekateMD10011Head",
+    "MI_EFuluoluoHekateMD10011Weapon"
+   ],
+   "notes": "36 runs, o0/o1/o2/o3/o6 589824/589824 bit-exact; Impl switches bTwoSided"
+  },
+  {
+   "spec": "CharMonster_Base.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "cef1fe9c9f2e97a22a7bbd6a8863d0d001cd2afe"
+    ],
+    "base_pass_vs_hash": [
+     "b0b7325fcc80959a419e197028b3e0104226dabb"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/monster/results_multi_final.json summary.monster_cef1fe (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #240952 gated_wpo (evidence/validation/shaderdiff/weapons/round3/monster/vs_status_monster.json (UV3-dissolve WPO x UseShadowLordMaterialDynamic = 0, finite, at MI_EXinRingMd10011))",
+   "ps_archive_index": 240962,
+   "vs_archive_index": [
+    240952
+   ],
+   "vs_status": {
+    "b0b7325fcc80959a419e197028b3e0104226dabb": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Hsin",
+    "skin:True to Heart"
+   ],
+   "example_mis": [
+    "MI_EXinRingMd10011"
+   ],
+   "notes": "30 runs, o0/o1/o2/o3/o6 491520/491520 bit-exact; Impl switches "
+  },
+  {
+   "spec": "CharMonster_TwoSidedSDF.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "e38790786358609aee31ed3111cf5b173a421790"
+    ],
+    "base_pass_vs_hash": [
+     "83faddd8283bf473b00331f49df0d22a1193d827"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/monster/results_multi_final.json summary.monster_e38790 (33 runs, o0 540672/540672 o1 540672/540672 o2 540672/540672 o3 540672/540672 o6 540672/540672 bit-exact); VS #78425 gated_wpo (evidence/validation/shaderdiff/weapons/round3/monster/vs_status_monster.json (UV3-dissolve WPO x UseShadowLordMaterialDynamic = 0, finite, at MI_EAogusitaDajianMd10011_Hilt, MI_EAogusitaDajianMd10011_Sword))",
+   "ps_archive_index": 78450,
+   "vs_archive_index": [
+    78425
+   ],
+   "vs_status": {
+    "83faddd8283bf473b00331f49df0d22a1193d827": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 2,
+   "roster_slot_uses": 4,
+   "entities": [
+    "character:Augusta",
+    "skin:Bearer of Legend"
+   ],
+   "example_mis": [
+    "MI_EAogusitaDajianMd10011_Hilt",
+    "MI_EAogusitaDajianMd10011_Sword"
+   ],
+   "notes": "33 runs, o0/o1/o2/o3/o6 540672/540672 bit-exact; Impl switches bTwoSided, bSDF"
+  },
+  {
+   "spec": "CharMonster_Cube.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ec8000dc9d158a899054b8a5428527b8a13f8823"
+    ],
+    "base_pass_vs_hash": [
+     "951f6df6f655709ad1f243057b0dc3fb5e0539e5"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/monster/results_multi_final.json summary.monster_ec8000 (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #12991 gated_wpo (evidence/validation/shaderdiff/weapons/round3/monster/vs_status_monster.json (UV3-dissolve WPO x UseShadowLordMaterialDynamic = 0, finite, at MI_MB1ZhenwuguanzheMd00601_Weapon))",
+   "ps_archive_index": 13009,
+   "vs_archive_index": [
+    12991
+   ],
+   "vs_status": {
+    "951f6df6f655709ad1f243057b0dc3fb5e0539e5": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 13,
+   "entities": [
+    "character:Rover: Aero",
+    "character:Rover: Electro",
+    "character:Rover: Havoc",
+    "skin:Perpetual Spark",
+    "skin:Wandering Traveler"
+   ],
+   "example_mis": [
+    "MI_MB1ZhenwuguanzheMd00601_Weapon"
+   ],
+   "notes": "30 runs, o0/o1/o2/o3/o6 491520/491520 bit-exact; Impl switches bCube"
+  },
+  {
+   "spec": "CharMonster_TwoSidedSecond.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "5229d94cbb04cff03ee6aa2f4530957861af5bd4"
+    ],
+    "base_pass_vs_hash": [
+     "1bec8b32ca3e4e908bd4bab456006898ed8e3582"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/monster/results_multi_final.json summary.monster_5229d9 (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #75186 gated_wpo (evidence/validation/shaderdiff/weapons/round3/monster/vs_status_monster.json (UV3-dissolve WPO x UseShadowLordMaterialDynamic = 0, finite, at MI_EAogusitaDajianMd10011_Scabbard))",
+   "ps_archive_index": 75203,
+   "vs_archive_index": [
+    75186
+   ],
+   "vs_status": {
+    "1bec8b32ca3e4e908bd4bab456006898ed8e3582": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Augusta",
+    "skin:Bearer of Legend"
+   ],
+   "example_mis": [
+    "MI_EAogusitaDajianMd10011_Scabbard"
+   ],
+   "notes": "30 runs, o0/o1/o2/o3/o6 491520/491520 bit-exact; Impl switches bTwoSided, bSecond"
+  },
+  {
+   "spec": "CharMonster_TwoSidedCubeFresnelRim.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "e5a2901bc13e8efe48c105c62f9090ab7bad68e1"
+    ],
+    "base_pass_vs_hash": [
+     "f061ad3f203d6e82bb088d68b478537e2e15141a"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/monster/results_multi_final.json summary.monster_e5a290 (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #55974 gated_wpo (evidence/validation/shaderdiff/weapons/round3/monster/vs_status_monster.json (UV3-dissolve WPO x UseShadowLordMaterialDynamic = 0, finite, at MI_ECalbrenaChimeraMd10011Helmet))",
+   "ps_archive_index": 259889,
+   "vs_archive_index": [
+    55974
+   ],
+   "vs_status": {
+    "f061ad3f203d6e82bb088d68b478537e2e15141a": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Galbrena",
+    "skin:Hunt Unending"
+   ],
+   "example_mis": [
+    "MI_ECalbrenaChimeraMd10011Helmet"
+   ],
+   "notes": "30 runs, o0/o1/o2/o3/o6 491520/491520 bit-exact; Impl switches bTwoSided, bCube, bFresnelRim"
+  },
+  {
+   "spec": "CharMonster_TwoSidedSecondFresnelRimAO.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "5d2ccaaab825435da6a121d688b2133f7e487bd3"
+    ],
+    "base_pass_vs_hash": [
+     "50d72e223d410b45fbee1a29fab9f436fa39825e"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/monster/results_multi_final.json summary.monster_5d2cca (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #42577 gated_wpo (evidence/validation/shaderdiff/weapons/round3/monster/vs_status_monster.json (UV3-dissolve WPO x UseShadowLordMaterialDynamic = 0, finite, at MI_EFuluoluoHekateMD10011Down))",
+   "ps_archive_index": 309659,
+   "vs_archive_index": [
+    42577
+   ],
+   "vs_status": {
+    "50d72e223d410b45fbee1a29fab9f436fa39825e": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Phrolova",
+    "skin:From the Beyond"
+   ],
+   "example_mis": [
+    "MI_EFuluoluoHekateMD10011Down"
+   ],
+   "notes": "30 runs, o0/o1/o2/o3/o6 491520/491520 bit-exact; Impl switches bTwoSided, bSecond, bFresnelRim, bMaskR, bAO"
+  },
+  {
+   "spec": "CharMonster_TwoSidedSDFCircleFresnelRimAO.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ae5e0333a24a0a7c751025eb55ddecbf446a33ff"
+    ],
+    "base_pass_vs_hash": [
+     "38a18d40a4fc2a82ea5161465e967b45603ad0c0"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/monster/results_multi_final.json summary.monster_ae5e03 (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #50469 gated_wpo (evidence/validation/shaderdiff/weapons/round3/monster/vs_status_monster.json (UV3-dissolve WPO x UseShadowLordMaterialDynamic = 0, finite, at MI_EFuluoluoHekateMD10011Body))",
+   "ps_archive_index": 50499,
+   "vs_archive_index": [
+    50469
+   ],
+   "vs_status": {
+    "38a18d40a4fc2a82ea5161465e967b45603ad0c0": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Phrolova",
+    "skin:From the Beyond"
+   ],
+   "example_mis": [
+    "MI_EFuluoluoHekateMD10011Body"
+   ],
+   "notes": "30 runs, o0/o1/o2/o3/o6 491520/491520 bit-exact; Impl switches bTwoSided, bSDF, bSDFCircle, bFresnelRim, bMaskR, bAO"
+  },
+  {
+   "spec": "CharMonster_TwoSidedSecondNoiseAO.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a1589e5427c44fd2ce4a570748635467277f80c0"
+    ],
+    "base_pass_vs_hash": [
+     "0eea737914cb4f92b12d6f85b768bd23c4850eb1"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/monster/results_multi_final.json summary.monster_a1589e (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #47436 gated_wpo (evidence/validation/shaderdiff/weapons/round3/monster/vs_status_monster.json (UV3-dissolve WPO x UseShadowLordMaterialDynamic = 0, finite, at MI_EFuluoluoHekateMD10011Wings))",
+   "ps_archive_index": 47466,
+   "vs_archive_index": [
+    47436
+   ],
+   "vs_status": {
+    "0eea737914cb4f92b12d6f85b768bd23c4850eb1": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Phrolova",
+    "skin:From the Beyond"
+   ],
+   "example_mis": [
+    "MI_EFuluoluoHekateMD10011Wings"
+   ],
+   "notes": "30 runs, o0/o1/o2/o3/o6 491520/491520 bit-exact; Impl switches bTwoSided, bSecond, bNoise, bFlowEdge, bMaskR, bAO"
+  },
+  {
+   "spec": "CharMonster_CubeSecondNoise.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "7821705b263882b97e3c944345bedf3c28d4361b"
+    ],
+    "base_pass_vs_hash": [
+     "97c7644d2132660e6c9a20ebe117faaf83db9919"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/monster/results_multi_final.json summary.monster_782170 (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #15573 gated_wpo (evidence/validation/shaderdiff/weapons/round3/monster/vs_status_monster.json (UV3-dissolve WPO x UseShadowLordMaterialDynamic = 0, finite, at MI_ECalbrenaShotgunMd10011_Yanshi))",
+   "ps_archive_index": 41628,
+   "vs_archive_index": [
+    15573
+   ],
+   "vs_status": {
+    "97c7644d2132660e6c9a20ebe117faaf83db9919": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Galbrena",
+    "skin:Hunt Unending"
+   ],
+   "example_mis": [
+    "MI_ECalbrenaShotgunMd10011_Yanshi"
+   ],
+   "notes": "30 runs, o0/o1/o2/o3/o6 491520/491520 bit-exact; Impl switches bCube, bSecond, bNoise"
+  },
+  {
+   "spec": "CharMonster_CubeSecondNoiseBumpBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6d0f5c37bbb91d58ab00e81ef1bd7d0e8e173342"
+    ],
+    "base_pass_vs_hash": [
+     "4baf50e0a0542cb9578c3f8c95d3c16c1f35d171"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/monster/results_multi_final.json summary.monster_6d0f5c (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #40712 gated_wpo (evidence/validation/shaderdiff/weapons/round3/monster/vs_status_monster.json (UV3-dissolve WPO x UseShadowLordMaterialDynamic = 0, finite, at MI_ESuomingSanMd10011_Yu))",
+   "ps_archive_index": 235427,
+   "vs_archive_index": [
+    40712
+   ],
+   "vs_status": {
+    "4baf50e0a0542cb9578c3f8c95d3c16c1f35d171": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Suoming",
+    "skin:Gilded Sable"
+   ],
+   "example_mis": [
+    "MI_ESuomingSanMd10011_Yu"
+   ],
+   "notes": "30 runs, o0/o1/o2/o3/o6 491520/491520 bit-exact; Impl switches bCube, bSecond, bNoise, bBump, bMaskRGB, bBreath"
+  },
+  {
+   "spec": "CharMonster_TwoSidedCubeSecondNoiseBumpFresnelRimDither.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a6059c10bd01f5b1ce6cc7c12b93798c2cabebcb"
+    ],
+    "base_pass_vs_hash": [
+     "0a6593fd92ceaf45350d21d6eee42ccc612fa2c0"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/monster/results_multi_final.json summary.monster_a6059c (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #75805 gated_wpo (evidence/validation/shaderdiff/weapons/round3/monster/vs_status_monster.json (UV3-dissolve WPO x UseShadowLordMaterialDynamic = 0, finite, at MI_EJingranShanmaoMd10011Body))",
+   "ps_archive_index": 262001,
+   "vs_archive_index": [
+    75805
+   ],
+   "vs_status": {
+    "0a6593fd92ceaf45350d21d6eee42ccc612fa2c0": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Jingran",
+    "skin:Far Trekker"
+   ],
+   "example_mis": [
+    "MI_EJingranShanmaoMd10011Body"
+   ],
+   "notes": "30 runs, o0/o1/o2/o3/o6 491520/491520 bit-exact; Impl switches bTwoSided, bCube, bSecond, bNoise, bBump, bFlowEdge, bFresnelRim, bTranslucentDither"
+  },
+  {
+   "spec": "CharMonster_CubeAOFresnelSpark.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "8165ecf031d443d0bf4b5f054ac9f1ffd327abac"
+    ],
+    "base_pass_vs_hash": [
+     "9620a3af2c65b712771da477d21e3d1fc57ca2f9"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/monster/results_multi_final.json summary.monster_8165ec (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #25781 gated_wpo (evidence/validation/shaderdiff/weapons/round3/monster/vs_status_monster.json (UV3-dissolve WPO x UseShadowLordMaterialDynamic = 0, finite, at MI_EXuanlingBirdMd10011))",
+   "ps_archive_index": 25777,
+   "vs_archive_index": [
+    25781
+   ],
+   "vs_status": {
+    "9620a3af2c65b712771da477d21e3d1fc57ca2f9": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Yangyang: Xuanling",
+    "skin:Boundless Azure"
+   ],
+   "example_mis": [
+    "MI_EXuanlingBirdMd10011"
+   ],
+   "notes": "30 runs, o0/o1/o2/o3/o6 491520/491520 bit-exact; Impl switches bCube, bAO, bFresnelLit, bSpark"
+  }
+ ]
+}

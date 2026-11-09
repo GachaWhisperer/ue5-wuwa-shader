@@ -1,0 +1,676 @@
+// WuwaToonBasePass_V2Glass.ush — M_CharV2_Com forward-translucent bodies with UseBlurTranslucentGlass (Mone: PS f1919d2b #268036
+// MI_R2T1MoneMd10011Alpha, ba4350d6 #118603 MI_R2T1MoneMd10011Down, 81b646b8 #291139 MI_R2T1MoneMd20011Glass), round 6 of
+// research/roster/round6/v2.md. New file (V2 owner); WuwaToonBasePass_BlurGlass.ush and WuwaToonBasePass_V2Body.ush are only
+// #included. Line refs G### = evidence/roster/shadermaps/v2/asm/268036_f1919d2b*.asm.txt.
+//
+// The material part = the V2 body graph (WuwaToonBodyV2BasePass_Impl, RawOut 1, + the UseCameraOffsetLightDir option of round 6)
+// + the blur-glass block: edge fresnel / thickness tint, the main light refracted through the normal-mapped normal into a view-space
+// screen offset, four dithered blur taps of the SCENE COLOUR (R, G, G, B; pow(x^4, 1/4)), a SCENE DEPTH mask from the same four taps,
+// and the glass opacity. The glass result is blended into the emissive (before the selection tint), the lit colour and the shadow
+// colour (before the desaturation) inside [BlurTranslucentMin, BlurTranslucentMax], and the opacity there is 1.
+// Same tap / UV / refraction arithmetic as M_Char_BlurTransLucentGlass (WuwaToonBasePass_BlurGlass.ush): WuwaBGSmooth, WuwaBGPow4 and
+// WuwaBGSceneUV are reused; the V2 graph differs in the blur radius (per screen axis: min(ViewToClip[i][i] / (2 w)^0.66, 1) * 5 / 15
+// instead of the distance fades), the colour weights (1 instead of 10), the depth mask and the opacity, so WuwaBGBlurOffsets (scalar
+// radius) is generalised here as WuwaV2GlassBlurOffsets (per-axis radius, same statements).
+// Engine textures: SceneColor = Kuro t4 (opaque scene colour; UE SceneColorCopyTexture), SceneDepth = Kuro t2 (device Z; UE
+// SceneTexturesStruct.SceneDepthTexture) - spec input kind engine_texture (wuwa_generate_materials.py SCENE_TEXTURES).
+#ifndef WUWA_V2GLASS_USH
+#define WUWA_V2GLASS_USH
+
+#include "WuwaToonBasePass_BlurGlass.ush"
+#include "WuwaToonBasePass_V2Body.ush"
+
+// Normal-mapped normal before the View[144] blend (WuwaToonBodyV2BasePass_Impl B62-99, same statements; the Impl does not export it):
+// the glass edge fresnel and the light refraction read it unnormalised (G493, G534).
+float3 WuwaV2GlassNmix(Texture2D Normal_Roughness_Metallic, SamplerState Normal_Roughness_MetallicSampler, float2 UV0, float3 WorldTangent,
+	float3 WorldNormal, float TangentSign, float NormalStrength, float DamageSkin, out float RoughTex)
+{
+	const float3 T = WorldTangent, Nv = WorldNormal;
+	float3 Bt = (Nv.yzx * T.zxy - Nv.zxy * T.yzx) * TangentSign;
+	float3 nrm = Normal_Roughness_Metallic.Sample(Normal_Roughness_MetallicSampler, UV0).rga;
+	float2 n2 = nrm.xy + nrm.xy;
+	float2 nxy = nrm.xy * 2.0 + -1.0;
+	float  nz = sqrt(min(max(1.0 - dot(nxy, nxy), asfloat(0x3C007FEDu)), asfloat(0x3F7DFE00u)));
+	float3 tn = NormalStrength * (float3(n2, nz) + -1.0) + float3(0.0, 0.0, 1.0);
+	float3 Nmap = Bt * tn.y;
+	Nmap = tn.x * T + Nmap;
+	Nmap = tn.z * Nv + Nmap;
+	RoughTex = nrm.z;
+	return DamageSkin * (Nv - Nmap) + Nmap;
+}
+
+// Unclamped roughness of the Impl (B195-229 / B737-738, same statements, no wet): per-region roughness of the low / high RegionIDTex IDs
+// blended by the LOD-0 TypeMask.a (bBlendParam) or of the float region ID, + Normal_Roughness_Metallic.a, UseIDRoughnessParam,
+// RoughnessIntensity(Debug). The blur radius scales with it (G564).
+float WuwaV2GlassRough(const bool bBlendParam, int idLo, int idHi, bool hasHi, float id, float tmA, float4 rv, float R4, float RoughTex,
+	float UseIDRoughnessParam, float RoughnessIntensityDebug)
+{
+	float pr;
+	if (bBlendParam)
+	{
+		float4 sLo = float4(idLo == 0 ? 1.0 : 0.0, idLo == 1 ? 1.0 : 0.0, idLo == 2 ? 1.0 : 0.0, idLo == 3 ? 1.0 : 0.0);
+		float  lo4 = (idLo == 4) ? 1.0 : 0.0;
+		float  prLo = R4 * lo4 + dot(rv, sLo);
+		float4 sHi = float4(idHi == 0 ? 1.0 : 0.0, idHi == 1 ? 1.0 : 0.0, idHi == 2 ? 1.0 : 0.0, idHi == 3 ? 1.0 : 0.0);
+		float  hi4 = (idHi == 4) ? 1.0 : 0.0;
+		float  prHi = R4 * hi4 + dot(rv, sHi);
+		prHi = hasHi ? prHi : 0.0;
+		pr = tmA * (prHi - prLo) + prLo;
+		pr = hasHi ? pr : prLo;
+	}
+	else
+	{
+		float4 selP = float4(id == 0.0 ? 1.0 : 0.0, id == 1.0 ? 1.0 : 0.0, id == 2.0 ? 1.0 : 0.0, id == 3.0 ? 1.0 : 0.0);
+		float  is4P = (id == 4.0) ? 1.0 : 0.0;
+		pr = R4 * is4P + dot(rv, selP);
+	}
+	float rs = pr + RoughTex;
+	return (UseIDRoughnessParam * (pr - rs) + rs) * RoughnessIntensityDebug;
+}
+
+// WuwaBGBlurOffsets with a per-axis radius (G558-570 / G604-611): angles (Refr.xyxy * Sign + noise) * 4pi^2, offsets
+// lerp(Noise_Min, Noise_Max, noise) * Blur * (cos a.x, sin a.y, cos a.z, sin a.w).
+float4 WuwaV2GlassBlurOffsets(float2 Refr, float4 Sign, float Noise, float2 Blur, float Noise_Min, float Noise_Max)
+{
+	float4 a = Refr.xyxy * Sign + Noise;
+	a = a * asfloat(0x421DE9E5u);
+	float4 cs = float4(cos(a.x), cos(a.z), sin(a.y), sin(a.w));
+	float4 o = Blur.xyxy * cs.xzyw;
+	float4 lo = o * Noise_Min;
+	o = o * Noise_Max - lo;
+	return Noise * o + lo;
+}
+
+// Scene depth of one tap relative to the pixel, through the depth-mask smoothstep (G654-667): UE ConvertFromDeviceZ with
+// InvDeviceZToWorldZTransform (Kuro View[65]); returns the smoothstep factors a = x^2, b = 3 - 2x (the caller combines them).
+void WuwaV2GlassDepthTap(Texture2D SceneDepth, SamplerState SceneDepthSampler, float2 uv, float4 InvDeviceZToWorldZTransform, float SvPositionW,
+	float DepthMaskDistance, float DepthMaskMin, float InvRange, out float a, out float b)
+{
+	float d = SceneDepth.SampleLevel(SceneDepthSampler, uv, 0.0).r;
+	float z = 1.0 / (d * InvDeviceZToWorldZTransform.z - InvDeviceZToWorldZTransform.w) + (d * InvDeviceZToWorldZTransform.x + InvDeviceZToWorldZTransform.y);
+	z = -SvPositionW * 1.0 + z;
+	z = z / DepthMaskDistance;
+	float x = saturate(InvRange * (z - DepthMaskMin));
+	b = x * -2.0 + 3.0;
+	a = x * x;
+}
+
+// The blur-glass block (G490-713). Returns the tinted blurred scene colour; DM = the glass mask (depth mask + glass opacity) that
+// darkens the emissive part and scales the lit / shadow colours.
+float3 WuwaV2GlassScene(float3 Nmix, float3 V, float3 L, float Rough, float VertexColorA, float2 UV0, float2 SvPositionXY, float SvPositionW,
+	float2 ViewRectMin, float4 ViewSizeAndInvSize, float2 SceneTextureInvSize, float4 SceneTextureUVMinMax, float4x4 TranslatedWorldToView,
+	float ViewToClip00, float ViewToClip11, float TemporalAAParamsX, float4 InvDeviceZToWorldZTransform,
+	Texture2D BlurNoise, SamplerState BlurNoiseSampler, Texture2D DitherTex, SamplerState DitherTexSampler,
+	Texture2D SceneColor, SamplerState SceneColorSampler, Texture2D SceneDepth, SamplerState SceneDepthSampler,
+	float Thickness, float FresnelMaskWidth, float FresnelMaskOffset, float EdgeFresnelWidth, float3 EdgeFresnelColor, float3 ThickColor,
+	float2 BlurNoiseTiling, float EdgeRefractStrength, float InnerRefractStrength, float ThickRefractStrength, float EdgeBlurIntensity,
+	float BlurIntensity, float Noise_Min, float Noise_Max, float EdgeDispStrength, float DispStrength, float ThickDispStrength,
+	float GlassOpacity, float GlassOpacityPlus02, float Op0, float DepthMaskDistance, float DepthMaskMin, float DepthMaskMax, float DepMaskOpacity,
+	out float DM)
+{
+	// G490-512: edge fresnel and thickness tint (statements as WuwaFXBlurGlass_Impl A254-276)
+	float fw0 = -Thickness * VertexColorA + FresnelMaskWidth;
+	float fm = 1.0 - (fw0 + FresnelMaskOffset);
+	float nv = max(abs(1.0 - max(dot(Nmix, V), 0.0)), 0.0001);
+	float fe = (1.0 - nv) - fm;
+	float ef = WuwaBGSmooth(saturate(fe * (1.0 / EdgeFresnelWidth)));
+	float3 Tint = ef * (1.0 - EdgeFresnelColor) + EdgeFresnelColor;
+	float thick = WuwaBGSmooth(saturate(fe * 20.0));
+	Tint = Tint * (thick * (1.0 - ThickColor) + ThickColor);
+
+	// G513-525: blur noise + DitherTemporalAA-style noise (plain samples here)
+	float bn = BlurNoise.Sample(BlurNoiseSampler, UV0 * BlurNoiseTiling).x;
+	float2 Pix = SvPositionXY - ViewRectMin;
+	uint2 pq = (uint2)(Pix + TemporalAAParamsX);
+	float dq = (float)(((pq.y << 1) + pq.x) % 5u);
+	float dn = DitherTex.Sample(DitherTexSampler, Pix * asfloat(0x3C800000u)).x;                 // 1/64
+	float Noise = (dn + dq) * asfloat(0x3E2AAAABu) + bn;                                            // 1/6
+	Noise = Noise + -0.5;
+
+	// G526-533: per-axis radius scale min(ViewToClip[i][i] / (2 w)^0.66, 1) * (5, 5, 15, 15)
+	float sw = exp2(log2(SvPositionW + SvPositionW) * asfloat(0x3F28F5C3u));                      // 0.66
+	float4 ax = min(float4(ViewToClip00 / sw, ViewToClip11 / sw, ViewToClip00 / sw, ViewToClip11 / sw), 1.0) * float4(5.0, 5.0, 15.0, 15.0);
+
+	// G534-545: refract the light direction through Nmix (eta 0x3F022B64), to view space xy (as WuwaFXBlurGlass_Impl A290-301)
+	float LoN = dot(L, Nmix);
+	float k = -(-LoN * LoN + 1.0) * asfloat(0x3E846032u) + 1.0;
+	float tr = LoN * asfloat(0x3F022B64u) + sqrt(k);
+	float3 R = L * asfloat(0x3F022B64u) - Nmix * tr;
+	if (!(k >= 0.0))
+		R = float3(0.0, 0.0, 0.0);
+	float2 Rv = R.y * TranslatedWorldToView[1].xy;
+	Rv = R.x * TranslatedWorldToView[0].xy + Rv;
+	Rv = R.z * TranslatedWorldToView[2].xy + Rv;
+
+	// G546-557: edge mask, refraction strength, screen offset (per-axis scale, no distance fade)
+	float edge = WuwaBGSmooth(saturate((nv - FresnelMaskOffset) * (1.0 / fw0)));
+	float rstr = edge * (EdgeRefractStrength - InnerRefractStrength) + InnerRefractStrength;
+	rstr = rstr * 0.1 - ThickRefractStrength;
+	rstr = thick * rstr + ThickRefractStrength;
+	Rv = Rv * rstr;
+	float2 Refr = ax.xy * Rv + Pix * ViewSizeAndInvSize.zw;
+
+	// G558-644: four blur taps of the scene colour (R, G, G, B), dispersion on R / B
+	float blur = edge * (EdgeBlurIntensity - BlurIntensity) + BlurIntensity;
+	blur = Rough * blur;
+	blur = blur * 0.01;
+	float2 B2 = blur * ax.zw;
+	float4 o1 = WuwaV2GlassBlurOffsets(Refr, float4(-0.5, -0.5, 0.5, 0.5), Noise, B2, Noise_Min, Noise_Max);
+	float disp = edge * (EdgeDispStrength - DispStrength) + DispStrength;
+	disp = disp * (thick * (1.0 - ThickDispStrength) + ThickDispStrength);
+	float2 D2 = disp * ax.zw;
+	float2 uvR = Refr + (D2 * -0.005 + o1.xy);
+	float2 uvG1 = Refr + o1.zw;
+	float4 o2 = WuwaV2GlassBlurOffsets(Refr, float4(-0.5, 0.5, 0.5, -0.5), Noise, B2, Noise_Min, Noise_Max);
+	float2 uvG2 = Refr + o2.xy;
+	float2 uvB = Refr + (D2 * 0.005 + o2.zw);
+	uvR = WuwaBGSceneUV(uvR, ViewSizeAndInvSize, ViewRectMin, SceneTextureInvSize, SceneTextureUVMinMax);
+	uvG1 = WuwaBGSceneUV(uvG1, ViewSizeAndInvSize, ViewRectMin, SceneTextureInvSize, SceneTextureUVMinMax);
+	uvG2 = WuwaBGSceneUV(uvG2, ViewSizeAndInvSize, ViewRectMin, SceneTextureInvSize, SceneTextureUVMinMax);
+	uvB = WuwaBGSceneUV(uvB, ViewSizeAndInvSize, ViewRectMin, SceneTextureInvSize, SceneTextureUVMinMax);
+	float sR = exp2(log2(WuwaBGPow4(SceneColor.Sample(SceneColorSampler, uvR).x)) * 0.25);
+	float sG1 = exp2(log2(WuwaBGPow4(SceneColor.Sample(SceneColorSampler, uvG1).y)) * 0.25);
+	float sG2 = exp2(log2(WuwaBGPow4(SceneColor.Sample(SceneColorSampler, uvG2).y)) * 0.25);
+	float sB = exp2(log2(WuwaBGPow4(SceneColor.Sample(SceneColorSampler, uvB).z)) * 0.25);
+	float3 Scene = sG2 * float3(0.0, 1.0, 0.0);
+	Scene = sG1 * float3(0.0, 1.0, 0.0) + Scene;
+	Scene = Scene * 0.5;
+	Scene = sR * float3(1.0, 0.0, 0.0) + Scene;
+	Scene = sB * float3(0.0, 0.0, 1.0) + Scene;
+	Scene = Scene * Tint;
+
+	// G645-647: glass opacity; GlassOpacity + 0.2 is a CPU preshader value of the original (Material UB, e.g. f1919d2b cb6[144].w),
+	// fed as the uniform_expression GlassOpacityPlus02 (float32 on the CPU) - computing it in the shader lets the compiler fold
+	// (GO + 0.2) - GO to 0.2 (round 7 two-pass recheck)
+	float go = min(edge, 1.0) * (GlassOpacityPlus02 - GlassOpacity) + GlassOpacity;
+	go = max(go, Op0);
+
+	// G654-713: scene-depth mask of the four taps: (sum + min) * thick * DepMaskOpacity * 0.2 + glass opacity
+	float inv = 1.0 / (DepthMaskMax - DepthMaskMin);
+	float a0, b0, a1, b1, a2, b2, a3, b3;
+	WuwaV2GlassDepthTap(SceneDepth, SceneDepthSampler, uvR, InvDeviceZToWorldZTransform, SvPositionW, DepthMaskDistance, DepthMaskMin, inv, a0, b0);
+	WuwaV2GlassDepthTap(SceneDepth, SceneDepthSampler, uvG1, InvDeviceZToWorldZTransform, SvPositionW, DepthMaskDistance, DepthMaskMin, inv, a1, b1);
+	WuwaV2GlassDepthTap(SceneDepth, SceneDepthSampler, uvG2, InvDeviceZToWorldZTransform, SvPositionW, DepthMaskDistance, DepthMaskMin, inv, a2, b2);
+	WuwaV2GlassDepthTap(SceneDepth, SceneDepthSampler, uvB, InvDeviceZToWorldZTransform, SvPositionW, DepthMaskDistance, DepthMaskMin, inv, a3, b3);
+	float m3 = a3 * b3;
+	float mn = min(m3, min(min(a0 * b0, a1 * b1), a2 * b2));
+	float sum = b2 * a2 + m3;
+	sum = b1 * a1 + sum;
+	sum = b0 * a0 + sum;
+	sum = sum + mn;
+	sum = thick * sum;
+	sum = sum * DepMaskOpacity;
+	DM = saturate(sum * 0.2 + go);
+	return Scene;
+}
+
+// ==== BEGIN ROUND 6 GLASS ENTRIES (tools/shaderdiff/basepass_v2/gen_v2trans_entries_r6.py) ====
+
+// f1919d2b (#268036, MI_R2T1MoneMd10011Alpha): forward-translucent UseBlurTranslucentGlass V2 body: UseDoubleSpecular + UseCameraOffsetLightDir, UseVDLShadowoffset, TwoSided, UseBlendParameter, one ramp row, no UseOnlySkinRampColor / UseFresnel, UseEffectMaterial second layer (UseNoise, mask .r); glass G490-736, opacity min(lerp(max(sat(lum(spec) - 1), TypeMask.r * OpacityIntensity), 1, glass region), E_Link gate) (G767-769)
+FWuwaFXOutput WuwaToonBodyV2TransGlassDSNoFresnelNoSkinRampOneRampSecond2SBasePass(
+	float TwoSidedSign, Texture2D Normal_Roughness_Metallic, SamplerState Normal_Roughness_MetallicSampler, Texture2D TypeMask,
+	SamplerState TypeMaskSampler, SamplerState TypeMaskLod0Sampler, Texture2D RegionIDTex, SamplerState RegionIDTexSampler,
+	Texture2D MainTex, SamplerState MainTexSampler, Texture2D MatCapTex, SamplerState MatCapTexSampler, Texture2D Ramp,
+	SamplerState RampSampler, float2 UV0, float3 WorldTangent, float3 WorldNormal, float TangentSign, float3 WorldPosition,
+	float3 TranslatedWorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask,
+	float4x4 TranslatedWorldToView, float DamageIntensity, float Damage_Skin_Intensity, float SkinMin, float SkinMax,
+	float UseFaceAni_SkinMask, float3 SkinColor, float3 Damage_Dirty_SkinColorTint, float3 Damage_Dirty_ColorTint,
+	float Damage_Dirty_Intensity, float3 Damage_Skin_ColorTint, float3 BaseColorTint, float DecodeShadowThreshold,
+	float DecodeSpecThreshold, float NormalStrength, float RaytracingReflectionFix, float ExtraMatcapMin, float ExtraMatcapMax,
+	float Metallic0, float Metallic1, float Metallic2, float Metallic3, float Metallic4, float UseIDMetallicParam,
+	float MetallicIntensityDebug, float Roughness0, float Roughness1, float Roughness2, float Roughness3, float Roughness4,
+	float UseIDRoughnessParam, float RoughnessIntensityDebug, float Spec_Int0, float Spec_Int1, float Spec_Int2, float Spec_Int3,
+	float Spec_Int4, float Spec_Width0, float Spec_Width1, float Spec_Width2, float Spec_Width3, float Spec_Width4,
+	float Spec_Smooth0, float Spec_Smooth1, float Spec_Smooth2, float Spec_Smooth3, float Spec_Smooth4, float EdgeEnvBRDFIntensity,
+	float UseTexNormal, float MatcapMaxMip, float MetalMatCapBack, float NonMetallicMatCapInt, float MetalMatCapInt,
+	float PBRRateIntensity, float3 MatcapColor, float3 PBRIndirectColor, float3 PBRSpecularColor, float SolidShadowProcess,
+	float SolidShadowWidth, float LightOffset_Pitch, float ShadowProcess, float ShadowWidth, float ShadowWidthUseID,
+	float ShadowWidth0, float ShadowWidth1, float ShadowWidth2, float ShadowWidth3, float ShadowWidth4,
+	float AniSwitch_ShadowColorBright, float SolidShadow_RampPosition, float Desaturation, float3 SkinSubsurfaceColor,
+	float3 SubsurfaceColor, float SolidShadowStrength, float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor,
+	float OpacityIntensity, float CPD1, float CPD13, float MPC_GlobalCharSkyLightIntensity,
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection, float4 ToonLight0, float4 ToonLight1,
+	float4 ToonLight2, float4 ToonLight3, float MaterialTextureMipBias, float4 NormalOverrideParameter, float3 ObjectWorldPosition,
+	float GameTime, float RampIndex, float RampInt, Texture2D R_Noise_A_Mask, SamplerState R_Noise_A_MaskSampler,
+	Texture2D Second_RGB, SamplerState Second_RGBSampler, float2 UV1, float2 UV2, float2 SvPositionXY, float2 ViewRectMin,
+	float4 ViewSizeAndInvSize, float4 SecondTex_UVSwitch, float Second_UseScreenUV, float Second_RotCos, float Second_RotSin,
+	float4 Second_UV, float4 Second_UV_Offset, float4 Noise_UVSwitch, float Noise_UseScreenUV, float4 NoiseUV, float NoiseStrength,
+	float Second_NoiseStrength, float4 Second_Refine, float3 Second_ColorTint, float EffectMaskTexUV2Switch, float Effect_Progress,
+	float E_Link_UseSplitScreen, float4 E_Link_AngleLinePosLineDis, float E_LinkPos, float2 LinkRot0, float2 LinkRot1,
+	Texture2D BlurNoise, SamplerState BlurNoiseSampler, Texture2D DitherTex, SamplerState DitherTexSampler, Texture2D SceneColor,
+	SamplerState SceneColorSampler, Texture2D SceneDepth, SamplerState SceneDepthSampler, float VertexColorA, float2 SvPositionZW,
+	float2 SceneTextureInvSize, float4 SceneTextureUVMinMax, float ViewToClip00, float ViewToClip11, float TemporalAAParamsX,
+	float4 InvDeviceZToWorldZTransform, float Thickness, float FresnelMaskWidth, float FresnelMaskOffset, float EdgeFresnelWidth,
+	float3 EdgeFresnelColor, float3 ThickColor, float2 BlurNoiseTiling, float EdgeRefractStrength, float InnerRefractStrength,
+	float ThickRefractStrength, float EdgeBlurIntensity, float BlurIntensity, float Noise_Min, float Noise_Max,
+	float EdgeDispStrength, float DispStrength, float ThickDispStrength, float GlassOpacity, float GlassOpacityPlus02,
+	float DepthMaskDistance, float DepthMaskMin, float DepthMaskMax, float DepMaskOpacity, float BlurTranslucentMin,
+	float BlurTranslucentMax, float CameraOffsetLightSize, float UseCameraOffsetLightDir, out float3 OutBaseColor,
+	out float3 OutNormal, out float3 OutShadowColor, out float OutShadow, out float OutShadowAO)
+{
+	float FurPDO;
+	float3 NOut;
+	// material part with the selection tint / desaturation / OpacityIntensity neutral (re-applied after the glass blend)
+	FWuwaToonGBuffer G = WuwaToonBodyV2BasePass_Impl(1u, true, true, false, false, false, false, false, false, true, false, true, false, 0u, false, false, 0u, false, false, true, false, false, true, false, true, false, true, false, false, true, false, 0u, 0u, false, false, 1u, false, 0u,
+		TwoSidedSign, Normal_Roughness_Metallic, Normal_Roughness_MetallicSampler, TypeMask, TypeMaskSampler, TypeMaskLod0Sampler,
+		RegionIDTex, RegionIDTexSampler, MainTex, MainTexSampler, MatCapTex, MatCapTexSampler, Ramp, RampSampler, UV0, WorldTangent,
+		WorldNormal, TangentSign, WorldPosition, TranslatedWorldPosition, CameraVector, LightDirVS, MotionEmissiveMask,
+		TranslatedWorldToView, DamageIntensity, Damage_Skin_Intensity, SkinMin, SkinMax, UseFaceAni_SkinMask, SkinColor,
+		Damage_Dirty_SkinColorTint, Damage_Dirty_ColorTint, Damage_Dirty_Intensity, Damage_Skin_ColorTint, BaseColorTint,
+		DecodeShadowThreshold, DecodeSpecThreshold, NormalStrength, RaytracingReflectionFix, 0.0, 0.0, 0.0, 0.0, ExtraMatcapMin,
+		ExtraMatcapMax, float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, Metallic0, Metallic1,
+		Metallic2, Metallic3, Metallic4, UseIDMetallicParam, MetallicIntensityDebug, Roughness0, Roughness1, Roughness2, Roughness3,
+		Roughness4, UseIDRoughnessParam, RoughnessIntensityDebug, Spec_Int0, Spec_Int1, Spec_Int2, Spec_Int3, Spec_Int4, Spec_Width0,
+		Spec_Width1, Spec_Width2, Spec_Width3, Spec_Width4, Spec_Smooth0, Spec_Smooth1, Spec_Smooth2, Spec_Smooth3, Spec_Smooth4, 0.0,
+		0.0, 0.0, EdgeEnvBRDFIntensity, UseTexNormal, MatcapMaxMip, MetalMatCapBack, NonMetallicMatCapInt, MetalMatCapInt,
+		PBRRateIntensity, MatcapColor, PBRIndirectColor, PBRSpecularColor, SolidShadowProcess, SolidShadowWidth, LightOffset_Pitch,
+		ShadowProcess, ShadowWidth, ShadowWidthUseID, ShadowWidth0, ShadowWidth1, ShadowWidth2, ShadowWidth3, ShadowWidth4,
+		AniSwitch_ShadowColorBright, SolidShadow_RampPosition, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		SkinSubsurfaceColor, SubsurfaceColor, SolidShadowStrength, EmissionColor, E_Motion_Emissive, float4(0.0, 0.0, 0.0, 0.0), 0.0,
+		0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, CPD1, CPD13, MPC_GlobalCharSkyLightIntensity, MPC_GlobalCharacterAmbientSkinColor,
+		MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, MaterialTextureMipBias,
+		NormalOverrideParameter, 0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, ObjectWorldPosition, float3(0.0, 0.0, 0.0), 0u, GameTime, 0.0,
+		0.0, 0.0, 0.0, 0.0, RampIndex, RampInt, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, R_Noise_A_Mask,
+		R_Noise_A_MaskSampler, Second_RGB, Second_RGBSampler, UV1, UV2, SvPositionXY, ViewRectMin, ViewSizeAndInvSize,
+		SecondTex_UVSwitch, Second_UseScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset, Noise_UVSwitch,
+		Noise_UseScreenUV, NoiseUV, NoiseStrength, Second_NoiseStrength, Second_Refine, Second_ColorTint, EffectMaskTexUV2Switch,
+		Effect_Progress, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		float3(0.0, 0.0, 0.0), MainTex, MainTexSampler, 0.0, 0.0, 0.0, 0.0, MainTex, MainTexSampler, MainTex, MainTexSampler, MainTex,
+		MainTexSampler, 0.0, float4(0.0, 0.0, 0.0, 0.0), float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, MainTex, MainTexSampler, float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0),
+		MainTex, MainTexSampler, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, 0.0, E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis, E_LinkPos, LinkRot0, LinkRot1, 0.0, 0.0, 0.0, 0.0, 0.0,
+		float3(0.0, 0.0, 0.0), 0.0, float3(0.0, 0.0, 0.0), float4(0.0, 0.0, 0.0, 0.0), (float4x4)0, float3(0.0, 0.0, 0.0), (float4x4)0,
+		0.0, MainTex, MainTexSampler, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0),
+		float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, MainTex, MainTexSampler, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, 0.0, float2(0.0, 0.0), 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), FurPDO, NOut, 1u, true, CameraOffsetLightSize,
+		UseCameraOffsetLightDir);
+	// values of the Impl the glass block reads (same statements as the Impl)
+	float3 TM = TypeMask.SampleLevel(TypeMaskSampler, UV0, MaterialTextureMipBias).rba;
+	float  d = DamageIntensity * (TM.y - 0.5);
+	float  DamageSkin = saturate(((d + asfloat(0xBB031200u)) * Damage_Skin_Intensity) * asfloat(0x40008399u));
+	float  RoughTex;
+	float3 Nmix = WuwaV2GlassNmix(Normal_Roughness_Metallic, Normal_Roughness_MetallicSampler, UV0, WorldTangent, WorldNormal,
+		TangentSign, NormalStrength, DamageSkin, RoughTex);
+	int    rid = (int)(RegionIDTex.SampleLevel(RegionIDTexSampler, UV0, MaterialTextureMipBias).r * asfloat(0x437F8000u));
+	int    idLo = rid & 15, idHi = rid >> 4;
+	bool   hasHi = (0 < idHi);
+	float  fLo = (float)idLo;
+	float  fHi = hasHi ? (float)idHi : 0.0;
+	float  id = (TM.z >= 0.5 ? 1.0 : 0.0) * (fHi - fLo) + fLo;
+	id = hasHi ? id : fLo;
+	float  tmA = TypeMask.SampleLevel(TypeMaskLod0Sampler, UV0, 0.0).a;
+	float  rough = WuwaV2GlassRough(true, idLo, idHi, hasHi, id, tmA, float4(Roughness0, Roughness1, Roughness2, Roughness3),
+		Roughness4, RoughTex, UseIDRoughnessParam, RoughnessIntensityDebug);
+	float3 L = WuwaV2BodyMainLightDir(false, LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+	float  op0 = max(saturate(G.C.a + -1.0), TM.x * OpacityIntensity);   // G648-652
+	float  DM;
+	float3 Scene = WuwaV2GlassScene(Nmix, CameraVector, L, rough, VertexColorA, UV0, SvPositionXY, SvPositionZW.y, ViewRectMin,
+		ViewSizeAndInvSize, SceneTextureInvSize, SceneTextureUVMinMax, TranslatedWorldToView, ViewToClip00, ViewToClip11,
+		TemporalAAParamsX, InvDeviceZToWorldZTransform, BlurNoise, BlurNoiseSampler, DitherTex, DitherTexSampler, SceneColor,
+		SceneColorSampler, SceneDepth, SceneDepthSampler, Thickness, FresnelMaskWidth, FresnelMaskOffset, EdgeFresnelWidth,
+		EdgeFresnelColor, ThickColor, BlurNoiseTiling, EdgeRefractStrength, InnerRefractStrength, ThickRefractStrength,
+		EdgeBlurIntensity, BlurIntensity, Noise_Min, Noise_Max, EdgeDispStrength, DispStrength, ThickDispStrength, GlassOpacity,
+		GlassOpacityPlus02, op0, DepthMaskDistance, DepthMaskMin, DepthMaskMax, DepMaskOpacity, DM);
+	float  inGlass = ((id + 0.5 >= BlurTranslucentMin) ? 1.0 : 0.0) * ((BlurTranslucentMax >= id + -0.5) ? 1.0 : 0.0);
+	float3 E = inGlass * (DM * -Scene + Scene) + G.Emissive;           // G714-719
+	E = SelectionColor.a * (SelectionColor.rgb - E) + E;
+	float3 lit = inGlass * (DM * G.C.rgb - G.C.rgb) + G.C.rgb;          // G730-731
+	float3 sc = inGlass * (DM * G.B.rgb - G.B.rgb) + G.B.rgb;           // G832-833
+	float  gate = WuwaV2BodyLinkGate(SvPositionXY, ViewSizeAndInvSize, ViewRectMin, E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis,
+		E_LinkPos, LinkRot0, LinkRot1);
+	FWuwaFXOutput X;
+	X.Emissive = E;                                  // material Emissive Color (Kuro: before max(0) / emissive scale / OOB)
+	X.Opacity = min(inGlass * (1.0 - op0) + op0, gate); // material Opacity (Kuro: then * the primitive fade, engine)
+	OutBaseColor = WuwaBPDesaturate(lit, Desaturation);
+	OutNormal = G.A.xyz;
+	OutShadowColor = WuwaBPDesaturate(sc, Desaturation);
+	OutShadow = G.A.w;
+	OutShadowAO = G.B.a;
+	return X;
+}
+
+// ba4350d6 (#118603, MI_R2T1MoneMd10011Down): forward-translucent UseBlurTranslucentGlass V2 body: UseDoubleSpecular + UseCameraOffsetLightDir, UseVDLShadowoffset, UseFresnel, UseRampIDMask, UseXingHen (rotated), no UseRegionID / UseBlendParameter / UseOnlySkinRampColor; glass L566-792 / L899-917, opacity max(min(lerp(max(XingHen blend of sat(lum(spec) - 1), TypeMask.r * OpacityIntensity), 1, glass region), E_Link gate), 0) (L700-707, L826-829)
+FWuwaFXOutput WuwaToonBodyV2TransGlassDSNoSkinRampXingHenNoRIDBasePass(
+	Texture2D Normal_Roughness_Metallic, SamplerState Normal_Roughness_MetallicSampler, Texture2D TypeMask,
+	SamplerState TypeMaskSampler, SamplerState TypeMaskLod0Sampler, Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D MatCapTex, SamplerState MatCapTexSampler, Texture2D Ramp, SamplerState RampSampler, float2 UV0, float3 WorldTangent,
+	float3 WorldNormal, float TangentSign, float3 WorldPosition, float3 TranslatedWorldPosition, float3 CameraVector,
+	float3 LightDirVS, float MotionEmissiveMask, float4x4 TranslatedWorldToView, float DamageIntensity, float Damage_Skin_Intensity,
+	float SkinMin, float SkinMax, float UseFaceAni_SkinMask, float3 SkinColor, float3 Damage_Dirty_SkinColorTint,
+	float3 Damage_Dirty_ColorTint, float Damage_Dirty_Intensity, float3 Damage_Skin_ColorTint, float3 BaseColorTint,
+	float DecodeShadowThreshold, float DecodeSpecThreshold, float NormalStrength, float RaytracingReflectionFix, float FresnelMin,
+	float FresnelMax, float ExtraMatcapMin, float ExtraMatcapMax, float3 FresnelColor0, float FresnelRangeMin0,
+	float FresnelRangeMax0, float FresnelRangePower0, float3 FresnelColor1, float FresnelRangeMin1, float FresnelRangeMax1,
+	float FresnelRangePower1, float UseFresnel1, float FresnelIntensity, float Metallic0, float Metallic1, float Metallic2,
+	float Metallic3, float Metallic4, float UseIDMetallicParam, float MetallicIntensityDebug, float Roughness0, float Roughness1,
+	float Roughness2, float Roughness3, float Roughness4, float UseIDRoughnessParam, float RoughnessIntensityDebug, float Spec_Int0,
+	float Spec_Int1, float Spec_Int2, float Spec_Int3, float Spec_Int4, float Spec_Width0, float Spec_Width1, float Spec_Width2,
+	float Spec_Width3, float Spec_Width4, float Spec_Smooth0, float Spec_Smooth1, float Spec_Smooth2, float Spec_Smooth3,
+	float Spec_Smooth4, float EdgeEnvBRDFIntensity, float UseTexNormal, float MatcapMaxMip, float MetalMatCapBack,
+	float NonMetallicMatCapInt, float MetalMatCapInt, float PBRRateIntensity, float3 MatcapColor, float3 PBRIndirectColor,
+	float3 PBRSpecularColor, float SolidShadowProcess, float SolidShadowWidth, float LightOffset_Pitch, float ShadowProcess,
+	float ShadowWidth, float ShadowWidthUseID, float ShadowWidth0, float ShadowWidth1, float ShadowWidth2, float ShadowWidth3,
+	float ShadowWidth4, float AniSwitch_ShadowColorBright, float SolidShadow_RampPosition, float RampID0, float RampID1,
+	float RampID2, float RampID3, float RampID4, float RampInt0, float RampInt1, float RampInt2, float RampInt3, float RampInt4,
+	float Desaturation, float3 SkinSubsurfaceColor, float3 SubsurfaceColor, float SolidShadowStrength, float3 EmissionColor,
+	float3 E_Motion_Emissive, float4 SelectionColor, float OpacityIntensity, float CPD1, float CPD13,
+	float MPC_GlobalCharSkyLightIntensity, float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection, float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float3 ObjectWorldPosition, float GameTime, Texture2D D,
+	SamplerState DSampler, Texture2D Noise, SamplerState NoiseSampler, Texture2D Noise02, SamplerState Noise02Sampler, float UV3X,
+	float4 SDFColor, float4 SDFColor02, float ShakeNoiseInt, float UVpositionX, float UVpositionY, float UVScaleX, float UVScaleY,
+	float XHRotCos, float XHRotSin, float XingHenControl, float SDFStart, float SoundWaveTiling01, float SoundWaveSpeed01,
+	float SoundWaveInt01, float SoundWaveTiling02, float SoundWaveSpeed02, float SoundWaveInt02, float XHMax, float XingHenPosition,
+	float2 SvPositionXY, float4 ViewSizeAndInvSize, float2 ViewRectMin, float E_Link_UseSplitScreen,
+	float4 E_Link_AngleLinePosLineDis, float E_LinkPos, float2 LinkRot0, float2 LinkRot1, Texture2D BlurNoise,
+	SamplerState BlurNoiseSampler, Texture2D DitherTex, SamplerState DitherTexSampler, Texture2D SceneColor,
+	SamplerState SceneColorSampler, Texture2D SceneDepth, SamplerState SceneDepthSampler, float VertexColorA, float2 SvPositionZW,
+	float2 SceneTextureInvSize, float4 SceneTextureUVMinMax, float ViewToClip00, float ViewToClip11, float TemporalAAParamsX,
+	float4 InvDeviceZToWorldZTransform, float Thickness, float FresnelMaskWidth, float FresnelMaskOffset, float EdgeFresnelWidth,
+	float3 EdgeFresnelColor, float3 ThickColor, float2 BlurNoiseTiling, float EdgeRefractStrength, float InnerRefractStrength,
+	float ThickRefractStrength, float EdgeBlurIntensity, float BlurIntensity, float Noise_Min, float Noise_Max,
+	float EdgeDispStrength, float DispStrength, float ThickDispStrength, float GlassOpacity, float GlassOpacityPlus02,
+	float DepthMaskDistance, float DepthMaskMin, float DepthMaskMax, float DepMaskOpacity, float BlurTranslucentMin,
+	float BlurTranslucentMax, float CameraOffsetLightSize, float UseCameraOffsetLightDir, out float3 OutBaseColor,
+	out float3 OutNormal, out float3 OutShadowColor, out float OutShadow, out float OutShadowAO)
+{
+	float FurPDO;
+	float3 NOut;
+	// material part with the selection tint / desaturation / OpacityIntensity neutral (re-applied after the glass blend)
+	FWuwaToonGBuffer G = WuwaToonBodyV2BasePass_Impl(1u, true, false, false, true, false, true, false, false, false, false, true, false, 0u, false, false, 0u, false, true, true, false, false, false, false, false, false, true, false, false, true, false, 0u, 0u, false, false, 1u, false, 0u,
+		0.0, Normal_Roughness_Metallic, Normal_Roughness_MetallicSampler, TypeMask, TypeMaskSampler, TypeMaskLod0Sampler, MainTex,
+		MainTexSampler, MainTex, MainTexSampler, MatCapTex, MatCapTexSampler, Ramp, RampSampler, UV0, WorldTangent, WorldNormal,
+		TangentSign, WorldPosition, TranslatedWorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, TranslatedWorldToView,
+		DamageIntensity, Damage_Skin_Intensity, SkinMin, SkinMax, UseFaceAni_SkinMask, SkinColor, Damage_Dirty_SkinColorTint,
+		Damage_Dirty_ColorTint, Damage_Dirty_Intensity, Damage_Skin_ColorTint, BaseColorTint, DecodeShadowThreshold,
+		DecodeSpecThreshold, NormalStrength, RaytracingReflectionFix, FresnelMin, FresnelMax, 0.0, 0.0, ExtraMatcapMin, ExtraMatcapMax,
+		FresnelColor0, FresnelRangeMin0, FresnelRangeMax0, FresnelRangePower0, FresnelColor1, FresnelRangeMin1, FresnelRangeMax1,
+		FresnelRangePower1, UseFresnel1, FresnelIntensity, Metallic0, Metallic1, Metallic2, Metallic3, Metallic4, UseIDMetallicParam,
+		MetallicIntensityDebug, Roughness0, Roughness1, Roughness2, Roughness3, Roughness4, UseIDRoughnessParam,
+		RoughnessIntensityDebug, Spec_Int0, Spec_Int1, Spec_Int2, Spec_Int3, Spec_Int4, Spec_Width0, Spec_Width1, Spec_Width2,
+		Spec_Width3, Spec_Width4, Spec_Smooth0, Spec_Smooth1, Spec_Smooth2, Spec_Smooth3, Spec_Smooth4, 0.0, 0.0, 0.0,
+		EdgeEnvBRDFIntensity, UseTexNormal, MatcapMaxMip, MetalMatCapBack, NonMetallicMatCapInt, MetalMatCapInt, PBRRateIntensity,
+		MatcapColor, PBRIndirectColor, PBRSpecularColor, SolidShadowProcess, SolidShadowWidth, LightOffset_Pitch, ShadowProcess,
+		ShadowWidth, ShadowWidthUseID, ShadowWidth0, ShadowWidth1, ShadowWidth2, ShadowWidth3, ShadowWidth4,
+		AniSwitch_ShadowColorBright, SolidShadow_RampPosition, RampID0, RampID1, RampID2, RampID3, RampID4, RampInt0, RampInt1,
+		RampInt2, RampInt3, RampInt4, 0.0, SkinSubsurfaceColor, SubsurfaceColor, SolidShadowStrength, EmissionColor, E_Motion_Emissive,
+		float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, CPD1, CPD13, MPC_GlobalCharSkyLightIntensity,
+		MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3,
+		MaterialTextureMipBias, NormalOverrideParameter, 0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, ObjectWorldPosition,
+		float3(0.0, 0.0, 0.0), 0u, GameTime, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, MainTex, MainTexSampler, MainTex, MainTexSampler, float2(0.0, 0.0), float2(0.0, 0.0), SvPositionXY, ViewRectMin,
+		ViewSizeAndInvSize, float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, float4(0.0, 0.0, 0.0, 0.0), float4(0.0, 0.0, 0.0, 0.0),
+		float4(0.0, 0.0, 0.0, 0.0), 0.0, float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, float4(0.0, 0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0), 0.0,
+		0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0),
+		MainTex, MainTexSampler, 0.0, 0.0, 0.0, 0.0, D, DSampler, Noise, NoiseSampler, Noise02, Noise02Sampler, UV3X, SDFColor,
+		SDFColor02, ShakeNoiseInt, UVpositionX, UVpositionY, UVScaleX, UVScaleY, XHRotCos, XHRotSin, XingHenControl, SDFStart,
+		SoundWaveTiling01, SoundWaveSpeed01, SoundWaveInt01, SoundWaveTiling02, SoundWaveSpeed02, SoundWaveInt02, XHMax,
+		XingHenPosition, MainTex, MainTexSampler, float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0), MainTex,
+		MainTexSampler, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis, E_LinkPos, LinkRot0, LinkRot1, 0.0, 0.0, 0.0, 0.0, 0.0,
+		float3(0.0, 0.0, 0.0), 0.0, float3(0.0, 0.0, 0.0), float4(0.0, 0.0, 0.0, 0.0), (float4x4)0, float3(0.0, 0.0, 0.0), (float4x4)0,
+		0.0, MainTex, MainTexSampler, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0),
+		float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, MainTex, MainTexSampler, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, 0.0, float2(0.0, 0.0), 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), FurPDO, NOut, 1u, true, CameraOffsetLightSize,
+		UseCameraOffsetLightDir);
+	// values of the Impl the glass block reads (same statements as the Impl)
+	float3 TM = TypeMask.SampleLevel(TypeMaskSampler, UV0, MaterialTextureMipBias).rba;
+	float  d = DamageIntensity * (TM.y - 0.5);
+	float  DamageSkin = saturate(((d + asfloat(0xBB031200u)) * Damage_Skin_Intensity) * asfloat(0x40008399u));
+	float  RoughTex;
+	float3 Nmix = WuwaV2GlassNmix(Normal_Roughness_Metallic, Normal_Roughness_MetallicSampler, UV0, WorldTangent, WorldNormal,
+		TangentSign, NormalStrength, DamageSkin, RoughTex);
+	int    idLo = 0, idHi = 0;
+	bool   hasHi = false;
+	float  id = floor(min(TM.z, asfloat(0x3F7D70A4u)) * 5.0);
+	float  tmA = TypeMask.SampleLevel(TypeMaskLod0Sampler, UV0, 0.0).a;
+	float  rough = WuwaV2GlassRough(false, idLo, idHi, hasHi, id, tmA, float4(Roughness0, Roughness1, Roughness2, Roughness3),
+		Roughness4, RoughTex, UseIDRoughnessParam, RoughnessIntensityDebug);
+	float3 L = WuwaV2BodyMainLightDir(false, LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+	// UseXingHen: the star mark raises the glass opacity (ba4350d6 L700-707); lum(max(spec, 0)) from an Impl call without it
+	float3 XHCol; float XHOp, XHG;
+	WuwaV2BodyXingHen(true, D, DSampler, Noise, NoiseSampler, Noise02, Noise02Sampler, UV0, UV3X, GameTime, SDFColor, SDFColor02,
+		ShakeNoiseInt, UVpositionX, UVpositionY, UVScaleX, UVScaleY, XHRotCos, XHRotSin, XingHenControl, SDFStart, SoundWaveTiling01,
+		SoundWaveSpeed01, SoundWaveInt01, SoundWaveTiling02, SoundWaveSpeed02, SoundWaveInt02, XHMax, XingHenPosition, XHCol, XHOp, XHG);
+	FWuwaToonGBuffer G2 = WuwaToonBodyV2BasePass_Impl(1u, true, false, false, true, false, true, false, false, false, false, true, false, 0u, false, false, 0u, false, false, true, false, false, false, false, false, false, true, false, false, true, false, 0u, 0u, false, false, 1u, false, 0u,
+		0.0, Normal_Roughness_Metallic, Normal_Roughness_MetallicSampler, TypeMask, TypeMaskSampler, TypeMaskLod0Sampler, MainTex,
+		MainTexSampler, MainTex, MainTexSampler, MatCapTex, MatCapTexSampler, Ramp, RampSampler, UV0, WorldTangent, WorldNormal,
+		TangentSign, WorldPosition, TranslatedWorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, TranslatedWorldToView,
+		DamageIntensity, Damage_Skin_Intensity, SkinMin, SkinMax, UseFaceAni_SkinMask, SkinColor, Damage_Dirty_SkinColorTint,
+		Damage_Dirty_ColorTint, Damage_Dirty_Intensity, Damage_Skin_ColorTint, BaseColorTint, DecodeShadowThreshold,
+		DecodeSpecThreshold, NormalStrength, RaytracingReflectionFix, FresnelMin, FresnelMax, 0.0, 0.0, ExtraMatcapMin, ExtraMatcapMax,
+		FresnelColor0, FresnelRangeMin0, FresnelRangeMax0, FresnelRangePower0, FresnelColor1, FresnelRangeMin1, FresnelRangeMax1,
+		FresnelRangePower1, UseFresnel1, FresnelIntensity, Metallic0, Metallic1, Metallic2, Metallic3, Metallic4, UseIDMetallicParam,
+		MetallicIntensityDebug, Roughness0, Roughness1, Roughness2, Roughness3, Roughness4, UseIDRoughnessParam,
+		RoughnessIntensityDebug, Spec_Int0, Spec_Int1, Spec_Int2, Spec_Int3, Spec_Int4, Spec_Width0, Spec_Width1, Spec_Width2,
+		Spec_Width3, Spec_Width4, Spec_Smooth0, Spec_Smooth1, Spec_Smooth2, Spec_Smooth3, Spec_Smooth4, 0.0, 0.0, 0.0,
+		EdgeEnvBRDFIntensity, UseTexNormal, MatcapMaxMip, MetalMatCapBack, NonMetallicMatCapInt, MetalMatCapInt, PBRRateIntensity,
+		MatcapColor, PBRIndirectColor, PBRSpecularColor, SolidShadowProcess, SolidShadowWidth, LightOffset_Pitch, ShadowProcess,
+		ShadowWidth, ShadowWidthUseID, ShadowWidth0, ShadowWidth1, ShadowWidth2, ShadowWidth3, ShadowWidth4,
+		AniSwitch_ShadowColorBright, SolidShadow_RampPosition, RampID0, RampID1, RampID2, RampID3, RampID4, RampInt0, RampInt1,
+		RampInt2, RampInt3, RampInt4, 0.0, SkinSubsurfaceColor, SubsurfaceColor, SolidShadowStrength, EmissionColor, E_Motion_Emissive,
+		float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, CPD1, CPD13, MPC_GlobalCharSkyLightIntensity,
+		MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3,
+		MaterialTextureMipBias, NormalOverrideParameter, 0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, ObjectWorldPosition,
+		float3(0.0, 0.0, 0.0), 0u, GameTime, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, MainTex, MainTexSampler, MainTex, MainTexSampler, float2(0.0, 0.0), float2(0.0, 0.0), SvPositionXY, ViewRectMin,
+		ViewSizeAndInvSize, float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, float4(0.0, 0.0, 0.0, 0.0), float4(0.0, 0.0, 0.0, 0.0),
+		float4(0.0, 0.0, 0.0, 0.0), 0.0, float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, float4(0.0, 0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0), 0.0,
+		0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0),
+		MainTex, MainTexSampler, 0.0, 0.0, 0.0, 0.0, D, DSampler, Noise, NoiseSampler, Noise02, Noise02Sampler, UV3X, SDFColor,
+		SDFColor02, ShakeNoiseInt, UVpositionX, UVpositionY, UVScaleX, UVScaleY, XHRotCos, XHRotSin, XingHenControl, SDFStart,
+		SoundWaveTiling01, SoundWaveSpeed01, SoundWaveInt01, SoundWaveTiling02, SoundWaveSpeed02, SoundWaveInt02, XHMax,
+		XingHenPosition, MainTex, MainTexSampler, float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0), MainTex,
+		MainTexSampler, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis, E_LinkPos, LinkRot0, LinkRot1, 0.0, 0.0, 0.0, 0.0, 0.0,
+		float3(0.0, 0.0, 0.0), 0.0, float3(0.0, 0.0, 0.0), float4(0.0, 0.0, 0.0, 0.0), (float4x4)0, float3(0.0, 0.0, 0.0), (float4x4)0,
+		0.0, MainTex, MainTexSampler, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0),
+		float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, MainTex, MainTexSampler, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, 0.0, float2(0.0, 0.0), 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), FurPDO, NOut, 1u, true, CameraOffsetLightSize,
+		UseCameraOffsetLightDir);
+	float  s0 = saturate(G2.C.a + -1.0);
+	float  op0 = max(XHG * (max(s0, XHOp) - s0) + s0, TM.x * OpacityIntensity);
+	float  DM;
+	float3 Scene = WuwaV2GlassScene(Nmix, CameraVector, L, rough, VertexColorA, UV0, SvPositionXY, SvPositionZW.y, ViewRectMin,
+		ViewSizeAndInvSize, SceneTextureInvSize, SceneTextureUVMinMax, TranslatedWorldToView, ViewToClip00, ViewToClip11,
+		TemporalAAParamsX, InvDeviceZToWorldZTransform, BlurNoise, BlurNoiseSampler, DitherTex, DitherTexSampler, SceneColor,
+		SceneColorSampler, SceneDepth, SceneDepthSampler, Thickness, FresnelMaskWidth, FresnelMaskOffset, EdgeFresnelWidth,
+		EdgeFresnelColor, ThickColor, BlurNoiseTiling, EdgeRefractStrength, InnerRefractStrength, ThickRefractStrength,
+		EdgeBlurIntensity, BlurIntensity, Noise_Min, Noise_Max, EdgeDispStrength, DispStrength, ThickDispStrength, GlassOpacity,
+		GlassOpacityPlus02, op0, DepthMaskDistance, DepthMaskMin, DepthMaskMax, DepMaskOpacity, DM);
+	float  inGlass = ((id + 0.5 >= BlurTranslucentMin) ? 1.0 : 0.0) * ((BlurTranslucentMax >= id + -0.5) ? 1.0 : 0.0);
+	float3 E = inGlass * (DM * -Scene + Scene) + G.Emissive;           // G714-719
+	E = SelectionColor.a * (SelectionColor.rgb - E) + E;
+	float3 lit = inGlass * (DM * G.C.rgb - G.C.rgb) + G.C.rgb;          // G730-731
+	float3 sc = inGlass * (DM * G.B.rgb - G.B.rgb) + G.B.rgb;           // G832-833
+	float  gate = WuwaV2BodyLinkGate(SvPositionXY, ViewSizeAndInvSize, ViewRectMin, E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis,
+		E_LinkPos, LinkRot0, LinkRot1);
+	FWuwaFXOutput X;
+	X.Emissive = E;                                  // material Emissive Color (Kuro: before max(0) / emissive scale / OOB)
+	X.Opacity = max(min(inGlass * (1.0 - op0) + op0, gate), 0.0); // material Opacity (Kuro: then * the primitive fade)
+	OutBaseColor = WuwaBPDesaturate(lit, Desaturation);
+	OutNormal = G.A.xyz;
+	OutShadowColor = WuwaBPDesaturate(sc, Desaturation);
+	OutShadow = G.A.w;
+	OutShadowAO = G.B.a;
+	return X;
+}
+
+// 81b646b8 (#291139, MI_R2T1MoneMd20011Glass): as ba4350d6 + TwoSided (UseAniSwitchShadow has no PS effect)
+FWuwaFXOutput WuwaToonBodyV2TransGlassDSNoSkinRampXingHenNoRID2SBasePass(
+	float TwoSidedSign, Texture2D Normal_Roughness_Metallic, SamplerState Normal_Roughness_MetallicSampler, Texture2D TypeMask,
+	SamplerState TypeMaskSampler, SamplerState TypeMaskLod0Sampler, Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D MatCapTex, SamplerState MatCapTexSampler, Texture2D Ramp, SamplerState RampSampler, float2 UV0, float3 WorldTangent,
+	float3 WorldNormal, float TangentSign, float3 WorldPosition, float3 TranslatedWorldPosition, float3 CameraVector,
+	float3 LightDirVS, float MotionEmissiveMask, float4x4 TranslatedWorldToView, float DamageIntensity, float Damage_Skin_Intensity,
+	float SkinMin, float SkinMax, float UseFaceAni_SkinMask, float3 SkinColor, float3 Damage_Dirty_SkinColorTint,
+	float3 Damage_Dirty_ColorTint, float Damage_Dirty_Intensity, float3 Damage_Skin_ColorTint, float3 BaseColorTint,
+	float DecodeShadowThreshold, float DecodeSpecThreshold, float NormalStrength, float RaytracingReflectionFix, float FresnelMin,
+	float FresnelMax, float ExtraMatcapMin, float ExtraMatcapMax, float3 FresnelColor0, float FresnelRangeMin0,
+	float FresnelRangeMax0, float FresnelRangePower0, float3 FresnelColor1, float FresnelRangeMin1, float FresnelRangeMax1,
+	float FresnelRangePower1, float UseFresnel1, float FresnelIntensity, float Metallic0, float Metallic1, float Metallic2,
+	float Metallic3, float Metallic4, float UseIDMetallicParam, float MetallicIntensityDebug, float Roughness0, float Roughness1,
+	float Roughness2, float Roughness3, float Roughness4, float UseIDRoughnessParam, float RoughnessIntensityDebug, float Spec_Int0,
+	float Spec_Int1, float Spec_Int2, float Spec_Int3, float Spec_Int4, float Spec_Width0, float Spec_Width1, float Spec_Width2,
+	float Spec_Width3, float Spec_Width4, float Spec_Smooth0, float Spec_Smooth1, float Spec_Smooth2, float Spec_Smooth3,
+	float Spec_Smooth4, float EdgeEnvBRDFIntensity, float UseTexNormal, float MatcapMaxMip, float MetalMatCapBack,
+	float NonMetallicMatCapInt, float MetalMatCapInt, float PBRRateIntensity, float3 MatcapColor, float3 PBRIndirectColor,
+	float3 PBRSpecularColor, float SolidShadowProcess, float SolidShadowWidth, float LightOffset_Pitch, float ShadowProcess,
+	float ShadowWidth, float ShadowWidthUseID, float ShadowWidth0, float ShadowWidth1, float ShadowWidth2, float ShadowWidth3,
+	float ShadowWidth4, float AniSwitch_ShadowColorBright, float SolidShadow_RampPosition, float RampID0, float RampID1,
+	float RampID2, float RampID3, float RampID4, float RampInt0, float RampInt1, float RampInt2, float RampInt3, float RampInt4,
+	float Desaturation, float3 SkinSubsurfaceColor, float3 SubsurfaceColor, float SolidShadowStrength, float3 EmissionColor,
+	float3 E_Motion_Emissive, float4 SelectionColor, float OpacityIntensity, float CPD1, float CPD13,
+	float MPC_GlobalCharSkyLightIntensity, float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection, float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float3 ObjectWorldPosition, float GameTime, Texture2D D,
+	SamplerState DSampler, Texture2D Noise, SamplerState NoiseSampler, Texture2D Noise02, SamplerState Noise02Sampler, float UV3X,
+	float4 SDFColor, float4 SDFColor02, float ShakeNoiseInt, float UVpositionX, float UVpositionY, float UVScaleX, float UVScaleY,
+	float XHRotCos, float XHRotSin, float XingHenControl, float SDFStart, float SoundWaveTiling01, float SoundWaveSpeed01,
+	float SoundWaveInt01, float SoundWaveTiling02, float SoundWaveSpeed02, float SoundWaveInt02, float XHMax, float XingHenPosition,
+	float2 SvPositionXY, float4 ViewSizeAndInvSize, float2 ViewRectMin, float E_Link_UseSplitScreen,
+	float4 E_Link_AngleLinePosLineDis, float E_LinkPos, float2 LinkRot0, float2 LinkRot1, Texture2D BlurNoise,
+	SamplerState BlurNoiseSampler, Texture2D DitherTex, SamplerState DitherTexSampler, Texture2D SceneColor,
+	SamplerState SceneColorSampler, Texture2D SceneDepth, SamplerState SceneDepthSampler, float VertexColorA, float2 SvPositionZW,
+	float2 SceneTextureInvSize, float4 SceneTextureUVMinMax, float ViewToClip00, float ViewToClip11, float TemporalAAParamsX,
+	float4 InvDeviceZToWorldZTransform, float Thickness, float FresnelMaskWidth, float FresnelMaskOffset, float EdgeFresnelWidth,
+	float3 EdgeFresnelColor, float3 ThickColor, float2 BlurNoiseTiling, float EdgeRefractStrength, float InnerRefractStrength,
+	float ThickRefractStrength, float EdgeBlurIntensity, float BlurIntensity, float Noise_Min, float Noise_Max,
+	float EdgeDispStrength, float DispStrength, float ThickDispStrength, float GlassOpacity, float GlassOpacityPlus02,
+	float DepthMaskDistance, float DepthMaskMin, float DepthMaskMax, float DepMaskOpacity, float BlurTranslucentMin,
+	float BlurTranslucentMax, float CameraOffsetLightSize, float UseCameraOffsetLightDir, out float3 OutBaseColor,
+	out float3 OutNormal, out float3 OutShadowColor, out float OutShadow, out float OutShadowAO)
+{
+	float FurPDO;
+	float3 NOut;
+	// material part with the selection tint / desaturation / OpacityIntensity neutral (re-applied after the glass blend)
+	FWuwaToonGBuffer G = WuwaToonBodyV2BasePass_Impl(1u, true, true, false, true, false, true, false, false, false, false, true, false, 0u, false, false, 0u, false, true, true, false, false, false, false, false, false, true, false, false, true, false, 0u, 0u, false, false, 1u, false, 0u,
+		TwoSidedSign, Normal_Roughness_Metallic, Normal_Roughness_MetallicSampler, TypeMask, TypeMaskSampler, TypeMaskLod0Sampler,
+		MainTex, MainTexSampler, MainTex, MainTexSampler, MatCapTex, MatCapTexSampler, Ramp, RampSampler, UV0, WorldTangent,
+		WorldNormal, TangentSign, WorldPosition, TranslatedWorldPosition, CameraVector, LightDirVS, MotionEmissiveMask,
+		TranslatedWorldToView, DamageIntensity, Damage_Skin_Intensity, SkinMin, SkinMax, UseFaceAni_SkinMask, SkinColor,
+		Damage_Dirty_SkinColorTint, Damage_Dirty_ColorTint, Damage_Dirty_Intensity, Damage_Skin_ColorTint, BaseColorTint,
+		DecodeShadowThreshold, DecodeSpecThreshold, NormalStrength, RaytracingReflectionFix, FresnelMin, FresnelMax, 0.0, 0.0,
+		ExtraMatcapMin, ExtraMatcapMax, FresnelColor0, FresnelRangeMin0, FresnelRangeMax0, FresnelRangePower0, FresnelColor1,
+		FresnelRangeMin1, FresnelRangeMax1, FresnelRangePower1, UseFresnel1, FresnelIntensity, Metallic0, Metallic1, Metallic2,
+		Metallic3, Metallic4, UseIDMetallicParam, MetallicIntensityDebug, Roughness0, Roughness1, Roughness2, Roughness3, Roughness4,
+		UseIDRoughnessParam, RoughnessIntensityDebug, Spec_Int0, Spec_Int1, Spec_Int2, Spec_Int3, Spec_Int4, Spec_Width0, Spec_Width1,
+		Spec_Width2, Spec_Width3, Spec_Width4, Spec_Smooth0, Spec_Smooth1, Spec_Smooth2, Spec_Smooth3, Spec_Smooth4, 0.0, 0.0, 0.0,
+		EdgeEnvBRDFIntensity, UseTexNormal, MatcapMaxMip, MetalMatCapBack, NonMetallicMatCapInt, MetalMatCapInt, PBRRateIntensity,
+		MatcapColor, PBRIndirectColor, PBRSpecularColor, SolidShadowProcess, SolidShadowWidth, LightOffset_Pitch, ShadowProcess,
+		ShadowWidth, ShadowWidthUseID, ShadowWidth0, ShadowWidth1, ShadowWidth2, ShadowWidth3, ShadowWidth4,
+		AniSwitch_ShadowColorBright, SolidShadow_RampPosition, RampID0, RampID1, RampID2, RampID3, RampID4, RampInt0, RampInt1,
+		RampInt2, RampInt3, RampInt4, 0.0, SkinSubsurfaceColor, SubsurfaceColor, SolidShadowStrength, EmissionColor, E_Motion_Emissive,
+		float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, CPD1, CPD13, MPC_GlobalCharSkyLightIntensity,
+		MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3,
+		MaterialTextureMipBias, NormalOverrideParameter, 0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, ObjectWorldPosition,
+		float3(0.0, 0.0, 0.0), 0u, GameTime, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, MainTex, MainTexSampler, MainTex, MainTexSampler, float2(0.0, 0.0), float2(0.0, 0.0), SvPositionXY, ViewRectMin,
+		ViewSizeAndInvSize, float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, float4(0.0, 0.0, 0.0, 0.0), float4(0.0, 0.0, 0.0, 0.0),
+		float4(0.0, 0.0, 0.0, 0.0), 0.0, float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, float4(0.0, 0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0), 0.0,
+		0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0),
+		MainTex, MainTexSampler, 0.0, 0.0, 0.0, 0.0, D, DSampler, Noise, NoiseSampler, Noise02, Noise02Sampler, UV3X, SDFColor,
+		SDFColor02, ShakeNoiseInt, UVpositionX, UVpositionY, UVScaleX, UVScaleY, XHRotCos, XHRotSin, XingHenControl, SDFStart,
+		SoundWaveTiling01, SoundWaveSpeed01, SoundWaveInt01, SoundWaveTiling02, SoundWaveSpeed02, SoundWaveInt02, XHMax,
+		XingHenPosition, MainTex, MainTexSampler, float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0), MainTex,
+		MainTexSampler, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis, E_LinkPos, LinkRot0, LinkRot1, 0.0, 0.0, 0.0, 0.0, 0.0,
+		float3(0.0, 0.0, 0.0), 0.0, float3(0.0, 0.0, 0.0), float4(0.0, 0.0, 0.0, 0.0), (float4x4)0, float3(0.0, 0.0, 0.0), (float4x4)0,
+		0.0, MainTex, MainTexSampler, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0),
+		float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, MainTex, MainTexSampler, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, 0.0, float2(0.0, 0.0), 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), FurPDO, NOut, 1u, true, CameraOffsetLightSize,
+		UseCameraOffsetLightDir);
+	// values of the Impl the glass block reads (same statements as the Impl)
+	float3 TM = TypeMask.SampleLevel(TypeMaskSampler, UV0, MaterialTextureMipBias).rba;
+	float  d = DamageIntensity * (TM.y - 0.5);
+	float  DamageSkin = saturate(((d + asfloat(0xBB031200u)) * Damage_Skin_Intensity) * asfloat(0x40008399u));
+	float  RoughTex;
+	float3 Nmix = WuwaV2GlassNmix(Normal_Roughness_Metallic, Normal_Roughness_MetallicSampler, UV0, WorldTangent, WorldNormal,
+		TangentSign, NormalStrength, DamageSkin, RoughTex);
+	int    idLo = 0, idHi = 0;
+	bool   hasHi = false;
+	float  id = floor(min(TM.z, asfloat(0x3F7D70A4u)) * 5.0);
+	float  tmA = TypeMask.SampleLevel(TypeMaskLod0Sampler, UV0, 0.0).a;
+	float  rough = WuwaV2GlassRough(false, idLo, idHi, hasHi, id, tmA, float4(Roughness0, Roughness1, Roughness2, Roughness3),
+		Roughness4, RoughTex, UseIDRoughnessParam, RoughnessIntensityDebug);
+	float3 L = WuwaV2BodyMainLightDir(false, LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+	// UseXingHen: the star mark raises the glass opacity (ba4350d6 L700-707); lum(max(spec, 0)) from an Impl call without it
+	float3 XHCol; float XHOp, XHG;
+	WuwaV2BodyXingHen(true, D, DSampler, Noise, NoiseSampler, Noise02, Noise02Sampler, UV0, UV3X, GameTime, SDFColor, SDFColor02,
+		ShakeNoiseInt, UVpositionX, UVpositionY, UVScaleX, UVScaleY, XHRotCos, XHRotSin, XingHenControl, SDFStart, SoundWaveTiling01,
+		SoundWaveSpeed01, SoundWaveInt01, SoundWaveTiling02, SoundWaveSpeed02, SoundWaveInt02, XHMax, XingHenPosition, XHCol, XHOp, XHG);
+	FWuwaToonGBuffer G2 = WuwaToonBodyV2BasePass_Impl(1u, true, true, false, true, false, true, false, false, false, false, true, false, 0u, false, false, 0u, false, false, true, false, false, false, false, false, false, true, false, false, true, false, 0u, 0u, false, false, 1u, false, 0u,
+		TwoSidedSign, Normal_Roughness_Metallic, Normal_Roughness_MetallicSampler, TypeMask, TypeMaskSampler, TypeMaskLod0Sampler,
+		MainTex, MainTexSampler, MainTex, MainTexSampler, MatCapTex, MatCapTexSampler, Ramp, RampSampler, UV0, WorldTangent,
+		WorldNormal, TangentSign, WorldPosition, TranslatedWorldPosition, CameraVector, LightDirVS, MotionEmissiveMask,
+		TranslatedWorldToView, DamageIntensity, Damage_Skin_Intensity, SkinMin, SkinMax, UseFaceAni_SkinMask, SkinColor,
+		Damage_Dirty_SkinColorTint, Damage_Dirty_ColorTint, Damage_Dirty_Intensity, Damage_Skin_ColorTint, BaseColorTint,
+		DecodeShadowThreshold, DecodeSpecThreshold, NormalStrength, RaytracingReflectionFix, FresnelMin, FresnelMax, 0.0, 0.0,
+		ExtraMatcapMin, ExtraMatcapMax, FresnelColor0, FresnelRangeMin0, FresnelRangeMax0, FresnelRangePower0, FresnelColor1,
+		FresnelRangeMin1, FresnelRangeMax1, FresnelRangePower1, UseFresnel1, FresnelIntensity, Metallic0, Metallic1, Metallic2,
+		Metallic3, Metallic4, UseIDMetallicParam, MetallicIntensityDebug, Roughness0, Roughness1, Roughness2, Roughness3, Roughness4,
+		UseIDRoughnessParam, RoughnessIntensityDebug, Spec_Int0, Spec_Int1, Spec_Int2, Spec_Int3, Spec_Int4, Spec_Width0, Spec_Width1,
+		Spec_Width2, Spec_Width3, Spec_Width4, Spec_Smooth0, Spec_Smooth1, Spec_Smooth2, Spec_Smooth3, Spec_Smooth4, 0.0, 0.0, 0.0,
+		EdgeEnvBRDFIntensity, UseTexNormal, MatcapMaxMip, MetalMatCapBack, NonMetallicMatCapInt, MetalMatCapInt, PBRRateIntensity,
+		MatcapColor, PBRIndirectColor, PBRSpecularColor, SolidShadowProcess, SolidShadowWidth, LightOffset_Pitch, ShadowProcess,
+		ShadowWidth, ShadowWidthUseID, ShadowWidth0, ShadowWidth1, ShadowWidth2, ShadowWidth3, ShadowWidth4,
+		AniSwitch_ShadowColorBright, SolidShadow_RampPosition, RampID0, RampID1, RampID2, RampID3, RampID4, RampInt0, RampInt1,
+		RampInt2, RampInt3, RampInt4, 0.0, SkinSubsurfaceColor, SubsurfaceColor, SolidShadowStrength, EmissionColor, E_Motion_Emissive,
+		float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, CPD1, CPD13, MPC_GlobalCharSkyLightIntensity,
+		MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3,
+		MaterialTextureMipBias, NormalOverrideParameter, 0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, ObjectWorldPosition,
+		float3(0.0, 0.0, 0.0), 0u, GameTime, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, MainTex, MainTexSampler, MainTex, MainTexSampler, float2(0.0, 0.0), float2(0.0, 0.0), SvPositionXY, ViewRectMin,
+		ViewSizeAndInvSize, float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, float4(0.0, 0.0, 0.0, 0.0), float4(0.0, 0.0, 0.0, 0.0),
+		float4(0.0, 0.0, 0.0, 0.0), 0.0, float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, float4(0.0, 0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0), 0.0,
+		0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0),
+		MainTex, MainTexSampler, 0.0, 0.0, 0.0, 0.0, D, DSampler, Noise, NoiseSampler, Noise02, Noise02Sampler, UV3X, SDFColor,
+		SDFColor02, ShakeNoiseInt, UVpositionX, UVpositionY, UVScaleX, UVScaleY, XHRotCos, XHRotSin, XingHenControl, SDFStart,
+		SoundWaveTiling01, SoundWaveSpeed01, SoundWaveInt01, SoundWaveTiling02, SoundWaveSpeed02, SoundWaveInt02, XHMax,
+		XingHenPosition, MainTex, MainTexSampler, float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0), MainTex,
+		MainTexSampler, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis, E_LinkPos, LinkRot0, LinkRot1, 0.0, 0.0, 0.0, 0.0, 0.0,
+		float3(0.0, 0.0, 0.0), 0.0, float3(0.0, 0.0, 0.0), float4(0.0, 0.0, 0.0, 0.0), (float4x4)0, float3(0.0, 0.0, 0.0), (float4x4)0,
+		0.0, MainTex, MainTexSampler, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0),
+		float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, MainTex, MainTexSampler, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, 0.0, float2(0.0, 0.0), 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), FurPDO, NOut, 1u, true, CameraOffsetLightSize,
+		UseCameraOffsetLightDir);
+	float  s0 = saturate(G2.C.a + -1.0);
+	float  op0 = max(XHG * (max(s0, XHOp) - s0) + s0, TM.x * OpacityIntensity);
+	float  DM;
+	float3 Scene = WuwaV2GlassScene(Nmix, CameraVector, L, rough, VertexColorA, UV0, SvPositionXY, SvPositionZW.y, ViewRectMin,
+		ViewSizeAndInvSize, SceneTextureInvSize, SceneTextureUVMinMax, TranslatedWorldToView, ViewToClip00, ViewToClip11,
+		TemporalAAParamsX, InvDeviceZToWorldZTransform, BlurNoise, BlurNoiseSampler, DitherTex, DitherTexSampler, SceneColor,
+		SceneColorSampler, SceneDepth, SceneDepthSampler, Thickness, FresnelMaskWidth, FresnelMaskOffset, EdgeFresnelWidth,
+		EdgeFresnelColor, ThickColor, BlurNoiseTiling, EdgeRefractStrength, InnerRefractStrength, ThickRefractStrength,
+		EdgeBlurIntensity, BlurIntensity, Noise_Min, Noise_Max, EdgeDispStrength, DispStrength, ThickDispStrength, GlassOpacity,
+		GlassOpacityPlus02, op0, DepthMaskDistance, DepthMaskMin, DepthMaskMax, DepMaskOpacity, DM);
+	float  inGlass = ((id + 0.5 >= BlurTranslucentMin) ? 1.0 : 0.0) * ((BlurTranslucentMax >= id + -0.5) ? 1.0 : 0.0);
+	float3 E = inGlass * (DM * -Scene + Scene) + G.Emissive;           // G714-719
+	E = SelectionColor.a * (SelectionColor.rgb - E) + E;
+	float3 lit = inGlass * (DM * G.C.rgb - G.C.rgb) + G.C.rgb;          // G730-731
+	float3 sc = inGlass * (DM * G.B.rgb - G.B.rgb) + G.B.rgb;           // G832-833
+	float  gate = WuwaV2BodyLinkGate(SvPositionXY, ViewSizeAndInvSize, ViewRectMin, E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis,
+		E_LinkPos, LinkRot0, LinkRot1);
+	FWuwaFXOutput X;
+	X.Emissive = E;                                  // material Emissive Color (Kuro: before max(0) / emissive scale / OOB)
+	X.Opacity = max(min(inGlass * (1.0 - op0) + op0, gate), 0.0); // material Opacity (Kuro: then * the primitive fade)
+	OutBaseColor = WuwaBPDesaturate(lit, Desaturation);
+	OutNormal = G.A.xyz;
+	OutShadowColor = WuwaBPDesaturate(sc, Desaturation);
+	OutShadow = G.A.w;
+	OutShadowAO = G.B.a;
+	return X;
+}
+// ==== END ROUND 6 GLASS ENTRIES ====
+
+#endif // WUWA_V2GLASS_USH

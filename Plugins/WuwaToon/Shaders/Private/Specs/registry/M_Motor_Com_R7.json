@@ -1,0 +1,39 @@
+{
+ "root_material": "M_Motor_Com",
+ "generated_by": "tools/shaderdiff/weapons/r7/build_registry_motor.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 7 singletons (research/roster/round7/singletons.md): new root M_Motor_Com, one variant per WARP-verified base-pass PS hash, keyed with the VS hash whose status is established (gated_wpo). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "Motor_Com_DecalCarPaintCubeSecond.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6fbc5fb913536bc0ea18a38b45feb45a3e0b9ea2"
+    ],
+    "base_pass_vs_hash": [
+     "839bb8e60c6929dd7600040a9d55a40239a96202"
+    ]
+   },
+   "verified": "research/roster/round7/singletons.md#m_motor_com; evidence/validation/shaderdiff/roster_charcom/round7/singletons/motor/results_motor_6fbc5f_final.json summary.motor_6fbc5f (36 runs, o0 589824/589824 o1 589824/589824 o2 589824/589824 o3 589824/589824 o6 589824/589824 bit-exact); negatives evidence/validation/shaderdiff/roster_charcom/round7/singletons/motor/results_motor_6fbc5f_neg_cp1ulp.json, _neg_fxswap.json detected; VS #162151 gated_wpo (evidence/validation/shaderdiff/roster_charcom/round7/singletons/motor/vs_status_motor.json: gated_wpo: UV3-dissolve WPO x UseShadowLordMaterialDynamic = 0 (finite WPO) at MI_ETaidaonvDiaoouMd10011; disassembly identical to the round-3 gated M_CharMonster VS #240952 except Material-CB operand positions)",
+   "ps_archive_index": 162137,
+   "vs_archive_index": [
+    162151
+   ],
+   "vs_status": {
+    "839bb8e60c6929dd7600040a9d55a40239a96202": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Hiyuki",
+    "skin:Soundless Prayer"
+   ],
+   "example_mis": [
+    "MI_ETaidaonvDiaoouMd10011"
+   ],
+   "notes": "36 runs, o0/o1/o2/o3/o6 589824/589824 bit-exact; TextureCube PBRCubeMap bound with random content (r3/monster_run.py renderer)"
+  }
+ ]
+}

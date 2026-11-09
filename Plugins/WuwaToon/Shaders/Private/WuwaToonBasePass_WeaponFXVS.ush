@@ -1,0 +1,80 @@
+// WuwaToonBasePass_WeaponFXVS.ush — vertex-shader (World Position Offset) parts of the weapon / effect material ports,
+// round 2 of research/roster/Port_Weapons_Specials.md. New file; nothing here is included by a verified header.
+//
+// WuwaFXSwimNoiseWPO: the always-on "Swim + Noise" WPO of M_AdvancedEffect_CM VS __185794 (62a7757c98, the VS of PS ad44d27227:
+// MI_R5Device505Md200011Effect = Whispers of Sirens, MI_ETaidaonvGongMd10011_Xian = Hiyuki's bow string). Line refs V### =
+// annotated asm of that VS. The E_Absorbed branch of the same VS (V41-96) is gated off (E_Absorbed_Enable = 0 at both MIs)
+// and is not ported; this function returns its "else" value (0) in the sum, as the VS does at those MIs.
+//   noise = sin((UV0.y - GameTime * NoiseWPO_Speed) * 2pi) * NoiseWPO_Intensity                                (V97-102)
+//   s     = sin(GameTime * 0.1 * 2pi)                                                                          (V103-105)
+//   rot   = UE RotateAboutAxis(normalize(LocalToWorld * RotateAboutAxis), s * SwimWPO_RotationAngle (turns),
+//           pivot = object origin, position = absolute world position)                                         (V106-135)
+//   WPO   = ((rot + LocalToWorld[0] * SwimWPO_Z_Intensity * s) * noise
+//            * ((UV0.y^2 + SwimWPO_Offset) * SwimWPO_Intensity * VertexColor.a) + 0) * WPOIntensity             (V136-148)
+// All arithmetic is `precise` like the original (no mul+add fusion, the x * 0 terms of the material's
+// TransformLocalPosition(0) / TransformLocalVector(1,0,0) are kept: they propagate NaN/Inf exactly as the VS does).
+// UE contract: connect the return value to World Position Offset (absolute-space offset, added to the translated world
+// position by the vertex factory exactly as Kuro's VS does: TWP + WPO, then + the Kuro primitive offset, then * TranslatedWorldToClip).
+#pragma once
+#ifndef WUWA_WEAPONFXVS_USH
+#define WUWA_WEAPONFXVS_USH
+
+float3 WuwaFXSwimNoiseWPO(float2 UV0, float VertexColorA, float3 WorldPosition,
+	float3 LocalToWorldRow0, float3 LocalToWorldRow1, float3 LocalToWorldRow2, float3 LocalToWorldRow3, float GameTime,
+	float NoiseWPO_Speed, float NoiseWPO_Intensity, float SwimWPO_RotationAngle, float3 RotateAboutAxis,
+	float SwimWPO_Z_Intensity, float SwimWPO_Offset, float SwimWPO_Intensity, float WPOIntensity)
+{
+	const float TwoPi = asfloat(0x40C90FDBu);
+	// V97-102
+	precise float t = GameTime * NoiseWPO_Speed;
+	t = t * -1.0;
+	t = UV0.y + t;
+	t = t * TwoPi;
+	precise float noise = sin(t) * NoiseWPO_Intensity;
+	// V103-107
+	precise float s = GameTime * asfloat(0x3DCCCCCDu);
+	s = s * TwoPi;
+	s = sin(s);
+	precise float ang = s * SwimWPO_RotationAngle;
+	ang = ang * TwoPi;
+	// V108-115: world rotation axis
+	precise float3 ax = LocalToWorldRow0 * RotateAboutAxis.x;
+	ax = ax + LocalToWorldRow1 * RotateAboutAxis.y;
+	ax = ax + LocalToWorldRow2 * RotateAboutAxis.z;
+	ax = ax / sqrt(dot(ax, ax));
+	// V116-121: pivot = TransformLocalPosition(0)
+	precise float3 z0 = LocalToWorldRow0 * 0.0;
+	precise float3 z1 = LocalToWorldRow1 * 0.0;
+	precise float3 z2 = LocalToWorldRow2 * 0.0;
+	precise float3 pivot = z0 + z1;
+	pivot = pivot + z2;
+	pivot = pivot + LocalToWorldRow3;
+	// V122-135: RotateAboutAxis
+	precise float3 d = WorldPosition - pivot;
+	precise float3 cp = dot(ax, d) * ax;
+	cp = pivot + cp;
+	precise float3 u = WorldPosition - cp;
+	precise float3 v = ax.yzx * u.zxy - ax.zxy * u.yzx;
+	precise float cs = cos(ang);
+	precise float sn = sin(ang);
+	precise float3 r = v * sn + u * cs;
+	r = r + cp;
+	precise float3 rot = r - WorldPosition;
+	// V136-140: + TransformLocalVector(1, 0, 0) * SwimWPO_Z_Intensity * s
+	precise float3 zt = z1 + LocalToWorldRow0;
+	zt = z2 + zt;
+	zt = zt * SwimWPO_Z_Intensity;
+	zt = s * zt;
+	precise float3 o = rot + zt;
+	// V141-148
+	o = noise * o;
+	precise float q = UV0.y * UV0.y;
+	q = q + SwimWPO_Offset;
+	q = q * SwimWPO_Intensity;
+	q = VertexColorA * q;
+	o = q * o;
+	o = o + 0.0;                       // V147: + E_Absorbed offset (branch gated off: 0)
+	return o * WPOIntensity;
+}
+
+#endif // WUWA_WEAPONFXVS_USH

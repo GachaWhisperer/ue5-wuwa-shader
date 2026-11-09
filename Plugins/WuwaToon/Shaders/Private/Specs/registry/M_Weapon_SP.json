@@ -1,0 +1,41 @@
+{
+ "root_material": "M_Weapon_SP",
+ "generated_by": "tools/shaderdiff/weapons/build_registry.py",
+ "contract": "Specs/registry/README.md",
+ "note": "one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose material terms are verified or provably inactive (vs_status.py: verified_binary / engine_only / gated_wpo). Translucent / unlit entries (\"resolve\": false) output Emissive + Opacity, not the toon GBuffer. research/roster/Port_Weapons_Specials.md",
+ "variants": [
+  {
+   "spec": "Weapon_SP_FlashDiamond.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "9059e5c8ea9f16815f54e231e8cd84fd62fd6a20"
+    ],
+    "base_pass_vs_hash": [
+     "50591320701122140af6a7e4eea0e7b814557620"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.WeaponSP_9059e5 (27 runs, 442368/442368 px bit-exact on o0/o1/o2/o3/o6); VS #94834 gated_wpo (UseShadowLordMaterialDynamic = [0.0] at every MI); evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 94854,
+   "vs_archive_index": [
+    94834
+   ],
+   "vs_status": {
+    "50591320701122140af6a7e4eea0e7b814557620": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 3,
+   "roster_slot_uses": 5,
+   "entities": [
+    "character:Sigrika",
+    "skin:\"Homebound\"",
+    "weapon:Freeze Frame"
+   ],
+   "example_mis": [
+    "MI_EXigelikaDaggerMd10011_Daotou",
+    "MI_EXigelikaFeidaoMd10011_02",
+    "MI_R5Device508Md20001_Zuanshi"
+   ]
+  }
+ ]
+}

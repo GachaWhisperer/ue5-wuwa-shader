@@ -1,0 +1,70 @@
+{
+ "root_material": "M_CharWeapon_Com",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "CharWeapon_Com_SDFXingHenMatCap2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "557b6f4eb74055fe285e07cf3dc1bb583306195b"
+    ],
+    "base_pass_vs_hash": [
+     "d05a7cbf36464c32d102ed3c61948a5d49a20ae5"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/charweapon/results_charweapon_557b6f_charweapon_bd9bfa_final.json summary.charweapon_557b6f (33 runs, o0 540672/540672 o1 540672/540672 o2 540672/540672 o3 540672/540672 o6 540672/540672 bit-exact); VS #193076 symbolic (evidence/validation/shaderdiff/weapons/round3/charweapon/vs_status_charweapon.json (r3/charweapon_vs_status.py: symexec DAG of the VS with the MI preshader formulas identical to the verified Yangyang Body VS #35700 on TEXCOORD2.xyzw + SV_POSITION, 8/8 components))",
+   "ps_archive_index": 193048,
+   "vs_archive_index": [
+    193076
+   ],
+   "vs_status": {
+    "d05a7cbf36464c32d102ed3c61948a5d49a20ae5": "symbolic"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 4,
+   "entities": [
+    "character:Augusta",
+    "skin:Bearer of Legend"
+   ],
+   "example_mis": [
+    "MI_EAogusitaChangjianMd10011"
+   ],
+   "notes": "MI_EAogusitaChangjianMd10011 (Augusta sword prop, 4 slot uses incl. skin Bearer of Legend); 33 runs 128x128 x 3 seeds, o0/o1/o2/o3/o6 540672/540672 bit-exact; negative control results_charweapon_557b6f_charweapon_bd9bfa_neg_spec1ulp.json mismatches"
+  },
+  {
+   "spec": "CharWeapon_Com_SuoMinRainBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "bd9bfaaeeb79abaf25d8bd551646bffd97161050"
+    ],
+    "base_pass_vs_hash": [
+     "70235027f4921219b3c8156207ad0b1b8c966aab"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/charweapon/results_charweapon_557b6f_charweapon_bd9bfa_final.json summary.charweapon_bd9bfa (36 runs, o0 589824/589824 o1 589824/589824 o2 589824/589824 o3 589824/589824 o6 589824/589824 bit-exact); VS #80470 symbolic (evidence/validation/shaderdiff/weapons/round3/charweapon/vs_status_charweapon.json (r3/charweapon_vs_status.py: symexec DAG of the VS with the MI preshader formulas identical to the verified Yangyang Body VS #35700 on TEXCOORD2.xyzw + SV_POSITION, 8/8 components))",
+   "ps_archive_index": 80483,
+   "vs_archive_index": [
+    80470
+   ],
+   "vs_status": {
+    "70235027f4921219b3c8156207ad0b1b8c966aab": "symbolic"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 4,
+   "entities": [
+    "character:Suoming",
+    "skin:Gilded Sable"
+   ],
+   "example_mis": [
+    "MI_ESuomingSanMd10011Sanmian_01"
+   ],
+   "notes": "MI_ESuomingSanMd10011Sanmian_01 (Suoming umbrella prop, 4 slot uses incl. skin Gilded Sable); cb4 table built by r3/charweapon_cbmap.py (all Kuro names recovered); 36 runs 128x128 x 3 seeds, o0/o1/o2/o3/o6 589824/589824 bit-exact; negative control mismatches"
+  }
+ ]
+}

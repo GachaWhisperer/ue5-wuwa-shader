@@ -1,0 +1,624 @@
+{
+ "name": "MonsterOutline_MainTexPush",
+ "entry": "WuwaToonMonsterOutlineBasePass_MainTex",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_MiscProps.ush",
+ "kuro_shading_model": "MSM_ToonOutline (GBufferB id 13)",
+ "kuro_asm": "M_MonsterOutline (MI_MonsterOL_Default; UseMainTex, UseOutlineMax, UseVertexGreen_OutlineWidth, UseClipSpaceOutline, no UseVertexColorB_InnerOutline) PS 4847fc74d2 (#51831, same code as 338608ecdc, other Material-UB layout) / VS c48296ae5a (#51848, outline extrusion ported: WuwaMonsterOutlineWPO_Push)",
+ "kuro_root_material": "M_MonsterOutline",
+ "blend_mode": "BLEND_Opaque",
+ "two_sided": false,
+ "resolve": true,
+ "resolve_note": "MSM_ToonOutline GBuffer (id 13) through WuwaToonResolve, like Outline_B_MainTex: A = (oct N, 1, mode flag), B = (sqrt(saturate(MainTex * OutlineColorTint * BaseColorTint)), id 13 | lighting channels), C = (lerp(colour, lum, Main_Desaturation), 0), D = 0; the emissive (ShadowLord colour layer x UseShadowLordMaterialDynamic + attack fresnel rim x FresnelAttackFactor, SelectionColor lerp) is o0. Inverted hull: render with the ported VS extrusion (the \"wpo\" block) and front-face culling like the M_CharacterOutline materials.",
+ "vs_note": "VS c48296ae5a (#51848): M_MonsterOutline inverted-hull extrusion + E_UV3Dissolve WPO, ported as the \"wpo\" entry WuwaMonsterOutlineWPO_Push.",
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "o0.rgb SceneColor (o0.a = 0)"
+  },
+  "A": {
+   "type": "float4",
+   "kuro": "o1 GBufferA: xy oct normal, z toon shadow factor, w flag"
+  },
+  "B": {
+   "type": "float4",
+   "kuro": "o2 GBufferB: rgb sqrt(shadow colour), a (LightingChannelMask<<5 | ShadingModelId)/255"
+  },
+  "C": {
+   "type": "float4",
+   "kuro": "o3 GBufferC: rgb lit colour, a MainTex.a*OpacityIntensity / rim byte"
+  },
+  "D": {
+   "type": "float4",
+   "kuro": "o6 \"GBufferD\": x ToonRimWidth, y packed nibble, z 0, w packed AO|FFT"
+  }
+ },
+ "inputs": [
+  {
+   "name": "ShadowLord_ColorTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "ShadowLord_ColorTex",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "ShadowLord_ColorTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "ShadowLord_ColorTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "ShadowLord_ColorTexSampler"
+  },
+  {
+   "name": "MainTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "MainTex",
+   "default": "T_EXuanlingBirdMd10011_LD",
+   "note": "reference MI MI_EXuanlingBirdMd10011_OL: {'ObjectName': \"Texture2D'T_EXuanlingBirdMd10011_LD'\", 'ObjectPath': 'Client/Content/Aki/Character/Weapon/Prop/Role/XuanlingProp/EXuanlingBirdMd10011_Small/Model/T_EXuanlingBirdMd10011_LD.0'}"
+  },
+  {
+   "name": "MainTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "MainTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MainTexSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "UV3",
+   "type": "float2",
+   "kind": "uv",
+   "index": 3
+  },
+  {
+   "name": "WorldTangent",
+   "type": "float3",
+   "kind": "worldtangent",
+   "ue_expr": "Parameters.TangentToWorld[0]"
+  },
+  {
+   "name": "WorldNormal",
+   "type": "float3",
+   "kind": "worldnormal",
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "TangentSign",
+   "type": "float",
+   "kind": "worldtangent",
+   "channel": "sign",
+   "ue_expr": "Parameters.TangentToWorldSign"
+  },
+  {
+   "name": "WorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "absolute",
+   "ue_expr": "WSHackToFloat(GetWorldPosition(Parameters))"
+  },
+  {
+   "name": "ShadowLord_ColorTiling",
+   "type": "float4",
+   "kind": "vector",
+   "param": "ShadowLord_ColorTiling",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    -0.17000000178813934
+   ]
+  },
+  {
+   "name": "ShadowLord_ColorMulti",
+   "type": "float3",
+   "kind": "vector",
+   "param": "ShadowLord_ColorMulti",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    0.7099999785423279,
+    0.699999988079071
+   ]
+  },
+  {
+   "name": "UseShadowLordMaterialDynamic",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseShadowLordMaterialDynamic",
+   "default": 0.0
+  },
+  {
+   "name": "AttackFresnelRimColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "AttackFresnelRimColor",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    0.6052820086479187,
+    0.29166701436042786
+   ]
+  },
+  {
+   "name": "AttackFresnelRimIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "AttackFresnelRimIntensity",
+   "default": 4.0
+  },
+  {
+   "name": "FresnelAttackFactor",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FresnelAttackFactor",
+   "default": 0.0
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "OutlineColorTint",
+   "type": "float3",
+   "kind": "vector",
+   "param": "OutlineColorTint",
+   "channels": "rgb",
+   "default": [
+    0.5,
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "name": "BaseColorTint",
+   "type": "float3",
+   "kind": "vector",
+   "param": "BaseColorTint",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Main_Desaturation",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Main_Desaturation",
+   "default": 0.0
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "NormalOverrideParameter",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.NormalOverrideParameter",
+   "kuro": "Kuro View[144] (stock member), default (0,0,0,1)",
+   "default": [
+    0,
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "name": "KuroGBufferMode",
+   "type": "float",
+   "kind": "view",
+   "kuro": "View[276].x (int, ==1 selects the alternate packing)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "KuroEmissiveScale",
+   "type": "float3",
+   "kind": "view",
+   "kuro": "View[285].xyz (emissive multiplier when Primitive[42].w == 0)",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true
+  },
+  {
+   "name": "KuroSkipEmissiveScale",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[42].w (skip View[285] multiply when != 0)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "OutOfBoundsMask",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.OutOfBoundsMask",
+   "kuro": "Kuro View[146].x (stock debug)",
+   "default": 0.0
+  },
+  {
+   "name": "ObjectWorldPosition",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "WSHackToFloat(GetObjectWorldPosition(Parameters))"
+  },
+  {
+   "name": "ObjectBounds",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "float3(GetPrimitiveData(Parameters).ObjectBoundsX, GetPrimitiveData(Parameters).ObjectBoundsY, GetPrimitiveData(Parameters).ObjectBoundsZ)"
+  },
+  {
+   "name": "LightingChannelMask",
+   "type": "uint",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitive_LightingChannelMask_FromFlags(GetPrimitiveData(Parameters).Flags)"
+  }
+ ],
+ "generated_by": "tools/shaderdiff/weapons/r3/make_specs_misc.py",
+ "notes": {
+  "textures": "slot 0 = ShadowLord_ColorTex [U: inferred, sampled at UV3 with ShadowLord_ColorTiling / x ShadowLord_ColorMulti; no roster MI overrides it, root default applies], slot 1 = MainTex (every roster MI overrides it with the body _LD texture). E_Tex_NoiseTex is in the map but not sampled by this PS."
+ },
+ "wpo": {
+  "entry": "WuwaMonsterOutlineWPO_Push",
+  "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_MiscProps.ush",
+  "connect": "World Position Offset (material output pin): world-space offset; Kuro adds it to the pre-offset translated world position, then its primitive offset (Primitive[44] when View[308].x)",
+  "note": "ported from the original VS and verified bit-exact on SV_POSITION (tools/shaderdiff/weapons/r3/misc_vs_wpo.py)",
+  "inputs": [
+   {
+    "name": "UV1",
+    "type": "float2",
+    "kind": "uv",
+    "index": 1,
+    "note": "octahedral smoothed normal (Kuro TexCoords[1])"
+   },
+   {
+    "name": "UV3Y",
+    "type": "float",
+    "kind": "uv",
+    "index": 3,
+    "channel": "y",
+    "note": "Kuro TexCoords[3].y (UV3 dissolve / attack darkness)"
+   },
+   {
+    "name": "VertexColor",
+    "type": "float4",
+    "kind": "vertexcolor",
+    "ue_expr": "Parameters.VertexColor",
+    "note": "G = width, B = inner-outline push (InnerB)"
+   },
+   {
+    "name": "VertexTangentWS",
+    "type": "float3",
+    "kind": "worldtangent",
+    "ue_expr": "Parameters.TangentToWorld[0]",
+    "kuro": "GPU-skin passthrough TangentX x (LocalToWorld x InvNonUniformScale)",
+    "ue_expr_note": "Round 4 compile fixes: was kind 'vs_basis', ue_expr 'Parameters.TangentToWorld[0] (VS)' (vertex-stage basis = the standard VS binding)",
+    "stage": "vs"
+   },
+   {
+    "name": "VertexBitangentWS",
+    "type": "float3",
+    "kind": "worldtangent",
+    "ue_expr": "Parameters.TangentToWorld[1]",
+    "ue_expr_note": "Round 4 compile fixes: was kind 'vs_basis', ue_expr 'Parameters.TangentToWorld[1] (VS)' (vertex-stage basis = the standard VS binding)",
+    "channel": "bitangent",
+    "stage": "vs"
+   },
+   {
+    "name": "VertexNormalWS",
+    "type": "float3",
+    "kind": "worldnormal",
+    "ue_expr": "Parameters.TangentToWorld[2]",
+    "ue_expr_note": "Round 4 compile fixes: was kind 'vs_basis', ue_expr 'Parameters.TangentToWorld[2] (VS)' (vertex-stage basis = the standard VS binding)",
+    "stage": "vs"
+   },
+   {
+    "name": "ObjectAxisScale",
+    "type": "float3",
+    "kind": "primitive",
+    "ue_expr": "GetPrimitiveData(Parameters).NonUniformScale.xyz",
+    "kuro": "(|Primitive[0].xyz|, |Primitive[1].xyz|, |Primitive[2].xyz|), computed in the VS"
+   },
+   {
+    "name": "LocalToWorldRow0",
+    "type": "float3",
+    "kind": "primitive",
+    "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[0].xyz",
+    "kuro": "Primitive[0].xyz"
+   },
+   {
+    "name": "LocalToWorldRow1",
+    "type": "float3",
+    "kind": "primitive",
+    "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[1].xyz",
+    "kuro": "Primitive[1].xyz"
+   },
+   {
+    "name": "LocalToWorldRow2",
+    "type": "float3",
+    "kind": "primitive",
+    "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[2].xyz",
+    "kuro": "Primitive[2].xyz"
+   },
+   {
+    "name": "TranslatedWorldPosition",
+    "type": "float3",
+    "kind": "worldposition",
+    "space": "translated",
+    "ue_expr": "GetTranslatedWorldPosition(Parameters)",
+    "kuro": "VS TWP = LocalToWorld * pos + (PreViewTranslation + LocalToWorld[3]) before any offset",
+    "ue_expr_note": "Round 4 compile fixes: was 'GetTranslatedWorldPosition_NoMaterialOffsets(Parameters)' (UE 5.8 has no vertex-stage _NoMaterialOffsets accessor; the VS position fed to WPO already excludes material offsets)"
+   },
+   {
+    "name": "PreViewTranslation",
+    "type": "float3",
+    "kind": "view",
+    "ue_expr": "WSHackToFloat(ResolvedView.PreViewTranslation)",
+    "kuro": "View[70].xyz",
+    "ue_expr_note": "Round 4 compile fixes: was 'WSHackToFloat(ResolvedView.PreViewTranslation) (LWC-demoted)' (annotation removed)"
+   },
+   {
+    "name": "WorldCameraOrigin",
+    "type": "float3",
+    "kind": "view",
+    "ue_expr": "WSHackToFloat(ResolvedView.WorldCameraOrigin)",
+    "kuro": "View[67].xyz"
+   },
+   {
+    "name": "TranslatedWorldToClip",
+    "type": "float4x4",
+    "kind": "view",
+    "ue_expr": "ResolvedView.TranslatedWorldToClip",
+    "kuro": "View[0..3] (attack-hash screen position)"
+   },
+   {
+    "name": "WorldToClip",
+    "type": "float4x4",
+    "kind": "view",
+    "ue_expr": null,
+    "unknown": true,
+    "kuro": "View[4..7] (absolute WorldToClip; UE5: TranslatedWorldToClip re-based by PreViewTranslation: row3 = row3 + PreViewTranslation x rows0..2, LWC-demoted) [U]"
+   },
+   {
+    "name": "ClipToWorld",
+    "type": "float4x4",
+    "kind": "view",
+    "ue_expr": null,
+    "unknown": true,
+    "kuro": "View[8..11] (absolute ClipToWorld; only rows 0..2 (w = 0 directions) and row 3 x 0 are used: UE5 ClipToTranslatedWorld rows with xyz -= w * PreViewTranslation) [U]"
+   },
+   {
+    "name": "ScreenPositionScaleBias",
+    "type": "float4",
+    "kind": "view",
+    "ue_expr": "ResolvedView.ScreenPositionScaleBias",
+    "kuro": "VS View[66]"
+   },
+   {
+    "name": "BufferSize",
+    "type": "float2",
+    "kind": "view",
+    "ue_expr": "ResolvedView.BufferSizeAndInvSize.xy",
+    "kuro": "VS View[138].xy [U: member name inferred]"
+   },
+   {
+    "name": "ViewRectMin",
+    "type": "float2",
+    "kind": "view",
+    "ue_expr": "ResolvedView.ViewRectMin.xy",
+    "kuro": "View[134].xy"
+   },
+   {
+    "name": "ViewSizeAndInvSize",
+    "type": "float4",
+    "kind": "view",
+    "ue_expr": "ResolvedView.ViewSizeAndInvSize",
+    "kuro": "View[135]"
+   },
+   {
+    "name": "ClipToView00",
+    "type": "float",
+    "kind": "view",
+    "ue_expr": "ResolvedView.ClipToView[0][0]",
+    "kuro": "View[36].x"
+   },
+   {
+    "name": "ClipToView11",
+    "type": "float",
+    "kind": "view",
+    "ue_expr": "ResolvedView.ClipToView[1][1]",
+    "kuro": "View[37].y"
+   },
+   {
+    "name": "KuroOutlinePixelScale",
+    "type": "float",
+    "kind": "view",
+    "ue_expr": null,
+    "unknown": true,
+    "default": 1.0,
+    "kuro": "View[280].y (outline pixel-floor scale) [U]"
+   },
+   {
+    "name": "GameTime",
+    "type": "float",
+    "kind": "view",
+    "ue_expr": "View.GameTime",
+    "kuro": "View[148].z"
+   },
+   {
+    "name": "E_UV3Dissolve_WPOVector",
+    "type": "float3",
+    "kind": "vector",
+    "param": "E_UV3Dissolve_WPOVector",
+    "channels": "rgb",
+    "default": [
+     0.0,
+     0.0,
+     1.0
+    ]
+   },
+   {
+    "name": "E_UV3Dissolve_VectorWPOStrength",
+    "type": "float",
+    "kind": "scalar",
+    "param": "E_UV3Dissolve_VectorWPOStrength",
+    "default": 0.0
+   },
+   {
+    "name": "E_UV3Dissolve_Position",
+    "type": "float",
+    "kind": "scalar",
+    "param": "E_UV3Dissolve_Position",
+    "default": 0.0
+   },
+   {
+    "name": "E_UV3Dissolve_Radius",
+    "type": "float",
+    "kind": "scalar",
+    "param": "E_UV3Dissolve_Radius",
+    "default": 0.20000000298023224
+   },
+   {
+    "name": "E_UV3Dissolve_Reverse",
+    "type": "float",
+    "kind": "scalar",
+    "param": "E_UV3Dissolve_Reverse",
+    "default": 0.0
+   },
+   {
+    "name": "E_UV3Dissolve_WarpWPOWavySize",
+    "type": "float",
+    "kind": "scalar",
+    "param": "E_UV3Dissolve_WarpWPOWavySize",
+    "default": 2.5
+   },
+   {
+    "name": "E_UV3Dissolve_WarpWPOTimeSpeed",
+    "type": "float",
+    "kind": "scalar",
+    "param": "E_UV3Dissolve_WarpWPOTimeSpeed",
+    "default": 0.20000000298023224
+   },
+   {
+    "name": "E_UV3Dissolve_WarpWPOSize",
+    "type": "float",
+    "kind": "scalar",
+    "param": "E_UV3Dissolve_WarpWPOSize",
+    "default": 100.0
+   },
+   {
+    "name": "E_UV3Dissolve_WPOPosition",
+    "type": "float",
+    "kind": "scalar",
+    "param": "E_UV3Dissolve_WPOPosition",
+    "default": 1.0
+   },
+   {
+    "name": "UseShadowLordMaterialDynamic",
+    "type": "float",
+    "kind": "scalar",
+    "param": "UseShadowLordMaterialDynamic",
+    "default": 0.0
+   },
+   {
+    "name": "AttackOutlineMax",
+    "type": "float",
+    "kind": "scalar",
+    "param": "AttackOutlineMax",
+    "default": 150.0
+   },
+   {
+    "name": "AttackOutlineMaxLocalSet",
+    "type": "float",
+    "kind": "scalar",
+    "param": "AttackOutlineMaxLocalSet",
+    "default": 0.0
+   },
+   {
+    "name": "AttackDarkScale",
+    "type": "float",
+    "kind": "scalar",
+    "param": "AttackDarkScale",
+    "default": 1.399999976158142
+   },
+   {
+    "name": "FresnelAttackFactor",
+    "type": "float",
+    "kind": "scalar",
+    "param": "FresnelAttackFactor",
+    "default": 0.0
+   },
+   {
+    "name": "OutlineClipWidth",
+    "type": "float",
+    "kind": "scalar",
+    "param": "OutlineClipWidth",
+    "default": 0.699999988079071
+   },
+   {
+    "name": "VertexGMinWidthFactor",
+    "type": "float",
+    "kind": "scalar",
+    "param": "VertexGMinWidthFactor",
+    "default": 0.0
+   },
+   {
+    "name": "OutlineMax",
+    "type": "float",
+    "kind": "scalar",
+    "param": "OutlineMax",
+    "default": 1.0
+   },
+   {
+    "name": "OutlineHoldDistance",
+    "type": "float",
+    "kind": "scalar",
+    "param": "OutlineHoldDistance",
+    "default": 0.5
+   },
+   {
+    "name": "InnerOutlineOffset",
+    "type": "float",
+    "kind": "scalar",
+    "param": "InnerOutlineOffset",
+    "default": 0.5
+   }
+  ]
+ }
+}

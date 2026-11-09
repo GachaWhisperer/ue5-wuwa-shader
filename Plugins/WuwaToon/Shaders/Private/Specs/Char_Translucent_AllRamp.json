@@ -1,0 +1,924 @@
+{
+ "name": "Char_Translucent_AllRamp",
+ "entry": "WuwaGlassCharTranslucent_AllRamp",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_Glass.ush",
+ "kuro_shading_model": "MSM_DefaultLit (UE4.26 lit forward translucent)",
+ "kuro_asm": "M_Char_Translucent PS 61a5ff52d7 (#99688, 7 MIs: MI_EKanteleilaShuimuxiaoMd10011_Gaizi/_Piaodai/_Xu, MI_EKanteleilaShuimudaMd10011_Gaizi/_Piaodai/_Xu, MI_EKanteleilaSanshuimuMd10011_Gaizi) / VS 3be53aa34d (#2466); UseRampColor + UseSkinAllRampColor + UseAllRampColor + UseEffect",
+ "kuro_root_material": "M_Char_Translucent",
+ "blend_mode": "BLEND_Translucent",
+ "two_sided": false,
+ "resolve": false,
+ "resolve_note": "lit forward translucent (UE4.26 MSM_DefaultLit, BLEND_Translucent, TranslucencyLightingMode Surface TranslucencyVolume). Port = the Kuro material graph: Emissive / Opacity (FWuwaFXOutput) + out OutBaseColor, OutMetallic, OutRoughness, OutNormal (tangent space, already x TwoSidedSign as the graph outputs it); Specular is the default 0.5. UE material: translucent DefaultLit, connect BaseColor / Metallic / Roughness / Normal / EmissiveColor / Opacity; UE lights it itself. Engine side, not ported (reproduced in the harness: tools/shaderdiff/weapons/hlsl/kuro_tail_glass.hlsli KuroCharTranslucentTail): BaseColor saturate, roughness override View[145], Diffuse/Specular colour + View[142]/[143] overrides, forward-grid reflection captures + sky View[163], EnvBRDFApprox, planar reflection, translucency lighting volume, Kuro emissive scale / OOB, vertex fog, Kuro effect grading (View[283]/[279]/[286].x/[284]).",
+ "vs_note": "VS #2466 (3be53aa34d): engine_only - reads no Material-CB value (cb declarations View / Primitive / GPU-skin only); stock GPU-skin passthrough translucent VS with vertex height fog (TEXCOORD7). See r3/glass_vs_status.py.",
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "material Emissive Color (before the engine translucent tail: fog, OOB, Kuro effect grading)"
+  },
+  "Opacity": {
+   "type": "float",
+   "kuro": "material Opacity (o0.a = o1.a after the tail)"
+  },
+  "OutBaseColor": {
+   "type": "float3",
+   "kuro": "material Base Color (engine saturates it)"
+  },
+  "OutMetallic": {
+   "type": "float",
+   "kuro": "material Metallic = saturate(Normal_Roughness_Metallic.z * MetallicIntensity)"
+  },
+  "OutRoughness": {
+   "type": "float",
+   "kuro": "material Roughness = saturate(Normal_Roughness_Metallic.w * RoughnessIntensity)"
+  },
+  "OutNormal": {
+   "type": "float3",
+   "kuro": "material Normal (tangent space) = lerp((0,0,1), normal map, NormalStrength) * TwoSidedSign"
+  }
+ },
+ "inputs": [
+  {
+   "name": "Normal_Roughness_Metallic",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Normal_Roughness_Metallic",
+   "default": "T_EKanteleilaShuimudaMd10011_N",
+   "note": "reference MI MI_EKanteleilaShuimudaMd10011_Gaizi: {'ObjectName': \"Texture2D'T_EKanteleilaShuimudaMd10011_N'\", 'ObjectPath': 'Client/Content/Aki/Character/Weapon/Prop/Role/KanteleilaProp/EKanteleilaShuimudaMd10011/Model/T_EKanteleilaShuimudaMd10011_N.1'}"
+  },
+  {
+   "name": "Normal_Roughness_MetallicSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Normal_Roughness_Metallic",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "Normal_Roughness_MetallicSampler"
+  },
+  {
+   "name": "MainTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "MainTex",
+   "default": "T_EKanteleilaShuimudaMd10011_D",
+   "note": "reference MI MI_EKanteleilaShuimudaMd10011_Gaizi: {'ObjectName': \"Texture2D'T_EKanteleilaShuimudaMd10011_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Weapon/Prop/Role/KanteleilaProp/EKanteleilaShuimudaMd10011/Model/T_EKanteleilaShuimudaMd10011_D.1'}"
+  },
+  {
+   "name": "MainTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "MainTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MainTexSampler"
+  },
+  {
+   "name": "Ramp",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Ramp",
+   "default": "T_P1Yl01_Skin",
+   "note": "reference MI MI_EKanteleilaShuimudaMd10011_Gaizi: {'ObjectName': \"Texture2D'T_P1Yl01_Skin'\", 'ObjectPath': 'Client/Content/Aki/Character/Weapon/Prop/ComonProp/P1Yl01/Model/T_P1Yl01_Skin.0'}"
+  },
+  {
+   "name": "RampSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Ramp",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "RampSampler"
+  },
+  {
+   "name": "E_Tex_NoiseTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "E_Tex_NoiseTex",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "E_Tex_NoiseTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "E_Tex_NoiseTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "E_Tex_NoiseTexSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "UV1",
+   "type": "float2",
+   "kind": "uv",
+   "index": 1
+  },
+  {
+   "name": "UV2",
+   "type": "float2",
+   "kind": "uv",
+   "index": 2
+  },
+  {
+   "name": "UV3",
+   "type": "float2",
+   "kind": "uv",
+   "index": 3
+  },
+  {
+   "name": "WorldTangent",
+   "type": "float3",
+   "kind": "worldtangent",
+   "ue_expr": "Parameters.TangentToWorld[0]"
+  },
+  {
+   "name": "WorldNormal",
+   "type": "float3",
+   "kind": "worldnormal",
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "TangentSign",
+   "type": "float",
+   "kind": "worldtangent",
+   "channel": "sign",
+   "ue_expr": "Parameters.TangentToWorldSign"
+  },
+  {
+   "name": "TwoSidedSign",
+   "type": "float",
+   "kind": "twosidedsign",
+   "ue_expr": "Parameters.TwoSidedSign",
+   "kuro": "View[147].w * Primitive[4].w * (SV_IsFrontFace ? 1 : -1)"
+  },
+  {
+   "name": "NormalOverrideParameter",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.NormalOverrideParameter",
+   "kuro": "Kuro View[144] (stock member), default (0,0,0,1)",
+   "default": [
+    0,
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "name": "CameraVector",
+   "type": "float3",
+   "kind": "cameravector",
+   "ue_expr": "Parameters.CameraVector"
+  },
+  {
+   "name": "WorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "absolute",
+   "ue_expr": "WSHackToFloat(GetWorldPosition(Parameters))"
+  },
+  {
+   "name": "SvPositionXY",
+   "type": "float2",
+   "kind": "svposition",
+   "ue_expr": "Parameters.SvPosition.xy"
+  },
+  {
+   "name": "ViewRectMin",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewRectMin.xy",
+   "kuro": "View[134].xy"
+  },
+  {
+   "name": "ViewSizeAndInvSize",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewSizeAndInvSize",
+   "kuro": "View[135]"
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  },
+  {
+   "name": "KuroCharLightDirection",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "unknown": true,
+   "default": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "kuro": "View[296].xyz (Kuro character main-light direction, normalised in the PS; drives the toon ramp)",
+   "note": "the generator must feed the WuwaToon character light direction (plugin light data / MPC)"
+  },
+  {
+   "name": "MPC_GlobalCharSkyLightIntensity",
+   "type": "float",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalCharSkyLightIntensity",
+   "default": 0.75,
+   "kuro": "cb4[1].w of this PS (MPC_GlobalShaderParameters row 1.w; >= 0.05 enables the ramp)"
+  },
+  {
+   "name": "WorldToLocal",
+   "type": "float4x4",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).WorldToLocal",
+   "kuro": "Primitive[6..9]"
+  },
+  {
+   "name": "PrimActorWorldPosition",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).ActorWorldPosition",
+   "kuro": "Primitive[18].xyz"
+  },
+  {
+   "name": "NormalStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "NormalStrength",
+   "default": 1.0
+  },
+  {
+   "name": "BaseColorTint",
+   "type": "float3",
+   "kind": "vector",
+   "param": "BaseColorTint",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "BaseColor_ColorAdjust",
+   "type": "float4",
+   "kind": "vector",
+   "param": "BaseColor_\u989c\u8272\u8c03\u8282",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    1.0,
+    0.5,
+    1.0
+   ]
+  },
+  {
+   "name": "SubsurfaceColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "SubsurfaceColor",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "ShadowProcess",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowProcess",
+   "default": 0.5
+  },
+  {
+   "name": "ShadowWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowWidth",
+   "default": 0.009999999776482582
+  },
+  {
+   "name": "RampPosition",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RampPosition",
+   "default": 0.5
+  },
+  {
+   "name": "RampInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RampInt",
+   "default": 1.0
+  },
+  {
+   "name": "ToonColorIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ToonColorIntensity",
+   "default": 0.699999988079071
+  },
+  {
+   "name": "E_Tex_UVSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Tex_UVSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Tex_UseScreenUV",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_UseScreenUV",
+   "default": 0.0
+  },
+  {
+   "name": "E_Tex_UseTex",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_UseTex",
+   "default": 0.0
+  },
+  {
+   "name": "E_Tex_RotCos",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Tex_Rotation"
+   ],
+   "expr": "cos(((E_Tex_Rotation * 0.002778) * 6.28319))",
+   "ue_nodes": "Cosine[Period 0](Multiply(Multiply(ScalarParameter \"E_Tex_Rotation\", 0.002778 = 0x3B360F1B), 6.28319 = 0x40C90FDB)) as a uniform expression (float32 CPU; GPU sincos is not bit-identical)",
+   "default": 1.0
+  },
+  {
+   "name": "E_Tex_RotSin",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Tex_Rotation"
+   ],
+   "expr": "sin(((E_Tex_Rotation * 0.002778) * 6.28319))",
+   "ue_nodes": "Sine[Period 0](Multiply(Multiply(ScalarParameter \"E_Tex_Rotation\", 0.002778 = 0x3B360F1B), 6.28319 = 0x40C90FDB)) as a uniform expression",
+   "default": 0.0
+  },
+  {
+   "name": "E_Tex_ScaleAndOffset",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Tex_ScaleAndOffset",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Tex_Speed",
+   "type": "float2",
+   "kind": "vector",
+   "param": "E_Tex_Speed",
+   "channels": "rg",
+   "default": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Tex_Color",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Tex_Color",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "E_FlowEffectEdgeColorSharp",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_FlowEffectEdgeColorSharp",
+   "default": 1.0
+  },
+  {
+   "name": "E_Dissolve_Emission",
+   "type": "float3",
+   "kind": "vector",
+   "param": "E_Dissolve_Emission",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Dissolve_EmissionDark",
+   "type": "float3",
+   "kind": "vector",
+   "param": "E_Dissolve_EmissionDark",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_FlowEffectEdgeSwitch",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_FlowEffectEdgeSwitch",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dissolve_Multi",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dissolve_Multi",
+   "default": 100.0
+  },
+  {
+   "name": "E_Dissolve_UseDissolve",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dissolve_UseDissolve",
+   "default": 0.0
+  },
+  {
+   "name": "E_FlowEffectEdge_Strength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_FlowEffectEdge_Strength",
+   "default": 0.20000000298023224
+  },
+  {
+   "name": "E_FlowEffectEdgerRevert",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_FlowEffectEdgerRevert",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dissolve_Channel",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Dissolve_Channel",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_UV3Dissolve_Reverse",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_UV3Dissolve_Reverse",
+   "default": 0.0
+  },
+  {
+   "name": "E_UV3Dissolve_Position",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_UV3Dissolve_Position",
+   "default": 0.0
+  },
+  {
+   "name": "E_UV3Dissolve_End",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_UV3Dissolve_Position",
+    "E_UV3Dissolve_Radius"
+   ],
+   "expr": "(E_UV3Dissolve_Position + E_UV3Dissolve_Radius)",
+   "ue_nodes": "Add(ScalarParameter E_UV3Dissolve_Position, ScalarParameter E_UV3Dissolve_Radius) as a uniform expression (float32; kept on the CPU because fxc folds (P + R) - P to R on the GPU)",
+   "default": 0.2
+  },
+  {
+   "name": "UseShadowLordMaterialDynamic",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseShadowLordMaterialDynamic",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dissolve_Progress",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dissolve_Progress",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dissolve_Smooth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dissolve_Smooth",
+   "default": 5.0
+  },
+  {
+   "name": "UseLocalSpace",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseLocalSpace",
+   "default": 0.0
+  },
+  {
+   "name": "UseActorSpace",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseActorSpace",
+   "default": 0.0
+  },
+  {
+   "name": "PortalCenter",
+   "type": "float3",
+   "kind": "vector",
+   "param": "PortalCenter",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "PortalAxisN",
+   "type": "float3",
+   "kind": "uniform_expression",
+   "params": [
+    "PortalAxis"
+   ],
+   "expr": "(PortalAxis.xyz / sqrt(dot(PortalAxis.xyz, PortalAxis.xyz)))",
+   "ue_nodes": "Divide(VectorParameter \"PortalAxis\".rgb, SquareRoot(DotProduct(rgb, rgb))) as a uniform expression (float32 CPU)",
+   "default": [
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "PortalEmissionEdageWith",
+   "type": "float",
+   "kind": "scalar",
+   "param": "PortalEmissionEdageWith",
+   "default": 0.30000001192092896
+  },
+  {
+   "name": "UsePortalDissolve",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UsePortalDissolve",
+   "default": 0.0
+  },
+  {
+   "name": "E_Rim_UseRim",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Rim_UseRim",
+   "default": 0.0
+  },
+  {
+   "name": "E_Rim_Channel",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Rim_Channel",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Rim_UseTex",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Rim_UseTex",
+   "default": 1.0
+  },
+  {
+   "name": "E_Rim_FootMaskBias",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Rim_FootMaskBias",
+   "default": -0.949999988079071
+  },
+  {
+   "name": "E_Rim_FootMaskRange",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Rim_FootMaskRange",
+   "default": 6.0
+  },
+  {
+   "name": "E_Rim_FootMaskLRCenter",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Rim_FootMaskLRCenter",
+   "default": -0.5
+  },
+  {
+   "name": "E_Rim_FootMaskLRSwitch",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Rim_FootMaskLRSwitch",
+   "default": -1.0
+  },
+  {
+   "name": "E_Rim_UseFootMask",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Rim_UseFootMask",
+   "default": 0.0
+  },
+  {
+   "name": "E_Rim_RimRange",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Rim_RimRange",
+   "default": 0.5
+  },
+  {
+   "name": "E_Rim_RimColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "E_Rim_RimColor",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Rim_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Rim_Intensity",
+   "default": 1.0
+  },
+  {
+   "name": "E_Tex_UseMask",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_UseMask",
+   "default": 0.0
+  },
+  {
+   "name": "E_Tex_MaskRange",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_MaskRange",
+   "default": 1.0
+  },
+  {
+   "name": "E_Tex_UseSecondNoiseMask",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_UseSecondNoiseMask",
+   "default": 0.0
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "MetallicIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MetallicIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "RoughnessIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RoughnessIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "OpacityIntensityPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "OpacityIntensityPower",
+   "default": 1.0
+  },
+  {
+   "name": "OpacityIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "OpacityIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "UseDitherDissolve",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseDitherDissolve",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dither_UseDither",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_UseDither",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dither_UseDither2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_UseDither2",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dither_DitherValue",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_DitherValue",
+   "default": 1.2000000476837158
+  },
+  {
+   "name": "E_Dither_DitherValue2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_DitherValue2",
+   "default": 1.2000000476837158
+  },
+  {
+   "name": "OutBaseColor",
+   "type": "float3",
+   "kind": "output"
+  },
+  {
+   "name": "OutMetallic",
+   "type": "float",
+   "kind": "output"
+  },
+  {
+   "name": "OutRoughness",
+   "type": "float",
+   "kind": "output"
+  },
+  {
+   "name": "OutNormal",
+   "type": "float3",
+   "kind": "output"
+  }
+ ],
+ "generated_by": "tools/shaderdiff/weapons/r3/make_specs_glass.py (make_specs.py schema)",
+ "notes": {
+  "textures": "t-slot order t9..t12 = the map texture table order (Normal_Roughness_Metallic: xy normal, z metallic, w roughness; MainTex: rgb colour, a opacity; Ramp: toon ramp row at RampPosition; E_Tex_NoiseTex: effect layer / mask). t0..t8 are engine resources (forward light grid, reflection cube array, planar reflection, volumetric fog, translucency lighting volume).",
+  "param_names": "HLSL argument BaseColor_ColorAdjust = Kuro vector parameter \"BaseColor_\u989c\u8272\u8c03\u8282\" (.x hue shift turns, .y 1 - desaturation, .z brightness, .w contrast / pow exponent)"
+ },
+ "ue_material": {
+  "contract": "entry returns FWuwaFXOutput {Emissive, Opacity} + out OutBaseColor, OutMetallic, OutRoughness, OutNormal - lit translucent material attributes, no toon GBuffer, no WuwaToonResolve",
+  "shading_model": "MSM_DefaultLit",
+  "blend_mode": "BLEND_Translucent",
+  "two_sided": false,
+  "translucency_lighting_mode": "TLM_Surface (UE4.26 \"Surface TranslucencyVolume\"; UE 5.8: Surface Translucency Volume / Forward Shading)",
+  "connect": {
+   "EmissiveColor": "X.Emissive",
+   "Opacity": "X.Opacity",
+   "BaseColor": "OutBaseColor",
+   "Metallic": "OutMetallic",
+   "Roughness": "OutRoughness",
+   "Normal": "OutNormal",
+   "Specular": "0.5 (default)"
+  },
+  "opacity_mask_clip_value": null,
+  "note": "the generator needs a lit-translucent template (the resolve:false template is unlit); UE applies its own lighting and fog"
+ },
+ "engine_inputs": [
+  {
+   "name": "WorldTangent",
+   "kind": "worldtangent",
+   "kuro": null,
+   "ue_expr": "Parameters.TangentToWorld[0]"
+  },
+  {
+   "name": "WorldNormal",
+   "kind": "worldnormal",
+   "kuro": null,
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "TangentSign",
+   "kind": "worldtangent",
+   "kuro": null,
+   "ue_expr": "Parameters.TangentToWorldSign"
+  },
+  {
+   "name": "TwoSidedSign",
+   "kind": "twosidedsign",
+   "kuro": "View[147].w * Primitive[4].w * (SV_IsFrontFace ? 1 : -1)",
+   "ue_expr": "Parameters.TwoSidedSign"
+  },
+  {
+   "name": "NormalOverrideParameter",
+   "kind": "view",
+   "kuro": "Kuro View[144] (stock member), default (0,0,0,1)",
+   "ue_expr": "ResolvedView.NormalOverrideParameter"
+  },
+  {
+   "name": "CameraVector",
+   "kind": "cameravector",
+   "kuro": null,
+   "ue_expr": "Parameters.CameraVector"
+  },
+  {
+   "name": "WorldPosition",
+   "kind": "worldposition",
+   "kuro": null,
+   "ue_expr": "WSHackToFloat(GetWorldPosition(Parameters))"
+  },
+  {
+   "name": "SvPositionXY",
+   "kind": "svposition",
+   "kuro": null,
+   "ue_expr": "Parameters.SvPosition.xy"
+  },
+  {
+   "name": "ViewRectMin",
+   "kind": "view",
+   "kuro": "View[134].xy",
+   "ue_expr": "ResolvedView.ViewRectMin.xy"
+  },
+  {
+   "name": "ViewSizeAndInvSize",
+   "kind": "view",
+   "kuro": "View[135]",
+   "ue_expr": "ResolvedView.ViewSizeAndInvSize"
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "kind": "view",
+   "kuro": "Kuro View[149].y",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias"
+  },
+  {
+   "name": "GameTime",
+   "kind": "view",
+   "kuro": "Kuro View[148].z (UE material Time node)",
+   "ue_expr": "View.GameTime"
+  },
+  {
+   "name": "KuroCharLightDirection",
+   "kind": "view",
+   "kuro": "View[296].xyz (Kuro character main-light direction, normalised in the PS; drives the toon ramp)",
+   "ue_expr": null
+  },
+  {
+   "name": "MPC_GlobalCharSkyLightIntensity",
+   "kind": "mpc",
+   "kuro": "cb4[1].w of this PS (MPC_GlobalShaderParameters row 1.w; >= 0.05 enables the ramp)",
+   "ue_expr": null
+  },
+  {
+   "name": "WorldToLocal",
+   "kind": "primitive",
+   "kuro": "Primitive[6..9]",
+   "ue_expr": "GetPrimitiveData(Parameters).WorldToLocal"
+  },
+  {
+   "name": "PrimActorWorldPosition",
+   "kind": "primitive",
+   "kuro": "Primitive[18].xyz",
+   "ue_expr": "GetPrimitiveData(Parameters).ActorWorldPosition"
+  }
+ ]
+}

@@ -1,0 +1,34 @@
+{
+ "root_material": "M_FaceShadowMesh",
+ "generated_by": "tools/shaderdiff/roster_charcom/build_registry.py",
+ "contract": "Specs/registry/README.md",
+ "note": "one variant per verified (PS, VS set); MIs whose PS/VS pair is not listed fall back to M_Wuwa_Unported. research/roster/Port_CharCom_Coverage.md",
+ "variants": [
+  {
+   "spec": "ToonFace_FS.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "079a8f1eebfbb288f28b8bf6c988f9899ee3ed33"
+    ],
+    "base_pass_vs_hash": [
+     "53d357bbbe3b2d4023a5712e1f7fd28254ac833b"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.yy_facefs_182172 (327680/327680 px bit-exact); VS #182181",
+   "ps_archive_index": 182172,
+   "vs_archive_index": [
+    182181
+   ],
+   "roster_mis": 72,
+   "example_mis": [
+    "MI_R2T1AimisiMd10011Face_FS",
+    "MI_R2T1AnkeMd10011Face_FS",
+    "MI_R2T1AogusitaMd10011Face_FS",
+    "MI_R2T1BaerMd10011Face_FS",
+    "MI_R2T1BailianMd10011Face_FS",
+    "MI_R2T1BulanteMd10011Face_FS"
+   ],
+   "static_switches_informational": {}
+  }
+ ]
+}

@@ -1,0 +1,75 @@
+{
+ "root_material": "M_Char_Translucent",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "Char_Translucent_AllRamp.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "61a5ff52d7a95957c0ce8a8c325af3fc4cc5d1a0"
+    ],
+    "base_pass_vs_hash": [
+     "3be53aa34d908c497a857b816a392a9876fe260e"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/glass/results_multi_final.json summary.glass_61a5ff (63 runs, o0 1032192/1032192 bit-exact); VS #2466 engine_only (no Material uniform buffer declared (CB0[260] TranslucentBasePass, CB1[309] View, CB2[45] Primitive, CB3[1] GPU-skin VF); same cbuffer set as round-1 engine_only VS #2157; evidence/validation/shaderdiff/weapons/round3/glass/vs_status_glass.json (r3/glass_vs_status.py))",
+   "ps_archive_index": 99688,
+   "vs_archive_index": [
+    2466
+   ],
+   "vs_status": {
+    "3be53aa34d908c497a857b816a392a9876fe260e": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 7,
+   "roster_slot_uses": 14,
+   "entities": [
+    "character:Cantarella",
+    "skin:Hallucinative Hues"
+   ],
+   "example_mis": [
+    "MI_EKanteleilaSanshuimuMd10011_Gaizi",
+    "MI_EKanteleilaShuimudaMd10011_Gaizi",
+    "MI_EKanteleilaShuimudaMd10011_Piaodai",
+    "MI_EKanteleilaShuimudaMd10011_Xu",
+    "MI_EKanteleilaShuimuxiaoMd10011_Gaizi",
+    "MI_EKanteleilaShuimuxiaoMd10011_Piaodai"
+   ],
+   "notes": "7 MIs MI_EKanteleilaShuimuxiao/Shuimuda/SanshuimuMd10011_* (Cantarella jellyfish props). 63 runs, o0 1032192/1032192 bit-exact with the UE4.26 lit-translucency engine side reproduced in kuro_tail_glass.hlsli (KuroCharTranslucentTail; run with r3/glass_run.py, forward-grid buffers / cube array / TLV / fog 3D unbound = 0, planar reflection live). Lit translucent DefaultLit contract: Emissive/Opacity + OutBaseColor/OutMetallic/OutRoughness/OutNormal. Uniform expressions E_Tex_RotCos/Sin, PortalAxisN, E_UV3Dissolve_End."
+  },
+  {
+   "spec": "Char_Translucent.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "d418fc628e436a477be61a669d492266be364bc4"
+    ],
+    "base_pass_vs_hash": [
+     "3be53aa34d908c497a857b816a392a9876fe260e"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/glass/results_multi_final.json summary.glass_d418fc (45 runs, o0 737280/737280 bit-exact); VS #2466 engine_only (no Material uniform buffer declared (CB0[260] TranslucentBasePass, CB1[309] View, CB2[45] Primitive, CB3[1] GPU-skin VF); same cbuffer set as round-1 engine_only VS #2157; evidence/validation/shaderdiff/weapons/round3/glass/vs_status_glass.json (r3/glass_vs_status.py))",
+   "ps_archive_index": 136234,
+   "vs_archive_index": [
+    2466
+   ],
+   "vs_status": {
+    "3be53aa34d908c497a857b816a392a9876fe260e": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Cantarella",
+    "skin:Hallucinative Hues"
+   ],
+   "example_mis": [
+    "MI_EKanteleilaSanshuimuMd10011_Xu"
+   ],
+   "notes": "MI_EKanteleilaSanshuimuMd10011_Xu. 45 runs, o0 737280/737280 bit-exact. Same contract as Char_Translucent_AllRamp (no UseAllRampColor)."
+  }
+ ]
+}

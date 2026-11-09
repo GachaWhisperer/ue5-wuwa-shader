@@ -1,0 +1,380 @@
+// WuwaToonBasePassShared.ush — helpers shared by the ported Kuro character base passes.
+//
+// Everything here is transcribed from the DXBC of the Yangyang R2T1 Md10011 shader maps. Line references:
+//   B###  Body/Up PS  evidence/shaders/materials/MI_R2T1YangyangMd10011Body/..TBasePassPSFNoLightMapPolicy__215096.asm.txt
+//   V###  Body VS     evidence/shaders/materials/MI_R2T1YangyangMd10011Body/..TBasePassVSFNoLightMapPolicy__35700.asm.txt
+//   F###  Face PS     evidence/shaders/materials/MI_R2T1YangyangMd10011Face/..TBasePassPSFNoLightMapPolicy__198747.asm.txt
+//   E###  Eye PS      evidence/shaders/materials/MI_R2T1YangyangMd10011Eye/..TBasePassPSFNoLightMapPolicy__67697.asm.txt
+// (research/hlsl/*.hlsl carry the same line numbers.)
+//
+// Float constants that fxc printed with 6 decimals are written as asfloat(bits) where the printed decimal is not the
+// exact value; the bits were read from the SHEX token stream of evidence/shaders/ClientChunk_SM5/decoded/<id>_*.bin.
+//
+// Conventions shared by every entry:
+//   * "WorldPosition" = Kuro absolute world position (TranslatedWorldPos - PreViewTranslation). UE5: LWC-demoted
+//     Absolute World Position. All Kuro world-space inputs (toon light position, CPD head/knee positions, object
+//     position) are absolute, so they must be fed in the same space.
+//   * "TranslatedWorldPosition" = UE5 translated world (camera-relative). Kuro's V = normalize(-TranslatedWorldPos)
+//     (camera at the translated origin); UE5's CameraVector is the same vector.
+//   * Results are the raw MRT register values; quantisation to the 8-bit targets is WuwaToonGBufferStore().
+//   * Velocity (o4) and the SV_Position.z copy (o5) are not part of FWuwaToonGBuffer and are not ported: UE writes its
+//     own velocity, and o5's consumer is unknown (research/shaders/ToonCommon.md §6).
+#pragma once
+
+#include "WuwaToonGBuffer.ush"
+
+// 1/255 (0x3B808081, printed 0.003922) and 240/255 (0x3F70F0F1, printed 0.941176).
+static const float WUWA_INV255     = asfloat(0x3B808081u);
+static const float WUWA_240OVER255 = asfloat(0x3F70F0F1u);
+// GBufferA.w "0.99999" written by Body/Hair mode 0: bits 0x3F7FFF59 (one ulp above the nearest float to 0.99999).
+static const float WUWA_099999     = asfloat(0x3F7FFF59u);
+
+// ---------------------------------------------------------------------------------------------------------------
+// Kuro View / Primitive extension defaults (unknown names; values are what an unmodded view would carry [U]).
+//   View[144]   = stock NormalOverrideParameter, default (0,0,0,1) (UE5 SceneView.cpp default, same member).
+//   View[276].x = Kuro GBuffer packing mode; ==1 selects the alternate branch. Default 0 [U].
+//   View[285]   = Kuro emissive multiplier, applied when Primitive[42].w == 0. Default (1,1,1) [U].
+//   View[308].x = Kuro gate for the Primitive[44] vertex offset. Default 0 [U].
+//   View[280].y = Kuro outline pixel-floor scale. Default 1 [U] (runtime value not recovered).
+// ---------------------------------------------------------------------------------------------------------------
+
+// Vector ternaries are written per component so the code compiles under FXC, DXC -HV 2018 and -HV 2021.
+float2 WuwaSel2(bool2 c, float2 a, float2 b) { return float2(c.x ? a.x : b.x, c.y ? a.y : b.y); }
+
+// Base-pass octahedral encode exactly as emitted (B411-421 / B474-484, F311-321, E481-491, hair L289-299).
+float2 WuwaBPOctEncode(float3 N)
+{
+	float  s  = dot(float3(1.0, 1.0, 1.0), abs(N));
+	float2 p  = N.xy / s;
+	float2 w  = (1.0 - abs(p.yx)) * WuwaSel2(p >= 0.0, float2(0.5, 0.5), float2(-0.5, -0.5));
+	float  lo = (0.0 >= N.z) ? 1.0 : 0.0;
+	p = lo * (w * 2.0 - p) + p;
+	return p * 0.5 + 0.5;
+}
+
+// bfi(4, 0, lo4, hi8): (hi8 & ~0xF) | (lo4 & 0xF)  (B451-453, F345-352).
+uint WuwaBfi4(uint Lo4, uint Hi8) { return (Hi8 & 0xFFFFFFF0u) | (Lo4 & 0xFu); }
+
+// round_ne(saturated v * 255) packed with round_ne(lo * 15) in the low nibble, as a 0..1 float (B443-473).
+float WuwaPackU8Lo4(float Hi01, float Lo01)
+{
+	uint a = (uint)round(Hi01 * 255.0);
+	uint b = (uint)round(Lo01 * 15.0);
+	return (float)WuwaBfi4(b, a) * WUWA_INV255;
+}
+
+// GBufferB.a: bfi(3, 5, LightingChannelMask, ShadingModelId) * 1/255 (B454, F324, outline PS-1 135 uses id 13).
+float WuwaBPShadingModelByte(uint LightingChannelMask, uint ShadingModelId)
+{
+	uint v = (ShadingModelId & ~(7u << 5)) | ((LightingChannelMask & 7u) << 5);   // bfi(3, 5, mask, id)
+	return (float)v * WUWA_INV255;
+}
+
+// Mode-1 GBufferC.a: (floor(saturate(x)*255 + 0.5) & 254) / 255 (B420-427, F330-336).
+float WuwaBPRimByteEven(float ToonRimWidth)
+{
+	uint r = (uint)floor(saturate(ToonRimWidth) * 255.0 + 0.5);
+	return (float)(r & 254u) * WUWA_INV255;
+}
+
+// Kuro luminance desaturation, mad(Desaturation, lum - C, C) with weights (0.3, 0.59, 0.11) (B345-347).
+float3 WuwaBPDesaturate(float3 C, float Desaturation)
+{
+	float lum = dot(C, float3(0.3, 0.59, 0.11));
+	return Desaturation * (lum - C) + C;
+}
+
+// Emissive tail shared by all base passes (B380-397, F266-283, E305-322, hair L155-172):
+//   max(E,0); *View[285] when Primitive[42].w == 0; stock OutOfBoundsMask debug stripes; o0 = -min(-E, 0).
+float3 WuwaBPFinalEmissive(float3 E, float KuroSkipEmissiveScale, float3 KuroEmissiveScale,
+	float OutOfBoundsMask, float3 WorldPosition, float3 ObjectWorldPosition, float3 ObjectBounds)
+{
+	float3 r = max(E, 0.0);
+	if (KuroSkipEmissiveScale == 0.0)
+	{
+		r *= KuroEmissiveScale;
+	}
+	if (0.0 < OutOfBoundsMask)
+	{
+		float3 d = WorldPosition - ObjectWorldPosition;
+		float3 b = ObjectBounds + 1.0;
+		bool outside = (b.y < abs(d.y)) || (b.x < abs(d.x)) || (b.z < abs(d.z));
+		float g = frac(dot(WorldPosition, float3(0.577, 0.577, 0.577)) * 0.002);
+		float3 stripe = (0.5 < g) ? float3(0.0, 1.0, 1.0) : float3(1.0, 1.0, 0.0);
+		r = outside ? stripe : r;
+	}
+	return -min(-r, 0.0);
+}
+
+// Vertex-colour / TypeMask band classifier (B86-96, F73-82, hair L74-83). Returns the "skin" factor (c >= 0.9 band)
+// and, through BandMask, the 0.5 < c <= 0.9 band used by ToonCommon (r3.w at B94).
+float WuwaBPBandClassify(float c, out float BandMask)
+{
+	float4 ge = float4(c >= 0.05 ? 1.0 : 0.0, c >= 0.3 ? 1.0 : 0.0, c >= 0.5 ? 1.0 : 0.0, c >= 0.9 ? 1.0 : 0.0);
+	bool   le05 = (0.05 >= c);
+	float3 le = float3(0.3 >= c ? 1.0 : 0.0, 0.5 >= c ? 1.0 : 0.0, 0.9 >= c ? 1.0 : 0.0);
+	float  band35 = ge.y * le.y;
+	float  band59 = ge.z * le.z;
+	float  m = -ge.x * le.x + 1.0;          // mad r2.w, -r6.x, r7.y, 1
+	m = le05 ? 1.0 : m;                     // movc
+	m = -band35 * m + 1.0;
+	BandMask = m * band59;
+	m = -band59 * m + 1.0;
+	return m * ge.w;
+}
+
+// Skin factor (B97-100): UseSkinMask_DYN >= 0.5 ? classifier : DefaultSkinFactor, then lerp toward 1 by
+// UseFaceAni_SkinMask written as mad(UseFaceAni, 1 - s, s).
+float WuwaBPSkinFactor(float vcSkin, float UseSkinMask_DYN, float DefaultSkinFactor, float UseFaceAni_SkinMask)
+{
+	float s = (UseSkinMask_DYN >= 0.5) ? vcSkin : DefaultSkinFactor;
+	return UseFaceAni_SkinMask * (1.0 - s) + s;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Main character light direction (identical structure in every lit base pass):
+//   B123-181 (Common), hair L189-249, F110-171 (Face), E368-426 (Eye).
+// Inputs:
+//   MPC_GlobalCharacterAmbientSkinColor   = MPC_GlobalShaderParameters vector 3  (cb3[23]) — used as a direction [U]
+//   MPC_GlobalCharacterDebugLightDirection = MPC_GlobalShaderParameters vector 22 (cb3[42])
+//   ToonLight0..3 = ToonShadowLightData CB1[0..3]: [0].xyz position (absolute world), [0].w 1/radius,
+//                   [1].xyz spot axis, [1].w packed uint (bits 16..17 = type 0/1/2, read with asuint),
+//                   [2].x cone bias, [2].y cone scale, [3].z blend weight.
+//   LocalLightTarget = the position the point-light vector is taken from when CPD13 = 1:
+//                      Common/Hair: pixel WorldPosition (B133); Face/Eye: CustomPrimitiveData 23..25 head position (F121).
+//   CPD13 = CustomPrimitiveData[13], CPD1 = CustomPrimitiveData[1], LightDirVS = VS TEXCOORD2 direction.
+// NOTE: ToonLight1.w is a raw uint bit pattern (types 1/2 are denormal floats 0x10000/0x20000). Any transport that
+// flushes denormals (MPC, CPD) loses the type; feed it through a path that preserves bits.
+// ---------------------------------------------------------------------------------------------------------------
+float3 WuwaBPMainLightDir(float LightOffset_Pitch,
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float3 ObjectWorldPosition, float3 WorldPosition, float3 LocalLightTarget,
+	float CPD13, float CPD1, float3 LightDirVS)
+{
+	// preshaders: abs(LightOffset_Pitch), saturate(abs(LightOffset_Pitch) / 45)
+	float  absPitch  = abs(LightOffset_Pitch);
+	// Kuro evaluates this on the CPU (preshader -> cb4[70].y / [80].y / [94].w) with a true IEEE division. fxc
+	// rewrites x / 45.0 as x * 0.0222222228 (1/45), which is 1 ulp off for many pitches. The divisor below is bitwise
+	// 45.0 (abs() clears bit 31) but opaque to the constant folder, so a real `div` is emitted
+	// (verified by tools/shaderdiff/basepass_common_hair).
+	float  pitchLerp = saturate(absPitch / asfloat(0x42340000u | (asuint(absPitch) >> 31)));
+
+	// B123-130: Lmpc = normalize(mad(pitchOn, (V3 - V22) * lerp, V22))
+	float  pitchOn = (absPitch >= 0.5) ? 1.0 : 0.0;
+	float3 Lmpc = (MPC_GlobalCharacterAmbientSkinColor - MPC_GlobalCharacterDebugLightDirection) * pitchLerp;
+	Lmpc = pitchOn * Lmpc + MPC_GlobalCharacterDebugLightDirection;
+	Lmpc = Lmpc / sqrt(dot(Lmpc, Lmpc));
+
+	// B131-139: anchor = object position + 100z; Lpt = normalize(lerp(L - anchor, L - target, CPD13))
+	float3 anchor   = ObjectWorldPosition + float3(0.0, 0.0, 100.0);
+	float3 toAnchor = ToonLight0.xyz - anchor;
+	float3 toTarget = ToonLight0.xyz - LocalLightTarget;
+	float3 Lpt = CPD13 * (toTarget - toAnchor) + toAnchor;
+	Lpt = Lpt / sqrt(dot(Lpt, Lpt));
+
+	// B140-143: distance fraction
+	float3 dA = anchor - ToonLight0.xyz;
+	float  distFrac = saturate(sqrt(dot(dA, dA)) * ToonLight0.w);
+
+	// B144-152: light type 0/1/2 -> 0 / 0.5 / 1
+	float  type = (float)((asuint(ToonLight1.w) >> 16) & 3u);
+	float  isT1 = min((1.1 >= type) ? 1.0 : 0.0, (type >= 0.9) ? 1.0 : 0.0);
+	float  isT2 = min((2.1 >= type) ? 1.0 : 0.0, (type >= 1.9) ? 1.0 : 0.0);
+	float  typeF = isT2 * (-isT1 * 0.5 + 1.0) + isT1 * 0.5;
+
+	// B153-164: spot cone on the pixel -> light direction (normalised twice, as emitted)
+	float3 toPixel = ToonLight0.xyz - WorldPosition;
+	float3 dirL = toPixel * (1.0 / sqrt(dot(toPixel, toPixel)));
+	dirL = dirL / sqrt(dot(dirL, dirL));
+	float3 axis = ToonLight1.xyz / sqrt(dot(ToonLight1.xyz, ToonLight1.xyz));
+	float  spot = saturate((dot(dirL, axis) - ToonLight2.x) * ToonLight2.y);
+	float  spotTerm = min((-spot * spot + distFrac) + 1.0, 1.0);
+
+	// B165-175: blend
+	float  isSpot = max(typeF * 2.0 - 1.0, 0.0);
+	float  blend  = isSpot * (spotTerm - distFrac) + distFrac;
+	float3 Lt = blend * (Lmpc - Lpt) + Lpt;
+	float3 L  = ToonLight3.z * (Lt - Lmpc) + Lmpc;
+
+	// B176-181: VS fixed-angle direction override weighted by saturate(CPD1), normalise
+	float  vsW = saturate(CPD1);
+	L = vsW * (LightDirVS - L) + L;
+	return L / sqrt(dot(L, L));
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Vertex-shader side (shared by Body/Up/Down, Face, Eye, Hair VS; V271-353; face VS 35570 and hair VS 13181 have the
+// same structure). Intended for a UE "Vertex Interpolator" feeding the PS LightDirVS input.
+// ---------------------------------------------------------------------------------------------------------------
+
+// fxc's expansion of sin/cos for an angle in DEGREES (V275-311 pitch, V312-349 yaw): turns -> signed frac -> radians,
+// wrap to [-pi,pi], fold to [-pi/2,pi/2], odd/even minimax polynomials. Constants are the exact SHEX bits.
+int  WuwaKuroSignI(float a) { return ((a < 0.0) ? -1 : 0) - ((0.0 < a) ? -1 : 0); }
+
+void WuwaKuroSinCosDeg(float Degrees, out float S, out float C)
+{
+	float a  = Degrees * asfloat(0x3B360B61u);                  // 0.00277777785 (1/360)
+	a = (a >= -a) ? frac(abs(a)) : -frac(abs(a));                // ge / frc |x| / movc
+	float x0 = a * asfloat(0x40C90FD6u);                         // 6.2831831 (printed 6.283183)
+	// round_z(mad(a, 0.99999964, +-0.5)): the multiplier is 0x3F7FFFFA, printed "1.000000" in the asm text
+	// (V280/V318). Kept for fidelity; it is output-neutral: near odd multiples of 180 deg it changes the period index,
+	// but the +-pi fold below yields the same xr/sg (ablation in research/validation/ShaderDiff_BasePass_OutlineVS.md).
+	float ak = a * asfloat(0x3F7FFFFAu);
+	float tp = trunc(ak + 0.5), tm = trunc(ak - 0.5);
+	float sp = saturate((float)WuwaKuroSignI(a));                // (a > 0) via ilt/iadd/itof/sat
+	float rn = sp * (tp - tm) + tm;
+	float x  = asfloat(0xC0C90FDBu) * rn + x0;                  // mad(-6.28318548, rn, x0)
+	float mY = -x + asfloat(0xC0490FDBu);                        // -x - pi
+	float mZ = -x + asfloat(0x40490FDBu);                        // -x + pi
+	float s1 = saturate((float)WuwaKuroSignI(x + asfloat(0x3FC90FDBu)));   // x > -pi/2
+	float s2 = saturate((float)WuwaKuroSignI(x - asfloat(0x3FC90FDBu)));   // x >  pi/2
+	float xr = s1 * (x - mY) + mY;
+	float sg = s1 * 2.0 - 1.0;
+	xr = s2 * (mZ - xr) + xr;
+	sg = s2 * (-sg - 1.0) + sg;
+	float  z = xr * xr;
+	float2 P = z * float2(asfloat(0xB2CD365Bu), asfloat(0xB48BDD11u)) + float2(asfloat(0x3638B88Eu), asfloat(0x37CFB4C2u));
+	P = P * z + float2(asfloat(0xB9500BF1u), asfloat(0xBAB609AAu));
+	P = P * z + float2(asfloat(0x3C088886u), asfloat(0x3D2AAAA3u));
+	P = P * z + float2(asfloat(0xBE2AAAABu), -0.5);
+	P = P * z + 1.0;
+	S = xr * P.x;
+	C = P.y * sg;
+}
+
+// V271-353: TEXCOORD2.xyz fixed-angle character light direction (UE Z-up world).
+//   pitch° = (UseLightOffset_Pitch_DYN >= 0.5 ? CPD22 + (45 + LightOffset_Pitch) : 45) + GlobalCharacterVerticalRotation
+//   yaw°   = CPD0 + LightOffset_Yaw
+// The literal 45 is compiled in for every Yangyang map (also Face, whose MI switch LightPitch(False=30,True=45)=false;
+// research/shaders/ToonFace.md §3) — it is not a parameter.
+float3 WuwaToonBaseVS_LightDir(float CPD0, float CPD22, float UseLightOffset_Pitch_DYN, float LightOffset_Pitch,
+	float LightOffset_Yaw, float MPC_GlobalCharacterVerticalRotation)
+{
+	// preshader (45 + LightOffset_Pitch), then + CPD22 (V271). `precise` stops fxc re-associating it to (CPD22 + LOP) + 45.
+	precise float pitch = CPD22 + (45.0 + LightOffset_Pitch);
+	pitch = (UseLightOffset_Pitch_DYN >= 0.5) ? pitch : 45.0;
+	pitch = pitch + MPC_GlobalCharacterVerticalRotation;
+	float sp, cp, sy, cy;
+	WuwaKuroSinCosDeg(pitch, sp, cp);
+	WuwaKuroSinCosDeg(CPD0 + LightOffset_Yaw, sy, cy);
+	float3 d = float3(float2(cy, sy) * cp, sp);
+	return d / sqrt(dot(d, d));
+}
+
+// V193-264 + V88-90: base-pass vertex effects, returned as a UE World Position Offset, plus the TEXCOORD2.w
+// motion-emissive mask (V354-356). Both effects are disabled on every Yangyang MI (USE Hologram = 0,
+// E_Motion_Offset = 0), so the WPO is 0 and the mask is 0, but the math is ported for other characters.
+//   ViewToTranslatedWorld = View[16..18] (UE5: View.ViewToTranslatedWorld), GameTime = View[148].z (UE: Time node).
+//   VertexNormalWS = Kuro TangentZ * LocalToWorld * InvNonUniformScale (not renormalised; UE: VertexNormalWS).
+//   KuroPrimitiveOffset = Primitive[44] (xyz offset, w > 0 enables), gated by View[308].x [U] (V88-90).
+float3 WuwaToonBaseVS_WPO(float2 UV0, float3 VertexNormalWS, float3 TranslatedWorldPosition,
+	float3 TranslatedWorldCameraOrigin, float GameTime, float4x4 ViewToTranslatedWorld,
+	float USE_Hologram, float E_Hologram_JitterStrength, float3 E_Hologram_WPOVector,
+	float E_MotionRange, float E_Motion_NoiseSpeed, float4 E_Motion_Offset, float E_Motion_NoisePos,
+	float KuroEnablePrimitiveOffset, float4 KuroPrimitiveOffset, out float MotionEmissiveMask)
+{
+	precise float3 holo = 0.0;
+	bool holoDisabled = (0.0001 >= USE_Hologram);
+	precise float holoDisabledF = holoDisabled ? 1.0 : 0.0;
+	if (!holoDisabled)
+	{
+		precise float3 dir = (ViewToTranslatedWorld[0].xyz * E_Hologram_WPOVector.x + ViewToTranslatedWorld[1].xyz * E_Hologram_WPOVector.y)
+			+ ViewToTranslatedWorld[2].xyz * E_Hologram_WPOVector.z;
+		dir = dir * E_Hologram_JitterStrength;
+		precise float n = dot(UV0, float2(52.9898, 38.233)) + (GameTime * 1.2) * 0.0001;
+		n = frac(sin(n * asfloat(0x40C90FDBu)) * 4353.1558);       // 6.28318548
+		n = n * n; n = n * n; n = n * n; n = n * n;
+		precise float3 pos = n * dir;
+		precise float3 neg = pos * float3(-1.0, -1.0, -1.0);
+		precise float3 dirN = dir / sqrt(dot(dir, dir));
+		precise float  dn = dot(dirN, VertexNormalWS);
+		precise float  side = (dn >= 0.0) ? 1.0 : 0.0;
+		precise float3 sgnd = side * (pos - neg) + neg;
+		holo = sgnd * ((abs(dn) >= E_MotionRange) ? 1.0 : 0.0);
+	}
+
+	// E_Motion (V231-262). Camera direction uses absolute world in Kuro; translated-space difference is identical.
+	precise float  t = GameTime * E_Motion_NoiseSpeed;
+	precise float3 v = TranslatedWorldCameraOrigin - TranslatedWorldPosition;
+	v = v / sqrt(dot(v, v));
+	precise float3 offN = E_Motion_Offset.xyz / sqrt(dot(E_Motion_Offset.xyz, E_Motion_Offset.xyz));   // preshader cb4[4]
+	precise float  viewAtt = saturate((abs(dot(offN, v)) - 0.8) * -2.5);
+	bool   enabled = (0.0001 < E_Motion_Offset.w);
+	precise float2 k = E_Motion_NoisePos + float2(52.9898, 38.233);
+	precise float  m = t + dot(UV0, k);
+	m = frac(sin(m) * 4353.1558);
+	m = m * m; m = m * m; m = m * m; m = m * m;
+	m = viewAtt * m;
+	precise float  facing = dot(E_Motion_Offset.xyz * rsqrt(dot(E_Motion_Offset.xyz, E_Motion_Offset.xyz)), VertexNormalWS);
+	bool   inRange = (E_MotionRange < facing);
+	bool   on = inRange && enabled;
+	precise float3 motion = on ? (m * E_Motion_Offset.xyz) : float3(0.0, 0.0, 0.0);
+	precise float3 d = holoDisabledF * (motion - holo);
+	precise float3 effects = holo + d;
+	MotionEmissiveMask = on ? m : 0.0;
+
+	// V263-264: Kuro rounds ((TWP + effects) + PrimitiveOffset); UE computes TWP + WPO. With the offset on, return
+	// ((TWP + effects) + PrimitiveOffset) - TWP (exact subtraction for nearby values, so TWP + WPO reproduces the bits).
+	bool   kuroOn = (KuroEnablePrimitiveOffset != 0.0) && (0.0 < KuroPrimitiveOffset.w);
+	precise float3 posK = TranslatedWorldPosition + effects;
+	posK = KuroPrimitiveOffset.xyz + posK;
+	precise float3 wK = posK - TranslatedWorldPosition;
+	precise float3 cK = TranslatedWorldPosition + wK;     // what UE will compute; one correction step for the rare
+	precise float3 rK = posK - cK;                        // non-Sterbenz case
+	wK = wK + rK;
+	return kuroOn ? wK : effects;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Face/Eye head-frame SDF lookup (F172-221/F291-294; E427-468). Shared because the eye PS repeats it on UV1.
+// CPD3/6/9 = head "forward", CPD4/7/10 = head "side" (both absolute-world unit vectors), CPD11 = forced flip bit +
+// threshold fraction, CPD12 = override weight.
+// ---------------------------------------------------------------------------------------------------------------
+struct FWuwaFaceSDFSetup
+{
+	float2 SdfUV;   // UV at which the clamp-sampled SDF is read
+	float  T;       // head-space threshold
+	float  FlipBit; // saturate(2*frac(floor(CPD11)/2))
+	float  LhX;     // normalised forward component (face ramp uses 1 - LhX)
+};
+
+FWuwaFaceSDFSetup WuwaFaceSDFSetup(float3 L, float3 CPD_HeadForward, float3 CPD_HeadSide, float CPD11, float CPD12,
+	float2 UV, float SDFPitchPosition)
+{
+	FWuwaFaceSDFSetup S;
+	// F172-178: Lh = normalize(dot(L, (3,6,9)), dot(L, (4,7,10))), accumulated as emitted
+	float2 Lh = float2(L.x * CPD_HeadForward.x, L.x * CPD_HeadSide.x);
+	Lh = Lh + float2(L.y * CPD_HeadForward.y, L.y * CPD_HeadSide.y);
+	Lh = float2(CPD_HeadForward.z, CPD_HeadSide.z) * L.z + Lh;
+	Lh = Lh / sqrt(dot(Lh, Lh));
+
+	// F179-189: flip = lerp(Lh.y <= 0, flipBit, CPD12)
+	bool  sideNegB = (0.0 >= Lh.y);
+	float sideNeg  = sideNegB ? 1.0 : 0.0;
+	float h  = floor(CPD11) * 0.5;
+	float fh = (h >= -h) ? frac(abs(h)) : -frac(abs(h));
+	S.FlipBit = saturate(fh + fh);
+	float flip = (sideNegB ? -1.0 : -0.0) + S.FlipBit;
+	flip = CPD12 * flip + sideNeg;
+
+	// F190-198: flipped UV vs pitch-mode half atlas (|SDFPitchPosition| >= 0.001)
+	float  oneMinus2U = UV.x * -2.0 + 1.0;
+	float  vHalfBase  = UV.y * 0.5 + 0.5;
+	float  uFlip = flip * oneMinus2U + UV.x;
+	float  pitchPos = (SDFPitchPosition >= 0.0) ? 1.0 : 0.0;
+	float  vHalf = pitchPos * (UV.y * 0.5 - vHalfBase) + vHalfBase;
+	float  sel = (abs(SDFPitchPosition) >= 0.001) ? 1.0 : 0.0;
+	float2 a = float2(uFlip, UV.y);
+	float2 b = float2(UV.x, vHalf);
+	S.SdfUV = sel * (b - a) + a;
+
+	// F206-214: T = lerp(0.5*(1 - Lh.x), lerp(fr, 1 - fr, flipBit), CPD12)
+	S.LhX = Lh.x;
+	float oneMinusLx = 1.0 - Lh.x;
+	float halfT = oneMinusLx * 0.5;
+	float fr = (CPD11 >= -CPD11) ? frac(abs(CPD11)) : -frac(abs(CPD11));
+	float forced = S.FlipBit * (fr * -2.0 + 1.0) + fr;
+	S.T = CPD12 * (-oneMinusLx * 0.5 + forced) + halfT;
+	return S;
+}

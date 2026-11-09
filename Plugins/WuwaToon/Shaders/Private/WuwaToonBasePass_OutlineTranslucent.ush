@@ -1,0 +1,104 @@
+// WuwaToonBasePass_OutlineTranslucent.ush — forward-translucent M_CharacterOutline roster variants (round 4,
+// research/roster/Port_CharCom_Coverage.md "Round 4 — eye/outline"). These MIs (BlendMode Translucent: Mone Down/Alpha/
+// Glass_OL, Linnaea Alpha_OL, Luhesi test tubes, Aogusita Alpha_OL, Luhesi Glass_OL, Rebecca drink) do NOT write the toon
+// GBuffer and do not go through the toon resolve: the original is Kuro's forward translucent base pass with one o0.
+//
+//   original PS __105645 / __133206 (UseMainTex) and __17017 (OutlineColor):
+//     material part (ported here, bit-exact):  BaseColor, Emissive, Opacity
+//       BaseColor = MainTex(UV0, bias).rgb * OutlineColorTint * BaseColorTint     (105645 l.68-70)
+//                 | BaseColorTint * OutlineColor                                  (17017 preshader cb4[26])
+//       Emissive  = lerp(E_Outline_EmissionColor * Intensity, SelectionColor.rgb, SelectionColor.a)   (l.66-67)
+//       Opacity   = saturate(fade * step(lerp(1, link, E_Link_UseSplitScreen)))   (l.71-109)
+//                   fade = Use_Transparent * (saturate((DownTran_Offset - UV3.y + 1) * DownTran_Power) - 1) + 1,
+//                   link = Kuro split-screen mask (E_Link_*), step = (min(.,1) - 0.333 >= 0.001)
+//     engine part (NOT ported; UE's translucency lighting / fog apply instead): Kuro primitive fade (Primitive[43]),
+//       vertex / volumetric fog (TEXCOORD7, t0), pre-exposure (t1), emissive max/scale/OOB, the ambient term
+//       BaseColor * View[299] and the forward local-light loop (CB3[144] lights, 9 float4 each, wrapped half-Lambert).
+//       The harness reproduces that tail literally (tools/shaderdiff/roster_eyeoutline/outline_tdiff.py) so the
+//       material outputs are verified through the whole original o0.
+//   UE contract ("resolve": false): BLEND_Translucent, lit (BaseColor, Emissive, Opacity) — see the spec ue_material block.
+//   The split-screen rotation rows are Kuro CPU preshaders cb4[39] / cb4[41] = (cos a, -sin a), a = (deg / 360) * 2pi:
+//   they enter as uniform_expression inputs E_LinkCos1 / E_LinkNegSin1 / E_LinkCos2 / E_LinkNegSin2.
+#pragma once
+
+#include "WuwaToonBasePass_WeaponShared.ush"   // FWuwaFXOutput {Emissive, Opacity} (read-only; -> WriteStencil -> Shared)
+
+FWuwaFXOutput WuwaToonOutlineTranslucent_Impl(float3 Color, float UV3Y, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize,
+	float3 E_Outline_EmissionColor, float E_Outline_EmissionIntensity, float4 SelectionColor,
+	float E_Link_UseSplitScreen, float4 E_Link_AngleLinePosLineDis, float E_LinkPos,
+	float E_LinkCos1, float E_LinkNegSin1, float E_LinkCos2, float E_LinkNegSin2,
+	float DownTran_Offset, float DownTran_Power, float Use_Transparent, out float3 BaseColor)
+{
+	FWuwaFXOutput X;
+	BaseColor = Color;
+	// l.66-67: emissive = lerp(E0, SelectionColor.rgb, SelectionColor.a)
+	float3 E0 = E_Outline_EmissionColor * E_Outline_EmissionIntensity;
+	X.Emissive = SelectionColor.a * (SelectionColor.rgb - E0) + E0;
+
+	// l.62-63, 71-104: Kuro split-screen link mask on the screen UV
+	float2 suv = (SvPositionXY - ViewRectMin) * ViewSizeAndInvSize.zw;
+	float  aspect = max(ViewSizeAndInvSize.x / ViewSizeAndInvSize.y, 1.0);
+	float  linePos = E_Link_AngleLinePosLineDis.y;
+	float  x1 = aspect * linePos;
+	float  ux = suv.x * aspect;
+	float  d1 = dot(float2(ux, suv.y) - float2(x1, 0.5), float2(E_LinkCos1, E_LinkNegSin1));
+	d1 = aspect * linePos + d1;
+	bool   b1 = (d1 >= x1);
+	float  f1 = b1 ? 1.0 : 0.0;
+	float  linePos2 = E_Link_AngleLinePosLineDis.y + E_Link_AngleLinePosLineDis.z;          // preshader cb4[61].x
+	float  x2 = aspect * linePos2;
+	float  d2 = dot(float2(ux, suv.y) - float2(x2, 0.5), float2(E_LinkCos2, E_LinkNegSin2));
+	d2 = linePos2 * aspect + d2;
+	bool   b2 = (d2 >= x2);
+	float  f2 = b2 ? 1.0 : 0.0;
+	float  m = (b2 ? -1.0 : -0.0) + f1;
+	m = max(m, 0.0);
+	float  zA = b1 ? 0.0 : 1.0;
+	float  zB = b1 ? -0.0 : -1.0;
+	m = m + zB;
+	m = saturate(E_LinkPos * 2.0) * m + zA;                                                  // preshader cb4[63].y
+	m = saturate(E_LinkPos * 2.0 - 1.0) * (f2 - m) + m;                                      // preshader cb4[63].w
+	m = m + -1.0;
+	m = E_Link_UseSplitScreen * m + 1.0;                                                     // l.95-96
+	m = min(m, 1.0);
+	m = m + asfloat(0xBEAA7EFAu);                                                           // -0.333
+	float stp = (m >= asfloat(0x3A83126Fu)) ? 1.0 : 0.0;                                     // 0.001
+
+	// l.70, 100-104: UV4 ("DownTran") fade
+	float fade = DownTran_Offset - UV3Y;
+	fade = saturate((fade + 1.0) * DownTran_Power);
+	fade = fade + -1.0;
+	fade = Use_Transparent * fade + 1.0;
+	X.Opacity = saturate(fade * stp);
+	return X;
+}
+
+#define WUWA_OLT_PARAMS \
+	float UV3Y, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, \
+	float3 E_Outline_EmissionColor, float E_Outline_EmissionIntensity, float4 SelectionColor, \
+	float E_Link_UseSplitScreen, float4 E_Link_AngleLinePosLineDis, float E_LinkPos, \
+	float E_LinkCos1, float E_LinkNegSin1, float E_LinkCos2, float E_LinkNegSin2, \
+	float DownTran_Offset, float DownTran_Power, float Use_Transparent
+#define WUWA_OLT_ARGS \
+	UV3Y, SvPositionXY, ViewRectMin, ViewSizeAndInvSize, E_Outline_EmissionColor, E_Outline_EmissionIntensity, SelectionColor, \
+	E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis, E_LinkPos, E_LinkCos1, E_LinkNegSin1, E_LinkCos2, E_LinkNegSin2, \
+	DownTran_Offset, DownTran_Power, Use_Transparent
+
+// UseMainTex (PS __105645 Mone Down/Alpha/Glass_OL, Linnaea Alpha_OL, Luhesi test tubes; __133206 Rebecca drink).
+FWuwaFXOutput WuwaToonOutlineTranslucentBasePass_MainTex(Texture2D MainTex, SamplerState MainTexSampler, float2 UV0,
+	float3 OutlineColorTint, float3 BaseColorTint, float MaterialTextureMipBias, WUWA_OLT_PARAMS, out float3 BaseColor)
+{
+	float3 c = MainTex.SampleBias(MainTexSampler, UV0, MaterialTextureMipBias).rgb;
+	c = c * OutlineColorTint;
+	c = c * BaseColorTint;
+	return WuwaToonOutlineTranslucent_Impl(c, WUWA_OLT_ARGS, BaseColor);
+}
+
+// OutlineColor (PS __17017, Aogusita Alpha_OL, Luhesi Glass_OL): BaseColor = BaseColorTint * OutlineColor (preshader).
+FWuwaFXOutput WuwaToonOutlineTranslucentBasePass(float3 OutlineColor, float3 BaseColorTint, WUWA_OLT_PARAMS, out float3 BaseColor)
+{
+	return WuwaToonOutlineTranslucent_Impl(BaseColorTint * OutlineColor, WUWA_OLT_ARGS, BaseColor);
+}
+
+#undef WUWA_OLT_PARAMS
+#undef WUWA_OLT_ARGS

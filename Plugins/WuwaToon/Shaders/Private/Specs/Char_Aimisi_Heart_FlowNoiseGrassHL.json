@@ -1,0 +1,1892 @@
+{
+ "name": "Char_Aimisi_Heart_FlowNoiseGrassHL",
+ "entry": "WuwaToonAimisiHeartBasePass_FlowNoiseGrassHL",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_Aimisi.ush",
+ "kuro_shading_model": "MSM_ToonCommon",
+ "kuro_asm": "M_Char_Aimisi_Heart PS f2f1fbd94d (#269144) / VS b06329c932 (#269125); static switches UseFlowLightNoise, Use_GrassHighLight",
+ "kuro_root_material": "M_Char_Aimisi_Heart",
+ "blend_mode": "BLEND_Masked",
+ "two_sided": false,
+ "resolve": true,
+ "resolve_note": "toon GBuffer (id 12) through WuwaToonResolve with a black surface: A = (oct(N), 0, mode flag), B = (0,0,0,id 12), C = D = 0; the visible colour is the emissive o0. Masked: route OpacityMask (= BaseCol.a) to the material Opacity Mask, clip 0.3333; the Kuro primitive dither is clipped inside the entry.",
+ "vs_note": null,
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "o0.rgb SceneColor (o0.a = 0)"
+  },
+  "A": {
+   "type": "float4",
+   "kuro": "o1 GBufferA: xy oct normal, z toon shadow factor, w flag"
+  },
+  "B": {
+   "type": "float4",
+   "kuro": "o2 GBufferB: rgb sqrt(shadow colour), a (LightingChannelMask<<5 | ShadingModelId)/255"
+  },
+  "C": {
+   "type": "float4",
+   "kuro": "o3 GBufferC: rgb lit colour, a MainTex.a*OpacityIntensity / rim byte"
+  },
+  "D": {
+   "type": "float4",
+   "kuro": "o6 \"GBufferD\": x ToonRimWidth, y packed nibble, z 0, w packed AO|FFT"
+  },
+  "OpacityMask": {
+   "type": "float",
+   "kuro": "masked clip input, clip value 0.3333"
+  }
+ },
+ "inputs": [
+  {
+   "name": "E_Tex_NoiseTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "E_Tex_NoiseTex",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "E_Tex_NoiseTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "E_Tex_NoiseTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "E_Tex_NoiseTexSampler"
+  },
+  {
+   "name": "FlowLight_ColorTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "FlowLight_ColorTex",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "FlowLight_ColorTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "FlowLight_ColorTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "FlowLight_ColorTexSampler"
+  },
+  {
+   "name": "FlowLight_NoiseTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "FlowLight_NoiseTex",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "FlowLight_NoiseTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "FlowLight_NoiseTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "FlowLight_NoiseTexSampler"
+  },
+  {
+   "name": "BaseCol",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "BaseCol",
+   "default": "T_R2T1AimisiGDMd10011Corn_D",
+   "note": "reference MI MI_R2T1AimisiGDMd10011Corn01: {'ObjectName': \"Texture2D'T_R2T1AimisiGDMd10011Corn_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleZ2/AimisiGD/R2T1AimisiGDMd10011/Model/T_R2T1AimisiGDMd10011Corn_D.1'}"
+  },
+  {
+   "name": "BaseColSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "BaseCol",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "BaseColSampler"
+  },
+  {
+   "name": "Heart_Mask",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Heart_Mask",
+   "default": "T_R2T1AimisiGDMd10011Corn_ID",
+   "note": "reference MI MI_R2T1AimisiGDMd10011Corn01: {'ObjectName': \"Texture2D'T_R2T1AimisiGDMd10011Corn_ID'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleZ2/AimisiGD/R2T1AimisiGDMd10011/Model/T_R2T1AimisiGDMd10011Corn_ID.0'}"
+  },
+  {
+   "name": "Heart_MaskSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Heart_Mask",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "Heart_MaskSampler"
+  },
+  {
+   "name": "XingHen_Tex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "XingHen_Tex",
+   "default": "T_6XingStar_D",
+   "note": "reference MI MI_R2T1AimisiGDMd10011Corn01: {'ObjectName': \"Texture2D'T_6XingStar_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/CommonTexture/Star/T_6XingStar_D.1'}"
+  },
+  {
+   "name": "XingHen_TexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "XingHen_Tex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "XingHen_TexSampler"
+  },
+  {
+   "name": "Diamond_MainTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Diamond_MainTex",
+   "default": "T_FlashDiamond_D",
+   "note": "reference MI MI_R2T1AimisiGDMd10011Corn01: {'ObjectName': \"Texture2D'T_FlashDiamond_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleM/Aimisi/R2T1AimisiMd10011/Model/T_FlashDiamond_D.1'}"
+  },
+  {
+   "name": "Diamond_MainTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Diamond_MainTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "Diamond_MainTexSampler"
+  },
+  {
+   "name": "Heart_FlowLight_Height",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Heart_FlowLight_Height",
+   "default": "T_R2T1AimisiGDMd10011Corn_ID",
+   "note": "reference MI MI_R2T1AimisiGDMd10011Corn01: {'ObjectName': \"Texture2D'T_R2T1AimisiGDMd10011Corn_ID'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleZ2/AimisiGD/R2T1AimisiGDMd10011/Model/T_R2T1AimisiGDMd10011Corn_ID.0'}"
+  },
+  {
+   "name": "Heart_FlowLight_HeightSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Heart_FlowLight_Height",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "Heart_FlowLight_HeightSampler"
+  },
+  {
+   "name": "StructureNormal_Tex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "StructureNormal_Tex",
+   "default": "T_Crystal_NormalDissolve",
+   "note": "reference MI MI_R2T1AimisiGDMd10011Corn01: {'ObjectName': \"Texture2D'T_Crystal_NormalDissolve'\", 'ObjectPath': 'Client/Content/Aki/Render/Common/T_Crystal_NormalDissolve.0'}"
+  },
+  {
+   "name": "StructureNormal_TexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "StructureNormal_Tex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "StructureNormal_TexSampler"
+  },
+  {
+   "name": "Heart_ColorBlend",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Heart_ColorBlend",
+   "default": "T_Corn_ColorBlendMask_FX",
+   "note": "reference MI MI_R2T1AimisiGDMd10011Corn01: {'ObjectName': \"Texture2D'T_Corn_ColorBlendMask_FX'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleZ2/AimisiGD/R2T1AimisiGDMd10011/Model/T_Corn_ColorBlendMask_FX.0'}"
+  },
+  {
+   "name": "Heart_ColorBlendSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Heart_ColorBlend",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "Heart_ColorBlendSampler"
+  },
+  {
+   "name": "String_Tex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "String_Tex",
+   "default": "T_Textbook_FX",
+   "note": "reference MI MI_R2T1AimisiGDMd10011Corn01: {'ObjectName': \"Texture2D'T_Textbook_FX'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleZ2/AimisiGD/R2T1AimisiGDMd10011/Model/T_Textbook_FX.0'}"
+  },
+  {
+   "name": "String_TexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "String_Tex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "String_TexSampler"
+  },
+  {
+   "name": "HeightLightTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "HeightLightTex",
+   "default": "T_GlassHeightLight_D",
+   "note": "reference MI MI_R2T1AimisiGDMd10011Corn01: {'ObjectName': \"Texture2D'T_GlassHeightLight_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleZ2/AimisiGD/R2T1AimisiGDMd10011/Model/T_GlassHeightLight_D.1'}"
+  },
+  {
+   "name": "HeightLightTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "HeightLightTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "HeightLightTexSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "UV1",
+   "type": "float2",
+   "kind": "uv",
+   "index": 1
+  },
+  {
+   "name": "UV2",
+   "type": "float2",
+   "kind": "uv",
+   "index": 2
+  },
+  {
+   "name": "UV3",
+   "type": "float2",
+   "kind": "uv",
+   "index": 3
+  },
+  {
+   "name": "WorldTangent",
+   "type": "float3",
+   "kind": "worldtangent",
+   "ue_expr": "Parameters.TangentToWorld[0]"
+  },
+  {
+   "name": "WorldNormal",
+   "type": "float3",
+   "kind": "worldnormal",
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "TangentSign",
+   "type": "float",
+   "kind": "worldtangent",
+   "channel": "sign",
+   "ue_expr": "Parameters.TangentToWorldSign"
+  },
+  {
+   "name": "TranslatedWorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "translated",
+   "ue_expr": "GetTranslatedWorldPosition(Parameters)"
+  },
+  {
+   "name": "WorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "absolute",
+   "ue_expr": "WSHackToFloat(GetWorldPosition(Parameters))"
+  },
+  {
+   "name": "SvPositionXY",
+   "type": "float2",
+   "kind": "svposition",
+   "ue_expr": "Parameters.SvPosition.xy"
+  },
+  {
+   "name": "ViewRectMin",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewRectMin.xy",
+   "kuro": "View[134].xy"
+  },
+  {
+   "name": "ViewSizeAndInvSize",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewSizeAndInvSize",
+   "kuro": "View[135]"
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "NormalOverrideParameter",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.NormalOverrideParameter",
+   "kuro": "Kuro View[144] (stock member), default (0,0,0,1)",
+   "default": [
+    0,
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "name": "TranslatedWorldToView",
+   "type": "float4x4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.TranslatedWorldToView",
+   "kuro": "Kuro View[12..15]"
+  },
+  {
+   "name": "TranslatedWorldToCameraView",
+   "type": "float4x4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.TranslatedWorldToCameraView",
+   "kuro": "View[20..23]"
+  },
+  {
+   "name": "PreViewTranslation",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": "ResolvedView.PreViewTranslation",
+   "kuro": "View[70].xyz"
+  },
+  {
+   "name": "ClipToView11",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ClipToView[1][1]",
+   "kuro": "View[37].y (hologram band projection)"
+  },
+  {
+   "name": "KuroView296",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "unknown": true,
+   "default": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "kuro": "View[296].xyz: Kuro view vector used as the \"light\" of the heart half vector normalize(View[296] + V) (listed as the SSS direction in round 2) [U]"
+  },
+  {
+   "name": "ViewForward",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewForward",
+   "kuro": "View[18].xyz (ViewToTranslatedWorld row 2)"
+  },
+  {
+   "name": "LocalToWorldRow0",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[0].xyz",
+   "kuro": "Primitive[0].xyz"
+  },
+  {
+   "name": "PrimWorldToLocal",
+   "type": "float4x4",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).WorldToLocal",
+   "kuro": "Primitive[6..9] (UE 4.26 FPrimitiveUniformShaderParameters.WorldToLocal; portal \"UseLocalSpace\")"
+  },
+  {
+   "name": "PrimActorWorldPosition",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).ActorWorldPosition",
+   "kuro": "Primitive[18].xyz (UE 4.26 ActorWorldPosition; portal \"UseActorSpace\")"
+  },
+  {
+   "name": "MPC_GlobalTimeHour",
+   "type": "float",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalTimeHour",
+   "default": 7.059767,
+   "kuro": "cb2[3].z (day factor smoothstep(6..7) * smoothstep(19..18))"
+  },
+  {
+   "name": "E_Tex_UVSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Tex_UVSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Tex_UseScreenUV",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_UseScreenUV",
+   "default": 0.0
+  },
+  {
+   "name": "E_Tex_UseTex",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_UseTex",
+   "default": 0.0
+  },
+  {
+   "name": "E_Tex_RotRow0",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Tex_Rotation"
+   ],
+   "expr": "float8(cos(((E_Tex_Rotation * 0.002778) * 6.28319)), (sin(((E_Tex_Rotation * 0.002778) * 6.28319)) * -1))",
+   "default": [
+    1.0,
+    -0.0
+   ],
+   "ue_nodes": "(cos(a), -sin(a)), a = E_Tex_Rotation * 0.002778 (0x3B360F1B) * 6.28319 (0x40C90FDB)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "E_Tex_RotRow1",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Tex_Rotation"
+   ],
+   "expr": "float8(sin(((E_Tex_Rotation * 0.002778) * 6.28319)), cos(((E_Tex_Rotation * 0.002778) * 6.28319)))",
+   "default": [
+    0.0,
+    1.0
+   ],
+   "ue_nodes": "(sin(a), cos(a)), a as E_Tex_RotRow0",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "E_Tex_ScaleAndOffset",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Tex_ScaleAndOffset",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Tex_Speed",
+   "type": "float2",
+   "kind": "vector",
+   "param": "E_Tex_Speed",
+   "channels": "rg",
+   "default": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Tex_Color",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Tex_Color",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "E_Emission_UseTex",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Emission_UseTex",
+   "default": 0.0
+  },
+  {
+   "name": "E_FlowEffectEdgeColorSharp",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_FlowEffectEdgeColorSharp",
+   "default": 1.0
+  },
+  {
+   "name": "E_Dissolve_Emission",
+   "type": "float3",
+   "kind": "vector",
+   "param": "E_Dissolve_Emission",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Dissolve_EmissionDark",
+   "type": "float3",
+   "kind": "vector",
+   "param": "E_Dissolve_EmissionDark",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_FlowEffectEdgeSwitch",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_FlowEffectEdgeSwitch",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dissolve_Multi01",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Dissolve_Multi"
+   ],
+   "expr": "(E_Dissolve_Multi * 0.01)",
+   "default": 1.0,
+   "ue_nodes": "E_Dissolve_Multi * 0.01",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "E_Dissolve_UseDissolve",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dissolve_UseDissolve",
+   "default": 0.0
+  },
+  {
+   "name": "E_FlowEffectEdge_Strength01",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_FlowEffectEdge_Strength"
+   ],
+   "expr": "(E_FlowEffectEdge_Strength * 0.1)",
+   "default": 0.02,
+   "ue_nodes": "E_FlowEffectEdge_Strength * 0.1",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "E_FlowEffectEdgerRevert",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_FlowEffectEdgerRevert",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dissolve_Channel",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Dissolve_Channel",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_UV3Dissolve_Reverse",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_UV3Dissolve_Reverse",
+   "default": 0.0
+  },
+  {
+   "name": "E_UV3Dissolve_Position",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_UV3Dissolve_Position",
+   "default": 0.0
+  },
+  {
+   "name": "E_UV3Dissolve_PositionRadius",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_UV3Dissolve_Position",
+    "E_UV3Dissolve_Radius"
+   ],
+   "expr": "(E_UV3Dissolve_Position + E_UV3Dissolve_Radius)",
+   "default": 0.2,
+   "ue_nodes": "E_UV3Dissolve_Position + E_UV3Dissolve_Radius",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "UseShadowLordMaterialDynamic",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseShadowLordMaterialDynamic",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dissolve_Progress",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dissolve_Progress",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dissolve_Smooth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dissolve_Smooth",
+   "default": 5.0
+  },
+  {
+   "name": "UseLocalSpace",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseLocalSpace",
+   "default": 0.0
+  },
+  {
+   "name": "UseActorSpace",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseActorSpace",
+   "default": 0.0
+  },
+  {
+   "name": "PortalCenter",
+   "type": "float3",
+   "kind": "vector",
+   "param": "PortalCenter",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "PortalAxisN",
+   "type": "float3",
+   "kind": "uniform_expression",
+   "params": [
+    "PortalAxis"
+   ],
+   "expr": "(PortalAxis.xyz / sqrt(dot(PortalAxis.xyz, PortalAxis.xyz)))",
+   "default": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "ue_nodes": "PortalAxis.rgb / sqrt(dot(rgb, rgb)) (float32: sequential dot, sqrt, divide)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "PortalEdgeNeg",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "PortalEmissionEdageWith"
+   ],
+   "expr": "(0 - PortalEmissionEdageWith)",
+   "default": -0.3,
+   "ue_nodes": "0 - PortalEmissionEdageWith",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "UsePortalDissolve",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UsePortalDissolve",
+   "default": 0.0
+  },
+  {
+   "name": "E_Emission_ColorI",
+   "type": "float3",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Emission_Color",
+    "E_Emission_Intensity"
+   ],
+   "expr": "(E_Emission_Color.xyz * E_Emission_Intensity)",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "ue_nodes": "E_Emission_Color.rgb * E_Emission_Intensity",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "E_Hologram_HightColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "E_Hologram_HightColor",
+   "channels": "rgb",
+   "default": [
+    0.02864599972963333,
+    0.036309998482465744,
+    0.10000000149011612
+   ]
+  },
+  {
+   "name": "USE_Hologram",
+   "type": "float",
+   "kind": "scalar",
+   "param": "USE Hologram",
+   "default": 0.0
+  },
+  {
+   "name": "E_Hologram_Width",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Hologram_Width",
+   "default": 0.8500000238418579
+  },
+  {
+   "name": "E_Hologram_Width1m",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Hologram_Width"
+   ],
+   "expr": "(1 - E_Hologram_Width)",
+   "default": null,
+   "ue_nodes": "(1 - E_Hologram_Width)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "E_Hologram_Color",
+   "type": "float3",
+   "kind": "vector",
+   "param": "E_Hologram_Color",
+   "channels": "rgb",
+   "default": [
+    0.4322910010814667,
+    0.5341320037841797,
+    1.0
+   ]
+  },
+  {
+   "name": "E_Tex_UseMask",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_UseMask",
+   "default": 0.0
+  },
+  {
+   "name": "E_Tex_MaskRange",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_MaskRange",
+   "default": 1.0
+  },
+  {
+   "name": "E_Tex_UseSecondNoiseMask",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_UseSecondNoiseMask",
+   "default": 0.0
+  },
+  {
+   "name": "FlowLightTex_UVSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "FlowLightTex_UVSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "FlowLight_UseScreenUV",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FlowLight_UseScreenUV",
+   "default": 0.0
+  },
+  {
+   "name": "FlowLight_RotRow0",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "FlowLight_Rotation"
+   ],
+   "expr": "float8(cos((FlowLight_Rotation * 6.28319)), (sin((FlowLight_Rotation * 6.28319)) * -1))",
+   "default": null,
+   "ue_nodes": "float8(cos((FlowLight_Rotation * 6.28319)), (sin((FlowLight_Rotation * 6.28319)) * -1))",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "FlowLight_RotRow1",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "FlowLight_Rotation"
+   ],
+   "expr": "float8(sin((FlowLight_Rotation * 6.28319)), cos((FlowLight_Rotation * 6.28319)))",
+   "default": null,
+   "ue_nodes": "float8(sin((FlowLight_Rotation * 6.28319)), cos((FlowLight_Rotation * 6.28319)))",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "FlowLight_UV",
+   "type": "float4",
+   "kind": "vector",
+   "param": "FlowLight_UV",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "FlowLight_UV_Offset2",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "FlowLight_UV_Offset"
+   ],
+   "expr": "float2(FlowLight_UV_Offset.x, FlowLight_UV_Offset.y)",
+   "default": null,
+   "ue_nodes": "float2(FlowLight_UV_Offset.x, FlowLight_UV_Offset.y)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "FlowLightNoise_UVSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "FlowLightNoise_UVSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "FlowLightNoise_UseScreenUV",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FlowLightNoise_UseScreenUV",
+   "default": 0.0
+  },
+  {
+   "name": "FlowLightNoiseUV",
+   "type": "float4",
+   "kind": "vector",
+   "param": "FlowLightNoiseUV",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "FlowLight_NoiseStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FlowLight_NoiseStrength",
+   "default": 0.15000000596046448
+  },
+  {
+   "name": "FlowLight_BumpHeightRadio",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FlowLight_BumpHeightRadio",
+   "default": 0.0
+  },
+  {
+   "name": "FlowLight_BumpHeight",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FlowLight_BumpHeight",
+   "default": 0.0
+  },
+  {
+   "name": "FlowLight_Refine",
+   "type": "float4",
+   "kind": "vector",
+   "param": "FlowLight_Refine",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "name": "FlowLight_ColorTint",
+   "type": "float3",
+   "kind": "vector",
+   "param": "FlowLight_ColorTint",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "FlowEffectEdge_Strength01",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "FlowEffectEdge_Strength"
+   ],
+   "expr": "(FlowEffectEdge_Strength * 0.1)",
+   "default": null,
+   "ue_nodes": "(FlowEffectEdge_Strength * 0.1)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "FlowLightNoise_Progress1m",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "FlowLightNoise_Progress"
+   ],
+   "expr": "(1 - FlowLightNoise_Progress)",
+   "default": null,
+   "ue_nodes": "(1 - FlowLightNoise_Progress)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "Heart_OutLineColor_Layer1",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Heart_OutLineColor_Layer1",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Heart_OutLineColor_Layer2",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Heart_OutLineColor_Layer2",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Heart_OutLineColor_Layer3",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Heart_OutLineColor_Layer3",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "HeartTransition_L1",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "HeartTransition_Power_Layer1"
+   ],
+   "expr": "((((HeartTransition_Power_Layer1 - 0) / (20 - 0)) * (1 - 0)) + 0)",
+   "default": null,
+   "ue_nodes": "((((HeartTransition_Power_Layer1 - 0) / (20 - 0)) * (1 - 0)) + 0)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "HeartTransition_L2",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "HeartTransition_Power_Layer2"
+   ],
+   "expr": "((((HeartTransition_Power_Layer2 - 0) / (20 - 0)) * (1 - 0)) + 0)",
+   "default": null,
+   "ue_nodes": "((((HeartTransition_Power_Layer2 - 0) / (20 - 0)) * (1 - 0)) + 0)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "FlowLightColorBlend",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FlowLightColorBlend",
+   "default": 0.0
+  },
+  {
+   "name": "XingHen_BumpOffset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "XingHen_BumpOffset",
+   "default": 0.0
+  },
+  {
+   "name": "UVScale2",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "UVScaleX",
+    "UVScaleY"
+   ],
+   "expr": "float2(UVScaleX, UVScaleY)",
+   "default": null,
+   "ue_nodes": "float2(UVScaleX, UVScaleY)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "UVPosition2",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "UVpositionX",
+    "UVpositionY"
+   ],
+   "expr": "float2(UVpositionX, UVpositionY)",
+   "default": null,
+   "ue_nodes": "float2(UVpositionX, UVpositionY)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "ShakeNoiseAbs3",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "ShakeNoiseInt"
+   ],
+   "expr": "(abs(ShakeNoiseInt) * 3)",
+   "default": null,
+   "ue_nodes": "(abs(ShakeNoiseInt) * 3)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "ShakeNoiseSatAbs",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "ShakeNoiseInt"
+   ],
+   "expr": "saturate(abs(ShakeNoiseInt))",
+   "default": null,
+   "ue_nodes": "saturate(abs(ShakeNoiseInt))",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "ShakeNoise03",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "ShakeNoiseInt"
+   ],
+   "expr": "(ShakeNoiseInt * 0.3)",
+   "default": null,
+   "ue_nodes": "(ShakeNoiseInt * 0.3)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "XingHen_FlowLight_RangeMax",
+   "type": "float",
+   "kind": "scalar",
+   "param": "XingHen_FlowLight_RangeMax",
+   "default": 1.0
+  },
+  {
+   "name": "XingHen_FlowLight_RangeMin",
+   "type": "float",
+   "kind": "scalar",
+   "param": "XingHen_FlowLight_RangeMin",
+   "default": 0.0
+  },
+  {
+   "name": "XingHenColorShake",
+   "type": "float3",
+   "kind": "uniform_expression",
+   "params": [
+    "ShakeNoiseInt",
+    "XingHen_SDFOffset_Color"
+   ],
+   "expr": "(XingHen_SDFOffset_Color.xyz * ShakeNoiseInt)",
+   "default": null,
+   "ue_nodes": "(XingHen_SDFOffset_Color.xyz * ShakeNoiseInt)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "HeartTransition_L1_20m",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "HeartTransition_Power_Layer1"
+   ],
+   "expr": "(20 - HeartTransition_Power_Layer1)",
+   "default": null,
+   "ue_nodes": "(20 - HeartTransition_Power_Layer1)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "HeartTransition_L2_20m",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "HeartTransition_Power_Layer2"
+   ],
+   "expr": "(20 - HeartTransition_Power_Layer2)",
+   "default": null,
+   "ue_nodes": "(20 - HeartTransition_Power_Layer2)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "Diamond_PannerSpeed2",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "Diamond_PannerSpeed_X",
+    "Diamond_PannerSpeed_Y"
+   ],
+   "expr": "float2(Diamond_PannerSpeed_X, Diamond_PannerSpeed_Y)",
+   "default": null,
+   "ue_nodes": "float2(Diamond_PannerSpeed_X, Diamond_PannerSpeed_Y)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "Diamond_Tiling",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Diamond_Tiling",
+   "default": 1.0
+  },
+  {
+   "name": "UseDiamond_UV_Switch",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseDiamond_UV_Switch",
+   "default": 0.6499999761581421
+  },
+  {
+   "name": "HeartPartten_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "HeartPartten_Intensity",
+   "default": 2.0
+  },
+  {
+   "name": "Heart_FlowLight_Offset2",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "Heart_FlowLight_Offset_X",
+    "Heart_FlowLight_Offset_Y"
+   ],
+   "expr": "float2(Heart_FlowLight_Offset_X, Heart_FlowLight_Offset_Y)",
+   "default": null,
+   "ue_nodes": "float2(Heart_FlowLight_Offset_X, Heart_FlowLight_Offset_Y)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "HeartSDF_Bump",
+   "type": "float",
+   "kind": "scalar",
+   "param": "HeartSDF_Bump",
+   "default": 0.0
+  },
+  {
+   "name": "ParallaxStepsInv",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "ParallaxSteps"
+   ],
+   "expr": "(1 / ParallaxSteps)",
+   "default": null,
+   "ue_nodes": "(1 / ParallaxSteps)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "ParallaxStepsFloor",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "ParallaxSteps"
+   ],
+   "expr": "floor(ParallaxSteps)",
+   "default": null,
+   "ue_nodes": "floor(ParallaxSteps)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "Heart_FlowLight_SatAbsInt",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Heart_FlowLight_Int"
+   ],
+   "expr": "saturate(abs(Heart_FlowLight_Int))",
+   "default": null,
+   "ue_nodes": "saturate(abs(Heart_FlowLight_Int))",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "Heart_FlowLight_Frequency",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Heart_FlowLight_Frequency",
+   "default": 0.5
+  },
+  {
+   "name": "Heart_Partten_RangeOffset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Heart_Partten_RangeOffset",
+   "default": 0.0
+  },
+  {
+   "name": "Heart_FlowLight_RangeMax",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Heart_FlowLight_RangeMax",
+   "default": 1.0
+  },
+  {
+   "name": "Heart_FlowLight_RangeMin",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Heart_FlowLight_RangeMin",
+   "default": 0.8500000238418579
+  },
+  {
+   "name": "Heart_FlowLight_Int03",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Heart_FlowLight_Int"
+   ],
+   "expr": "(Heart_FlowLight_Int * 0.3)",
+   "default": null,
+   "ue_nodes": "(Heart_FlowLight_Int * 0.3)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "StructureNormal_Tilling",
+   "type": "float",
+   "kind": "scalar",
+   "param": "StructureNormal_Tilling",
+   "default": 1.0
+  },
+  {
+   "name": "StructureNormal_Height",
+   "type": "float",
+   "kind": "scalar",
+   "param": "StructureNormal_Height",
+   "default": -2.0
+  },
+  {
+   "name": "StructureNormal_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "StructureNormal_Intensity",
+   "default": 1.0
+  },
+  {
+   "name": "StructureNormal_In_Offset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "StructureNormal_In_Offset",
+   "default": -0.875
+  },
+  {
+   "name": "StructureNormal_In_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "StructureNormal_In_Intensity",
+   "default": 3.0
+  },
+  {
+   "name": "Heart_Layer1_Color1",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Heart_Layer1_Color1",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Heart_Layer1_Color2",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Heart_Layer1_Color2",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Heart_Layer1_DarkColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Heart_Layer1_DarkColor",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Heart_Layer2_Color1",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Heart_Layer2_Color1",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Heart_Layer2_Color2",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Heart_Layer2_Color2",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Heart_Layer2_DarkColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Heart_Layer2_DarkColor",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Heart_Layer3_Color1",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Heart_Layer3_Color1",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Heart_Layer3_Color2",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Heart_Layer3_Color2",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Heart_Layer3_Color3",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Heart_Layer3_Color3",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Heart_Layer3_DarkColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Heart_Layer3_DarkColor",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "HeartDarkColor_Int_Layer1",
+   "type": "float",
+   "kind": "scalar",
+   "param": "HeartDarkColor_Int_Layer1",
+   "default": 0.0
+  },
+  {
+   "name": "HeartDarkColor_Int_Layer2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "HeartDarkColor_Int_Layer2",
+   "default": 0.0
+  },
+  {
+   "name": "HeartDarkColor_Int_Layer3",
+   "type": "float",
+   "kind": "scalar",
+   "param": "HeartDarkColor_Int_Layer3",
+   "default": 0.0
+  },
+  {
+   "name": "TexRain_BumpOffset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "TexRain_BumpOffset",
+   "default": 0.05000000074505806
+  },
+  {
+   "name": "Quad_Tilling_Bump005",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Quad_Tilling_Bump"
+   ],
+   "expr": "(Quad_Tilling_Bump + 0.05)",
+   "default": null,
+   "ue_nodes": "(Quad_Tilling_Bump + 0.05)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "Quad_Speed_Bump",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Quad_Speed_Bump",
+   "default": 0.25
+  },
+  {
+   "name": "Quad_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Quad_Intensity",
+   "default": 30.0
+  },
+  {
+   "name": "QuadRain_RangeMin_Bump",
+   "type": "float",
+   "kind": "scalar",
+   "param": "QuadRain_RangeMin_Bump",
+   "default": 0.0
+  },
+  {
+   "name": "QuadRain_RangeMax_Bump",
+   "type": "float",
+   "kind": "scalar",
+   "param": "QuadRain_RangeMax_Bump",
+   "default": 1.0
+  },
+  {
+   "name": "StringsRain_Tilling_Bump005",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "StringsRain_Tilling_Bump"
+   ],
+   "expr": "(StringsRain_Tilling_Bump + 0.05)",
+   "default": 1200.05,
+   "ue_nodes": "StringsRain_Tilling_Bump + 0.05",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "MatrixXY",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "Matrix"
+   ],
+   "expr": "float2(Matrix, Matrix)",
+   "default": [
+    16.0,
+    16.0
+   ],
+   "ue_nodes": "(Matrix, Matrix)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "MatrixXX",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "Matrix"
+   ],
+   "expr": "float2((Matrix * Matrix), Matrix)",
+   "default": [
+    256.0,
+    16.0
+   ],
+   "ue_nodes": "(Matrix * Matrix, Matrix)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "String_Speed",
+   "type": "float",
+   "kind": "scalar",
+   "param": "String_Speed",
+   "default": 0.0
+  },
+  {
+   "name": "Rain_Speed_Bump",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Rain_Speed_Bump",
+   "default": 0.25
+  },
+  {
+   "name": "Rain_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Rain_Intensity",
+   "default": 30.0
+  },
+  {
+   "name": "HueShiftColor_Offset01",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "HueShiftColor_Offset"
+   ],
+   "expr": "(HueShiftColor_Offset * 0.1)",
+   "default": 0.2,
+   "ue_nodes": "HueShiftColor_Offset * 0.1",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "StringsRain_RangeMin_Bump",
+   "type": "float",
+   "kind": "scalar",
+   "param": "StringsRain_RangeMin_Bump",
+   "default": 0.0
+  },
+  {
+   "name": "StringsRain_RangeMax_Bump",
+   "type": "float",
+   "kind": "scalar",
+   "param": "StringsRain_RangeMax_Bump",
+   "default": 1.0
+  },
+  {
+   "name": "StringsRain_Color_Bump",
+   "type": "float3",
+   "kind": "vector",
+   "param": "StringsRain_Color_Bump",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "HLScale",
+   "type": "float",
+   "kind": "scalar",
+   "param": "HLScale",
+   "default": 1.0
+  },
+  {
+   "name": "HLmoveSpeed",
+   "type": "float",
+   "kind": "scalar",
+   "param": "HLmoveSpeed",
+   "default": 0.0
+  },
+  {
+   "name": "HLmoveSpeedNeg",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "HLmoveSpeed"
+   ],
+   "expr": "(HLmoveSpeed * -1)",
+   "default": null,
+   "ue_nodes": "(HLmoveSpeed * -1)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "HLposition2",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "HLpositionX",
+    "HLpositionY"
+   ],
+   "expr": "float2(HLpositionX, HLpositionY)",
+   "default": null,
+   "ue_nodes": "float2(HLpositionX, HLpositionY)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "Heart_HighLightIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Heart_HighLightIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "FinalCol_RangeMax_Layer1",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FinalCol_RangeMax_Layer1",
+   "default": 1.0
+  },
+  {
+   "name": "FinalCol_RangeMin_Layer1",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FinalCol_RangeMin_Layer1",
+   "default": 0.0
+  },
+  {
+   "name": "FinalCol_Tint_Layer1",
+   "type": "float3",
+   "kind": "vector",
+   "param": "FinalCol_Tint_Layer1",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "HeartTintColor_Layer1_Blend",
+   "type": "float",
+   "kind": "scalar",
+   "param": "HeartTintColor_Layer1_Blend",
+   "default": 0.0
+  },
+  {
+   "name": "Heart_FlowLight_Speed",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Heart_FlowLight_Speed",
+   "default": 0.0
+  },
+  {
+   "name": "Heart_FlowLight_RangeOffset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Heart_FlowLight_RangeOffset",
+   "default": 0.0
+  },
+  {
+   "name": "Heart_FlowLight_Clip",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Heart_FlowLight_Clip",
+   "default": 0.0
+  },
+  {
+   "name": "FinalCol_RangeMax_Layer2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FinalCol_RangeMax_Layer2",
+   "default": 1.0
+  },
+  {
+   "name": "FinalCol_RangeMin_Layer2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FinalCol_RangeMin_Layer2",
+   "default": 0.0
+  },
+  {
+   "name": "FinalCol_Tint_Layer2",
+   "type": "float3",
+   "kind": "vector",
+   "param": "FinalCol_Tint_Layer2",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "HeartTintColor_Layer2_Blend",
+   "type": "float",
+   "kind": "scalar",
+   "param": "HeartTintColor_Layer2_Blend",
+   "default": 0.0
+  },
+  {
+   "name": "FinalCol_RangeMax_Layer4",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FinalCol_RangeMax_Layer4",
+   "default": 1.0
+  },
+  {
+   "name": "FinalCol_RangeMin_Layer3",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FinalCol_RangeMin_Layer3",
+   "default": 0.0
+  },
+  {
+   "name": "FinalCol_Tint_Layer3",
+   "type": "float3",
+   "kind": "vector",
+   "param": "FinalCol_Tint_Layer3",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "HeartTintColor_Layer3_Blend",
+   "type": "float",
+   "kind": "scalar",
+   "param": "HeartTintColor_Layer3_Blend",
+   "default": 0.0
+  },
+  {
+   "name": "FinalRender_Lightness_Night",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FinalRender_Lightness_Night",
+   "default": 1.0
+  },
+  {
+   "name": "SeqSwitchFactor",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SeqSwitchFactor",
+   "default": 0.0
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "KuroPrimDitherEnable",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[43].x",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "KuroPrimDitherFade",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[43].y",
+   "ue_expr": null,
+   "default": 1.0,
+   "unknown": true
+  },
+  {
+   "name": "KuroGBufferMode",
+   "type": "float",
+   "kind": "view",
+   "kuro": "View[276].x (int, ==1 selects the alternate packing)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "KuroEmissiveScale",
+   "type": "float3",
+   "kind": "view",
+   "kuro": "View[285].xyz (emissive multiplier when Primitive[42].w == 0)",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true
+  },
+  {
+   "name": "KuroSkipEmissiveScale",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[42].w (skip View[285] multiply when != 0)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "OutOfBoundsMask",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.OutOfBoundsMask",
+   "kuro": "Kuro View[146].x (stock debug)",
+   "default": 0.0
+  },
+  {
+   "name": "ObjectWorldPosition",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "WSHackToFloat(GetObjectWorldPosition(Parameters))"
+  },
+  {
+   "name": "ObjectBounds",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "float3(GetPrimitiveData(Parameters).ObjectBoundsX, GetPrimitiveData(Parameters).ObjectBoundsY, GetPrimitiveData(Parameters).ObjectBoundsZ)"
+  },
+  {
+   "name": "LightingChannelMask",
+   "type": "uint",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitive_LightingChannelMask_FromFlags(GetPrimitiveData(Parameters).Flags)"
+  },
+  {
+   "name": "OpacityMask",
+   "type": "float",
+   "kind": "output"
+  }
+ ],
+ "generated_by": "tools/shaderdiff/weapons/r3/make_specs_aimisi.py (make_specs.py generator)",
+ "notes": {
+  "textures": "texture names = the cooked map texture_params (t-slot order, checked against usage: t1 FlowLight_NoiseTex is sampled twice, flow-noise UV and edge noise)"
+ }
+}

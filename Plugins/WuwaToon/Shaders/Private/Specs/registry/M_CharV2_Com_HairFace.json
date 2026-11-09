@@ -1,0 +1,874 @@
+{
+ "root_material": "M_CharV2_Com",
+ "_doc": "Remaining M_CharV2_Com hair / face variants (research/roster/Port_CharV2_HairFace.md), split from M_CharV2_Com.json so the hair/face and body ports never edit the same file; the importer merges both by root_material. Match by base_pass_ps_hash only (TBasePassPSFNoLightMapPolicy on FGPUSkinPassthroughVertexFactory, SM5 High map, resolved through the MI parent chain).",
+ "variants": [
+  {
+   "spec": "ToonHairV2_Wet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "4b44b493cd130f0e6cd5f301b811d8aa014c06a6"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "62c34334e1c9bfdaf8927a223b3b4f4b93ea9aa4"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1JingranMd10011Bangs",
+    "MI_R2T1JingranMd10011Hair",
+    "MI_R2T1QianXiaMd20011Bangs",
+    "MI_R2T1QianXiaMd20011Hair",
+    "MI_R2T1SuomingMd10011Bangs",
+    "MI_R2T1SuomingMd10011Hair"
+   ],
+   "slot_uses": 10,
+   "entities": 5,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_Wet_4b44b4": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 63,
+     "mrts": {
+      "o0": "1032192/1032192 bit-exact, max ULP 0",
+      "o1": "1032192/1032192 bit-exact, max ULP 0",
+      "o2": "1032192/1032192 bit-exact, max ULP 0",
+      "o3": "1032192/1032192 bit-exact, max ULP 0",
+      "o6": "1032192/1032192 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs). Use_Char_Wet reads CustomPrimitiveData 26 (wet amount) and 27 (wet transition), the Kuro meaning of those slots; the plugin MaskID moved to CPD 35, so CPD 26 / 27 are free for the wet state."
+  },
+  {
+   "spec": "ToonHairV2_WetHETA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "80ce26e177122b14352729edc02c998dbc75aef0"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "62c34334e1c9bfdaf8927a223b3b4f4b93ea9aa4"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1JingranMd10011Bangs_HETA",
+    "MI_R2T1QianXiaMd20011Bangs_HETA",
+    "MI_R2T1SuomingMd10011Bangs_HETA"
+   ],
+   "slot_uses": 5,
+   "entities": 5,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_WetHETA_80ce26": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 54,
+     "mrts": {
+      "o0": "884736/884736 bit-exact, max ULP 0",
+      "o1": "884736/884736 bit-exact, max ULP 0",
+      "o2": "884736/884736 bit-exact, max ULP 0",
+      "o3": "884736/884736 bit-exact, max ULP 0",
+      "o6": "884736/884736 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs). Use_Char_Wet reads CustomPrimitiveData 26 (wet amount) and 27 (wet transition), the Kuro meaning of those slots; the plugin MaskID moved to CPD 35, so CPD 26 / 27 are free for the wet state."
+  },
+  {
+   "spec": "ToonHairV2_NoHue.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "84093246bbf7f7f0cb49528616c7bbbb745ddac9"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "0554de5d30ba8051b8e3699cc083eec54a05da44"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LucyMd10011Bangs",
+    "MI_R2T1RebeccaMd10011Bangs",
+    "MI_R2T1RebeccaMd10011Hair"
+   ],
+   "slot_uses": 6,
+   "entities": 4,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_NoHue_840932": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 45,
+     "mrts": {
+      "o0": "737280/737280 bit-exact, max ULP 0",
+      "o1": "737280/737280 bit-exact, max ULP 0",
+      "o2": "737280/737280 bit-exact, max ULP 0",
+      "o3": "737280/737280 bit-exact, max ULP 0",
+      "o6": "737280/737280 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs)."
+  },
+  {
+   "spec": "ToonHairV2_NoHueHETA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "278e2e95fbb570083c22e44f436805c5b411c6c4"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "0554de5d30ba8051b8e3699cc083eec54a05da44"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LucyMd10011Bangs_HETA"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_NoHueHETA_278e2e": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 39,
+     "mrts": {
+      "o0": "638976/638976 bit-exact, max ULP 0",
+      "o1": "638976/638976 bit-exact, max ULP 0",
+      "o2": "638976/638976 bit-exact, max ULP 0",
+      "o3": "638976/638976 bit-exact, max ULP 0",
+      "o6": "638976/638976 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs)."
+  },
+  {
+   "spec": "ToonHairV2_TSWet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "5a987a6d64c81a628a42882a101d2de2f1ebe00b"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "62c34334e1c9bfdaf8927a223b3b4f4b93ea9aa4"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1XinMd10011Bangs",
+    "MI_R2T1XinMd10011Hair"
+   ],
+   "slot_uses": 4,
+   "entities": 2,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_TSWet_5a987a": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 54,
+     "mrts": {
+      "o0": "884736/884736 bit-exact, max ULP 0",
+      "o1": "884736/884736 bit-exact, max ULP 0",
+      "o2": "884736/884736 bit-exact, max ULP 0",
+      "o3": "884736/884736 bit-exact, max ULP 0",
+      "o6": "884736/884736 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs). Use_Char_Wet reads CustomPrimitiveData 26 (wet amount) and 27 (wet transition), the Kuro meaning of those slots; the plugin MaskID moved to CPD 35, so CPD 26 / 27 are free for the wet state."
+  },
+  {
+   "spec": "ToonHairV2_TSWetCW.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "44fac3da2c33505bca66ccb103c7bb36d968db8b"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "3e53a1dea7019e80f4c6f2bb5ade7060dd1e160a"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1ShenXinMd10011Bangs"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_TSWet_44fac3": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 51,
+     "mrts": {
+      "o0": "835584/835584 bit-exact, max ULP 0",
+      "o1": "835584/835584 bit-exact, max ULP 0",
+      "o2": "835584/835584 bit-exact, max ULP 0",
+      "o3": "835584/835584 bit-exact, max ULP 0",
+      "o6": "835584/835584 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs). VS 3e53a1de (UseCommonWPO): the spec WPO is WuwaToonBaseVS_WPO_V2CommonWPO_Hair, verified (vs/results_cwpo.json). Use_Char_Wet reads CustomPrimitiveData 26 (wet amount) and 27 (wet transition), the Kuro meaning of those slots; the plugin MaskID moved to CPD 35, so CPD 26 / 27 are free for the wet state."
+  },
+  {
+   "spec": "ToonHairV2_TSWetHETA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b5875a32aac5246b2773161559092bb7edad15b2"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "62c34334e1c9bfdaf8927a223b3b4f4b93ea9aa4"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1XinMd10011Bangs_HETA"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_TSWetHETA_b5875a": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 51,
+     "mrts": {
+      "o0": "835584/835584 bit-exact, max ULP 0",
+      "o1": "835584/835584 bit-exact, max ULP 0",
+      "o2": "835584/835584 bit-exact, max ULP 0",
+      "o3": "835584/835584 bit-exact, max ULP 0",
+      "o6": "835584/835584 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs). Use_Char_Wet reads CustomPrimitiveData 26 (wet amount) and 27 (wet transition), the Kuro meaning of those slots; the plugin MaskID moved to CPD 35, so CPD 26 / 27 are free for the wet state."
+  },
+  {
+   "spec": "ToonHairV2_TSWetHETACW.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "20ee1b06bfa8177875b76b251910451c38628d17"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "3e53a1dea7019e80f4c6f2bb5ade7060dd1e160a"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1ShenXinMd10011Bangs_HETA"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_TSWetHETA_20ee1b": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 51,
+     "mrts": {
+      "o0": "835584/835584 bit-exact, max ULP 0",
+      "o1": "835584/835584 bit-exact, max ULP 0",
+      "o2": "835584/835584 bit-exact, max ULP 0",
+      "o3": "835584/835584 bit-exact, max ULP 0",
+      "o6": "835584/835584 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs). VS 3e53a1de (UseCommonWPO): the spec WPO is WuwaToonBaseVS_WPO_V2CommonWPO_Hair, verified (vs/results_cwpo.json). Use_Char_Wet reads CustomPrimitiveData 26 (wet amount) and 27 (wet transition), the Kuro meaning of those slots; the plugin MaskID moved to CPD 35, so CPD 26 / 27 are free for the wet state."
+  },
+  {
+   "spec": "ToonHairV2_NoHueTSWet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "1f3a4608f9e69351426f16d128352eb9d073a0b5"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "7f438e11c22c8173f5dc51dab00640cbf4e6d29c"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1QingxiaoMd10011Bangs",
+    "MI_R2T1QingxiaoMd10011Hair"
+   ],
+   "slot_uses": 4,
+   "entities": 2,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_NoHueTSWet_1f3a46": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 54,
+     "mrts": {
+      "o0": "884736/884736 bit-exact, max ULP 0",
+      "o1": "884736/884736 bit-exact, max ULP 0",
+      "o2": "884736/884736 bit-exact, max ULP 0",
+      "o3": "884736/884736 bit-exact, max ULP 0",
+      "o6": "884736/884736 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs). Use_Char_Wet reads CustomPrimitiveData 26 (wet amount) and 27 (wet transition), the Kuro meaning of those slots; the plugin MaskID moved to CPD 35, so CPD 26 / 27 are free for the wet state."
+  },
+  {
+   "spec": "ToonHairV2_NoHueTSWetHETA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "4f40d03a80c1b3796fd4e863d728672835dc4dd1"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "7f438e11c22c8173f5dc51dab00640cbf4e6d29c"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1QingxiaoMd10011Bangs_HETA"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_NoHueTSWetHETA_4f40d0": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 51,
+     "mrts": {
+      "o0": "835584/835584 bit-exact, max ULP 0",
+      "o1": "835584/835584 bit-exact, max ULP 0",
+      "o2": "835584/835584 bit-exact, max ULP 0",
+      "o3": "835584/835584 bit-exact, max ULP 0",
+      "o6": "835584/835584 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs). Use_Char_Wet reads CustomPrimitiveData 26 (wet amount) and 27 (wet transition), the Kuro meaning of those slots; the plugin MaskID moved to CPD 35, so CPD 26 / 27 are free for the wet state."
+  },
+  {
+   "spec": "ToonHairV2_TwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "7b517b4d10200b72863dc1b190f55d905c567b22"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "36679c042a620803613075f5fb18a227603bde1f"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LinnaeaMd10011Bangs",
+    "MI_R2T1LinnaeaMd10011Hair"
+   ],
+   "slot_uses": 4,
+   "entities": 2,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_TwoSided_7b517b": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 42,
+     "mrts": {
+      "o0": "688128/688128 bit-exact, max ULP 0",
+      "o1": "688128/688128 bit-exact, max ULP 0",
+      "o2": "688128/688128 bit-exact, max ULP 0",
+      "o3": "688128/688128 bit-exact, max ULP 0",
+      "o6": "688128/688128 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs)."
+  },
+  {
+   "spec": "ToonHairV2_NoHueTS.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b2f60ebfecb1e045c309e51a0e7cf8816418c394"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "0554de5d30ba8051b8e3699cc083eec54a05da44"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LuhesiMd10011Bangs",
+    "MI_R2T1LuhesiMd10011Hair"
+   ],
+   "slot_uses": 4,
+   "entities": 2,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_NoHueTS_b2f60e": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 45,
+     "mrts": {
+      "o0": "737280/737280 bit-exact, max ULP 0",
+      "o1": "737280/737280 bit-exact, max ULP 0",
+      "o2": "737280/737280 bit-exact, max ULP 0",
+      "o3": "737280/737280 bit-exact, max ULP 0",
+      "o6": "737280/737280 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs)."
+  },
+  {
+   "spec": "ToonHairV2_NoHueTSHETA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ac52460f262132733f9d421916ab53aee0342e82"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "0554de5d30ba8051b8e3699cc083eec54a05da44"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LuhesiMd10011Bangs_HETA"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_NoHueTSHETA_ac5246": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 42,
+     "mrts": {
+      "o0": "688128/688128 bit-exact, max ULP 0",
+      "o1": "688128/688128 bit-exact, max ULP 0",
+      "o2": "688128/688128 bit-exact, max ULP 0",
+      "o3": "688128/688128 bit-exact, max ULP 0",
+      "o6": "688128/688128 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs)."
+  },
+  {
+   "spec": "ToonHairV2_NoMTATS.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a6dd454aaba26936ca5c72d58635aad3db4ad0f4"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "376741073258a1d942752fb1cb530d3860ed3d4a"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1XigelikaMd10011Bangs"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_NoMTATS_a6dd45": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 42,
+     "mrts": {
+      "o0": "688128/688128 bit-exact, max ULP 0",
+      "o1": "688128/688128 bit-exact, max ULP 0",
+      "o2": "688128/688128 bit-exact, max ULP 0",
+      "o3": "688128/688128 bit-exact, max ULP 0",
+      "o6": "688128/688128 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs)."
+  },
+  {
+   "spec": "ToonHairV2_NoMTATSHETA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b32fdab338a69f6102c83cf17a0294429c17c71c"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "376741073258a1d942752fb1cb530d3860ed3d4a"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1XigelikaMd10011Bangs_HETA"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_NoMTATSHETA_b32fda": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 42,
+     "mrts": {
+      "o0": "688128/688128 bit-exact, max ULP 0",
+      "o1": "688128/688128 bit-exact, max ULP 0",
+      "o2": "688128/688128 bit-exact, max ULP 0",
+      "o3": "688128/688128 bit-exact, max ULP 0",
+      "o6": "688128/688128 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs)."
+  },
+  {
+   "spec": "ToonHairV2_NoHueNoMTATS.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0b2420a580a5dbfd553b581c15c286ed7eb2491e"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "0554de5d30ba8051b8e3699cc083eec54a05da44"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1XigelikaMd10011Hair"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_NoHueNoMTATS_0b2420": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 42,
+     "mrts": {
+      "o0": "688128/688128 bit-exact, max ULP 0",
+      "o1": "688128/688128 bit-exact, max ULP 0",
+      "o2": "688128/688128 bit-exact, max ULP 0",
+      "o3": "688128/688128 bit-exact, max ULP 0",
+      "o6": "688128/688128 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs)."
+  },
+  {
+   "spec": "ToonHairV2_NoHueWet2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "3e5d6f66de47fc2dd53ecd3a1ee58be691cf77e2"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "4c7560b4d66eb3f5a718ffc831cb002eff0fbd3c"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LinnaeaMd20011Bangs",
+    "MI_R2T1LinnaeaMd20011Hair"
+   ],
+   "slot_uses": 2,
+   "entities": 1,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_NoHueWet2S_3e5d6f": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 51,
+     "mrts": {
+      "o0": "835584/835584 bit-exact, max ULP 0",
+      "o1": "835584/835584 bit-exact, max ULP 0",
+      "o2": "835584/835584 bit-exact, max ULP 0",
+      "o3": "835584/835584 bit-exact, max ULP 0",
+      "o6": "835584/835584 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs). Use_Char_Wet reads CustomPrimitiveData 26 (wet amount) and 27 (wet transition), the Kuro meaning of those slots; the plugin MaskID moved to CPD 35, so CPD 26 / 27 are free for the wet state."
+  },
+  {
+   "spec": "ToonHairV2_NoHueWetHETA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "52edeb4b642bda313dcdee46f98f8fb2a026c178"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "4c7560b4d66eb3f5a718ffc831cb002eff0fbd3c"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LinnaeaMd20011Bangs_HETA"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "HairV2_NoHueWetHETA_52edeb": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 48,
+     "mrts": {
+      "o0": "786432/786432 bit-exact, max ULP 0",
+      "o1": "786432/786432 bit-exact, max ULP 0",
+      "o2": "786432/786432 bit-exact, max ULP 0",
+      "o3": "786432/786432 bit-exact, max ULP 0",
+      "o6": "786432/786432 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs). Use_Char_Wet reads CustomPrimitiveData 26 (wet amount) and 27 (wet transition), the Kuro meaning of those slots; the plugin MaskID moved to CPD 35, so CPD 26 / 27 are free for the wet state."
+  },
+  {
+   "spec": "ToonFaceV2_NoRampID.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6c849ec508ecf0716b7016ceb7c53ea7e56d2ec8"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "7f5b773aaab36e67969b7e0212af598a556a21e1"
+   ],
+   "shading_model": [
+    "MSM_ToonFace"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1MoneMd20011Face"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "FaceV2_NoRampID_6c849e": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 27,
+     "mrts": {
+      "o0": "442368/442368 bit-exact, max ULP 0",
+      "o1": "442368/442368 bit-exact, max ULP 0",
+      "o2": "442368/442368 bit-exact, max ULP 0",
+      "o3": "442368/442368 bit-exact, max ULP 0",
+      "o6": "442368/442368 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs)."
+  },
+  {
+   "spec": "ToonFaceV2_Wet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b06c400f57bc5b8df32ec063a6de63aaf7bfedb8"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "9ca45151bc9102fb34b0b37af57460c8dd899866"
+   ],
+   "shading_model": [
+    "MSM_ToonFace"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1QianXiaMd20011Face",
+    "MI_R2T1ShenXinMd10011Face",
+    "MI_R2T1XinMd10011Face"
+   ],
+   "slot_uses": 4,
+   "entities": 4,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "FaceV2_Wet_b06c40": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 42,
+     "mrts": {
+      "o0": "688128/688128 bit-exact, max ULP 0",
+      "o1": "688128/688128 bit-exact, max ULP 0",
+      "o2": "688128/688128 bit-exact, max ULP 0",
+      "o3": "688128/688128 bit-exact, max ULP 0",
+      "o6": "688128/688128 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs). Use_Char_Wet reads CustomPrimitiveData 26 (wet amount) and 27 (wet transition), the Kuro meaning of those slots; the plugin MaskID moved to CPD 35, so CPD 26 / 27 are free for the wet state."
+  },
+  {
+   "spec": "ToonFaceV2_WetABM.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "44b7d09d2f3b2c38bb6eb29a46d63028aebe9c92"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "9ca45151bc9102fb34b0b37af57460c8dd899866"
+   ],
+   "shading_model": [
+    "MSM_ToonFace"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1QingxiaoMd10011Face"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "FaceV2_Wet_44b7d0": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 36,
+     "mrts": {
+      "o0": "589824/589824 bit-exact, max ULP 0",
+      "o1": "589824/589824 bit-exact, max ULP 0",
+      "o2": "589824/589824 bit-exact, max ULP 0",
+      "o3": "589824/589824 bit-exact, max ULP 0",
+      "o6": "589824/589824 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs). Use_Char_Wet reads CustomPrimitiveData 26 (wet amount) and 27 (wet transition), the Kuro meaning of those slots; the plugin MaskID moved to CPD 35, so CPD 26 / 27 are free for the wet state."
+  },
+  {
+   "spec": "ToonFaceV2_XingHen.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a40cf3bcdf767c30c84930c61369e35fcb0f0e80"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "9182d0237949b9619c0100d577d94a401c3f9b9a"
+   ],
+   "shading_model": [
+    "MSM_ToonFace"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1SuisuiMd10011Face",
+    "MI_R2T1XuanlingMd10011Face"
+   ],
+   "slot_uses": 4,
+   "entities": 4,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "FaceV2_XingHen_a40cf3": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 36,
+     "mrts": {
+      "o0": "589824/589824 bit-exact, max ULP 0",
+      "o1": "589824/589824 bit-exact, max ULP 0",
+      "o2": "589824/589824 bit-exact, max ULP 0",
+      "o3": "589824/589824 bit-exact, max ULP 0",
+      "o6": "589824/589824 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs)."
+  },
+  {
+   "spec": "ToonFaceV2_XingHenWet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "54719b41f62d533ff6783391564b3049b4d5f684"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "1858590b64604ab7c952e7bbfdb9ff2b0b8cebf0"
+   ],
+   "shading_model": [
+    "MSM_ToonFace"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1JingranMd10011Face"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/roster/Port_CharV2_HairFace.md#verification",
+   "verification": {
+    "FaceV2_XingHenWet_54719b": {
+     "file": "evidence/validation/shaderdiff/basepass_v2_hairface/results.json",
+     "runs": 42,
+     "mrts": {
+      "o0": "688128/688128 bit-exact, max ULP 0",
+      "o1": "688128/688128 bit-exact, max ULP 0",
+      "o2": "688128/688128 bit-exact, max ULP 0",
+      "o3": "688128/688128 bit-exact, max ULP 0",
+      "o6": "688128/688128 bit-exact, max ULP 0"
+     }
+    }
+   },
+   "notes": "VS: light direction = WuwaToonBaseVS_LightDir, WPO / MotionEmissiveMask = WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO), both verified against the V2 VS (research/roster/Port_CharV2_HairFace.md#v2-vs). Use_Char_Wet reads CustomPrimitiveData 26 (wet amount) and 27 (wet transition), the Kuro meaning of those slots; the plugin MaskID moved to CPD 35, so CPD 26 / 27 are free for the wet state."
+  }
+ ]
+}

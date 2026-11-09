@@ -1,0 +1,58 @@
+// WuwaToonBasePass_WeaponShared.ush — helpers shared by the weapon / visible-special material ports
+// (M_Weapon_SP, M_AdvancedEffect_*, M_Refraction_CM, M_TransmittingCrystal_SM, M_CharWeapon_Com, M_Char_Com_Special, ...).
+// research/roster/Port_Weapons_Specials.md. Only reads the verified shared headers; nothing here changes them.
+#pragma once
+#ifndef WUWA_WEAPON_SHARED_USH
+#define WUWA_WEAPON_SHARED_USH
+
+// WriteStencil pulls in WuwaToonBasePassShared.ush (and WuwaPrimDitherClip); included once here because fxc ignores
+// #pragma once and the verified headers have no include guards.
+#include "WuwaToonBasePass_WriteStencil.ush"
+
+// Output of the translucent / unlit forward entries ("resolve": false in their specs): the material's Emissive Color and
+// Opacity. Kuro's forward translucent base pass then applies (engine side, not ported): vertex/volumetric height fog
+// (TEXCOORD7 / TranslucentBasePass), the stock emissive tail (max 0, *View[285] unless Primitive[42].w, OOB stripes),
+// the Kuro effect colour grading (View[283]/[279]/[286].x/[284], skipped when Primitive[42].w != 0), o0 = (rgb, opacity)
+// and o1 = (0, 1, 0, opacity). UE does its own fog / blending from Emissive + Opacity.
+struct FWuwaFXOutput
+{
+	float3 Emissive;
+	float  Opacity;
+};
+
+// Kuro "x <= eps ? 0 : pow(x, p)" with the original guard constant 0x33000002 (2.98e-8, prints as 0.000000).
+float WuwaWPowGuard(float X, float P)
+{
+	return (asfloat(0x33000002u) >= X) ? 0.0 : exp2(log2(X) * P);
+}
+
+// UE smoothstep as emitted (t = saturate((x - a) * (1 / (b - a))); t*t*(3 - 2t)).
+float WuwaWSmoothStep(float A, float B, float X)
+{
+	float t = saturate((X - A) * (1.0 / (B - A)));
+	return (t * t) * (t * -2.0 + 3.0);
+}
+
+// Shading normal: TangentToWorld * normalize(NormalOverride.xyz + NormalOverride.w * (0,0,1)), normalised
+// (identical in every Kuro toon base pass: B54-66 of the Yangyang body PS, S54-66 of the star PS).
+float3 WuwaWShadingNormal(float3 WorldTangent, float3 Bitangent, float3 WorldNormal, float4 NormalOverrideParameter)
+{
+	float3 nTS = NormalOverrideParameter.w * float3(0.0, 0.0, 1.0) + NormalOverrideParameter.xyz;
+	nTS = nTS * rsqrt(dot(nTS, nTS));
+	float3 N = Bitangent * nTS.y;
+	N = nTS.x * WorldTangent + N;
+	N = nTS.z * WorldNormal + N;
+	return N * rsqrt(dot(N, N));
+}
+
+// Toon GBuffer encode for the emissive-only ("black surface") toon maps: A = (oct(N), 0, mode-1 flag), B = (0,0,0,id 12),
+// C = D = 0 (as WuwaToonStarBasePass).
+void WuwaWEncodeBlack(inout FWuwaToonGBuffer G, float3 N, float KuroGBufferMode, uint LightingChannelMask)
+{
+	G.A = float4(WuwaBPOctEncode(N), 0.0, (KuroGBufferMode == 1.0) ? 1.0 : 0.0);
+	G.B = float4(0.0, 0.0, 0.0, WuwaBPShadingModelByte(LightingChannelMask, 12u));
+	G.C = float4(0.0, 0.0, 0.0, 0.0);
+	G.D = float4(0.0, 0.0, 0.0, 0.0);
+}
+
+#endif // WUWA_WEAPON_SHARED_USH

@@ -1,0 +1,414 @@
+// WuwaToonBasePass_OutlineGhost.ush — M_CharacterOutline roster variants beyond PS-1 / PS-2 (round 4,
+// research/roster/Port_CharCom_Coverage.md "Round 4 — eye/outline"). WuwaToonBasePass_Outline.ush (verified PS-1/PS-2,
+// WPO A/B/C) and WuwaToonBasePass_OutlineVS2.ush are NOT modified; this file carries a copy of the verified outline PS
+// body with the variants as compile-time switches, plus the ghost WPO family:
+//   bGhost    (UseGhost)          emissive base = Ghost_NoiseTex(view-space rim UV, time-scrolled).rgb * Ghost_NoiseColorMulti
+//                                 + E_Outline_EmissionColor * Intensity                         (PS __182932 l.70-88)
+//   bMasked   (BlendMode Masked)  OpacityMask = VertexColor.a (engine clip 0.3333) + Kuro primitive dither (l.89-107)
+//   bTwoSided (TwoSided)          GBuffer normal = normalize(TwoSidedSign * N)                   (PS __163686 l.56-58, 146-148)
+// Entries / original PS (SM5 archive index):
+//   WuwaToonOutlineGhostBasePass         PS __302239  UseGhost, OutlineColor          (MI_R2T1AimisiMd10011Item_OL)
+//   WuwaToonOutlineGhostBasePass_Masked  PS __182932  UseGhost, OutlineColor, Masked  (MI_R2T1AimisiMd10011Fx_OL, ..GDMd10011Corn_OL)
+//   WuwaToonOutlineGhostBasePass_MainTex PS __280251  UseGhost, UseMainTex            (MI_ELuokekeRuanniguaiMd10011B_OL)
+//   WuwaToonOutlineBasePass_MainTexMasked2S PS __163686 UseMainTex, Masked, TwoSided  (MI_R2T1QianXiaMd20011Cloth_OL)
+//   WuwaToonOutlineWPO_Ghost             VS __182943 / __302243 / __280223 (UseGhost: skin-bound scale + wavy WPO on VS-B)
+#pragma once
+
+// One include chain only (fxc ignores #pragma once; the harnesses compile this file with D3DCompile directly):
+// WriteStencil.ush -> WuwaToonBasePassShared.ush.
+#include "WuwaToonBasePass_WriteStencil.ush"   // WuwaPrimDitherClip (Kuro primitive dither), read-only
+
+// ---------------------------------------------------------------------------------------------------------------
+// PS. Line refs: PS __182932 (ghost) / __163686 (masked two-sided).
+// ---------------------------------------------------------------------------------------------------------------
+FWuwaToonGBuffer WuwaToonOutlineGhostPS_Impl(const bool bGhost, const bool bMasked, const bool bTwoSided,
+	float3 Color, Texture2D Ghost_NoiseTex, SamplerState Ghost_NoiseTexSampler,
+	float3 WorldTangent, float3 WorldNormal, float TangentSign, float3 WorldPosition, float3 TranslatedWorldPosition,
+	float4x4 TranslatedWorldToView, float GameTime, float VertexAlpha, float TwoSidedSign, float2 SvPositionXY,
+	float3 E_Outline_EmissionColor, float E_Outline_EmissionIntensity, float4 SelectionColor,
+	float4 Ghost_NoiseTilling, float3 Ghost_NoiseColorMulti, float KuroPrimDitherEnable, float KuroPrimDitherFade,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode, float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds, uint LightingChannelMask,
+	out float OpacityMask)
+{
+	FWuwaToonGBuffer G;
+	// l.52-69: N = normalize(TangentToWorld * normalize(NormalOverride.xyz + w*(0,0,1)))  (as PS-1:47-59)
+	float3 B = cross(WorldNormal, WorldTangent) * TangentSign;
+	float3 nTS = NormalOverrideParameter.w * float3(0.0, 0.0, 1.0) + NormalOverrideParameter.xyz;
+	nTS = nTS * rsqrt(dot(nTS, nTS));
+	float3 N = B * nTS.y;
+	N = nTS.x * WorldTangent + N;
+	N = nTS.z * WorldNormal + N;
+	N = N * rsqrt(dot(N, N));
+	if (bTwoSided)
+	{
+		N = TwoSidedSign * N;                                     // 163686 l.58 (Kuro View[147].w*Prim[4].w*face)
+	}
+
+	// emissive base: E_Outline_EmissionColor * Intensity (preshader), ghost noise on top (182932 l.70-86)
+	float3 E0 = E_Outline_EmissionColor * E_Outline_EmissionIntensity;
+	if (bGhost)
+	{
+		// view-space position (TranslatedWorldToView, l.70-73) and normal (3x3, l.77-79)
+		// l.70-76: r2 = view position swizzled (y, z, z, x); |v| = sqrt(dp3(r2.xzw)) sums vy^2 + vz^2 + vx^2 in that order
+		float4 r2 = TranslatedWorldPosition.y * TranslatedWorldToView[1].yzzx;
+		r2 = TranslatedWorldPosition.x * TranslatedWorldToView[0].yzzx + r2;
+		r2 = TranslatedWorldPosition.z * TranslatedWorldToView[2].yzzx + r2;
+		r2 = r2 + TranslatedWorldToView[3].yzzx;
+		precise float sy = r2.x * r2.x;                            // dp3 summation order of the original (vy, vz, vx);
+		precise float sz = r2.z * r2.z;                            // fxc re-orders dot() components, so it is spelled
+		precise float sx = r2.w * r2.w;                            // out with precise (no reassociation)
+		precise float l2 = sy + sz;
+		l2 = l2 + sx;
+		float  len = sqrt(l2);
+		r2 = r2 / len;                                             // (vy, vz, vz, vx) / |v|
+		// l.77-79: view-space normal swizzled (z, x, y, z)
+		float4 r3 = N.y * TranslatedWorldToView[1].zxyz;
+		r3 = N.x * TranslatedWorldToView[0].zxyz + r3;
+		r3 = N.z * TranslatedWorldToView[2].zxyz + r3;
+		// l.80-81: x = vz*nx - vx*nz, y = vy*nz - vz*ny
+		float2 zw = r2.zw * r3.zw;
+		float2 uv = r2.yx * r3.yx - zw.yx;
+		uv = (uv * 0.5 + 1.5) * 0.5;                               // l.82-83
+		uv = GameTime * Ghost_NoiseTilling.zw + uv;                // l.84 (preshader float2(Tilling.z, Tilling.w))
+		uv = uv * Ghost_NoiseTilling.xy;                           // l.85
+		float3 n = Ghost_NoiseTex.SampleBias(Ghost_NoiseTexSampler, uv, MaterialTextureMipBias).rgb;
+		E0 = n * Ghost_NoiseColorMulti + E0;                       // l.87 (cb25 = E0 * [1,1,1,0])
+	}
+	float3 E = SelectionColor.a * (SelectionColor.rgb - E0) + E0; // l.88-89
+
+	// masked: OpacityMask = VertexColor.a (engine clip 0.3333) and the Kuro primitive dither (l.89-107)
+	OpacityMask = bMasked ? VertexAlpha : 1.0;
+	if (bMasked)
+	{
+		clip(WuwaPrimDitherClip(KuroPrimDitherEnable, KuroPrimDitherFade, SvPositionXY));
+	}
+
+	G.Emissive = WuwaBPFinalEmissive(E, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+	float3 Ne = N;
+	if (bTwoSided)
+	{
+		Ne = N * rsqrt(dot(N, N));                                 // 163686 l.146-148 / 176-178: renormalised
+	}
+	G.A = float4(WuwaBPOctEncode(Ne), 1.0, (KuroGBufferMode == 1.0) ? 1.0 : 0.0);
+	G.B = float4(sqrt(saturate(Color)), WuwaBPShadingModelByte(LightingChannelMask, 13u));
+	G.C = float4(Color, 0.0);
+	G.D = float4(0.0, 0.0, 0.0, 0.0);
+	return G;
+}
+
+#define WUWA_GHOSTPS_TAIL_PARAMS \
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode, float3 KuroEmissiveScale, \
+	float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds, uint LightingChannelMask
+#define WUWA_GHOSTPS_TAIL_ARGS \
+	MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, \
+	KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask
+
+// UseGhost, OutlineColor (PS __302239): colour = BaseColorTint * OutlineColor (preshader cb[31]).
+FWuwaToonGBuffer WuwaToonOutlineGhostBasePass(Texture2D Ghost_NoiseTex, SamplerState Ghost_NoiseTexSampler,
+	float3 WorldTangent, float3 WorldNormal, float TangentSign, float3 WorldPosition, float3 TranslatedWorldPosition,
+	float4x4 TranslatedWorldToView, float GameTime,
+	float3 OutlineColor, float3 BaseColorTint, float3 E_Outline_EmissionColor, float E_Outline_EmissionIntensity, float4 SelectionColor,
+	float4 Ghost_NoiseTilling, float3 Ghost_NoiseColorMulti, WUWA_GHOSTPS_TAIL_PARAMS)
+{
+	float o;
+	return WuwaToonOutlineGhostPS_Impl(true, false, false, BaseColorTint * OutlineColor, Ghost_NoiseTex, Ghost_NoiseTexSampler,
+		WorldTangent, WorldNormal, TangentSign, WorldPosition, TranslatedWorldPosition, TranslatedWorldToView, GameTime,
+		1.0, 1.0, float2(0.0, 0.0), E_Outline_EmissionColor, E_Outline_EmissionIntensity, SelectionColor,
+		Ghost_NoiseTilling, Ghost_NoiseColorMulti, 0.0, 1.0, WUWA_GHOSTPS_TAIL_ARGS, o);
+}
+
+// UseGhost, OutlineColor, BLEND_Masked (PS __182932): OpacityMask = VertexColor.a, Kuro primitive dither clipped inside.
+FWuwaToonGBuffer WuwaToonOutlineGhostBasePass_Masked(Texture2D Ghost_NoiseTex, SamplerState Ghost_NoiseTexSampler,
+	float4 VertexColor, float3 WorldTangent, float3 WorldNormal, float TangentSign, float3 WorldPosition, float3 TranslatedWorldPosition,
+	float4x4 TranslatedWorldToView, float GameTime, float2 SvPositionXY,
+	float3 OutlineColor, float3 BaseColorTint, float3 E_Outline_EmissionColor, float E_Outline_EmissionIntensity, float4 SelectionColor,
+	float4 Ghost_NoiseTilling, float3 Ghost_NoiseColorMulti, float KuroPrimDitherEnable, float KuroPrimDitherFade,
+	WUWA_GHOSTPS_TAIL_PARAMS, out float OpacityMask)
+{
+	return WuwaToonOutlineGhostPS_Impl(true, true, false, BaseColorTint * OutlineColor, Ghost_NoiseTex, Ghost_NoiseTexSampler,
+		WorldTangent, WorldNormal, TangentSign, WorldPosition, TranslatedWorldPosition, TranslatedWorldToView, GameTime,
+		VertexColor.a, 1.0, SvPositionXY, E_Outline_EmissionColor, E_Outline_EmissionIntensity, SelectionColor,
+		Ghost_NoiseTilling, Ghost_NoiseColorMulti, KuroPrimDitherEnable, KuroPrimDitherFade, WUWA_GHOSTPS_TAIL_ARGS, OpacityMask);
+}
+
+// UseGhost + UseMainTex (PS __280251): colour = MainTex(UV0, bias).rgb * OutlineColorTint * BaseColorTint (as PS-2).
+FWuwaToonGBuffer WuwaToonOutlineGhostBasePass_MainTex(Texture2D Ghost_NoiseTex, SamplerState Ghost_NoiseTexSampler,
+	Texture2D MainTex, SamplerState MainTexSampler, float2 UV0,
+	float3 WorldTangent, float3 WorldNormal, float TangentSign, float3 WorldPosition, float3 TranslatedWorldPosition,
+	float4x4 TranslatedWorldToView, float GameTime,
+	float3 OutlineColorTint, float3 BaseColorTint, float3 E_Outline_EmissionColor, float E_Outline_EmissionIntensity, float4 SelectionColor,
+	float4 Ghost_NoiseTilling, float3 Ghost_NoiseColorMulti, WUWA_GHOSTPS_TAIL_PARAMS)
+{
+	float3 c = MainTex.SampleBias(MainTexSampler, UV0, MaterialTextureMipBias).rgb;
+	c = c * OutlineColorTint;
+	c = c * BaseColorTint;
+	float o;
+	return WuwaToonOutlineGhostPS_Impl(true, false, false, c, Ghost_NoiseTex, Ghost_NoiseTexSampler,
+		WorldTangent, WorldNormal, TangentSign, WorldPosition, TranslatedWorldPosition, TranslatedWorldToView, GameTime,
+		1.0, 1.0, float2(0.0, 0.0), E_Outline_EmissionColor, E_Outline_EmissionIntensity, SelectionColor,
+		Ghost_NoiseTilling, Ghost_NoiseColorMulti, 0.0, 1.0, WUWA_GHOSTPS_TAIL_ARGS, o);
+}
+
+// UseMainTex, BLEND_Masked, two-sided (PS __163686, MI_R2T1QianXiaMd20011Cloth_OL; VS __82884 == VS-B): PS-2 colour,
+// OpacityMask = VertexColor.a with the Kuro primitive dither, GBuffer normal = normalize(TwoSidedSign * N).
+FWuwaToonGBuffer WuwaToonOutlineBasePass_MainTexMasked2S(Texture2D MainTex, SamplerState MainTexSampler, float2 UV0,
+	float4 VertexColor, float3 WorldTangent, float3 WorldNormal, float TangentSign, float3 WorldPosition, float TwoSidedSign,
+	float2 SvPositionXY,
+	float3 OutlineColorTint, float3 BaseColorTint, float3 E_Outline_EmissionColor, float E_Outline_EmissionIntensity, float4 SelectionColor,
+	float KuroPrimDitherEnable, float KuroPrimDitherFade, WUWA_GHOSTPS_TAIL_PARAMS, out float OpacityMask)
+{
+	float3 c = MainTex.SampleBias(MainTexSampler, UV0, MaterialTextureMipBias).rgb;
+	c = c * OutlineColorTint;
+	c = c * BaseColorTint;
+	return WuwaToonOutlineGhostPS_Impl(false, true, true, c, MainTex, MainTexSampler,
+		WorldTangent, WorldNormal, TangentSign, WorldPosition, float3(0.0, 0.0, 0.0),
+		float4x4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1), 0.0,
+		VertexColor.a, TwoSidedSign, SvPositionXY, E_Outline_EmissionColor, E_Outline_EmissionIntensity, SelectionColor,
+		float4(0.0, 0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0), KuroPrimDitherEnable, KuroPrimDitherFade, WUWA_GHOSTPS_TAIL_ARGS, OpacityMask);
+}
+
+#undef WUWA_GHOSTPS_TAIL_PARAMS
+#undef WUWA_GHOSTPS_TAIL_ARGS
+
+// ---------------------------------------------------------------------------------------------------------------
+// Ghost WPO (UseGhost; VS __302243 l.242-391 = __182943 = __280223 up to interpolant layout). VS-B (UseVertexGreen +
+// UseVertexColorB_InnerOutline, cap 999) whose whole offset (extrusion + camera push) is scaled by the skin-bound
+// factor s, plus a wavy local-space offset:
+//   s    = UseSkinBoundControl * (f <= 0 ? -1 : f*f - 1) + 1,
+//          f = saturate((2 * ObjectRadius / |PreSkinnedLocalBoundsMax - Min|) * (3 / (sx + sy + sz)))   (l.242-268)
+//   wave = LocalToWorld3x3 * (s * (VertexColor.r * (amp * sin(ph), amp * cos(ph), 0))), amp = s * Ghost_WPOsize,
+//          ph = 2pi * (s * Ghost_WPOWavySize * (1 - smoothstep(saturate((UV3.y * 0.7 * 0.5 + 0.5) * 1.25)))
+//               + GameTime * Ghost_WPOTimeSpeed)                                                     (l.358-383)
+//   WPO  = wave + s * (extrusion + push)                                                            (l.357, 384)
+// ObjectRadius = Kuro Primitive[5].w, PreSkinnedLocalBounds = Primitive[25] / [26], LocalToWorld rows = Primitive[0..2].
+// Every operation is `precise` as in the original (no contraction / reassociation).
+// ---------------------------------------------------------------------------------------------------------------
+// bLite (M_CharacterOutline_Lite UseCommonWPO, VS __71534, WuwaToonBasePass_OutlineLite.ush): the wave is weighted by
+// WaveMask = TypeMask.b (VS texture fetch) instead of VertexColor.r, and the "common WPO" (UV2.y-masked normal expansion
+// + local-x sine cloth wave, gated by CommonWPOMin <= 5.5 && CommonWPOMax >= 4.5) is added (VS __71534 l.414-461).
+float3 WuwaToonOutlineWPOGhost_Impl(const bool bLite, float2 UV1, float4 VertexColor, float UV3Y,
+	float3 VertexTangentWS, float3 VertexBitangentWS, float3 VertexNormalWS,
+	float3 ObjectAxisScale, float3 TranslatedWorldPosition, float3 TranslatedWorldCameraOrigin,
+	float4x4 TranslatedWorldToClip, float4x4 ClipToTranslatedWorld, float3 PreViewTranslation,
+	float ClipToView00, float ClipToView11, float4 ViewSizeAndInvSize, float KuroOutlinePixelScale,
+	float3 LocalToWorldRow0, float3 LocalToWorldRow1, float3 LocalToWorldRow2, float ObjectRadius,
+	float3 PreSkinnedLocalBoundsMin, float3 PreSkinnedLocalBoundsMax, float GameTime,
+	float UseSkinBoundControl, float VertexGMinWidthFactor, float OutlineClipWidth, float OutlineHoldDistance,
+	float InnerOutlineMulti, float InnerOutlineOffset, float Ghost_WPOWavySize, float Ghost_WPOTimeSpeed, float Ghost_WPOsize,
+	float KuroEnablePrimitiveOffset, float4 KuroPrimitiveOffset,
+	float WaveMask, float UV2Y, float4 WorldToLocalColX, float WPOMask_Offset, float WPOMask_Width, float SpeedControl,
+	float SinWaveSize, float SinWaveAmount, float ExpendAmount, float NormalOffsetMix_Amount, float SinClothWaveInt,
+	float CommonWPOMin, float CommonWPOMax)
+{
+	// ---- l.242-268: skin-bound scale ------------------------------------------------------------------------------
+	precise float f = ObjectRadius * 2.0;
+	precise float3 bd = PreSkinnedLocalBoundsMax - PreSkinnedLocalBoundsMin;
+	precise float3 nbd = -bd;
+	precise float bl = sqrt(dot(nbd, nbd));
+	f = f / bl;
+	precise float sxy = ObjectAxisScale.y + ObjectAxisScale.x;
+	precise float ss = sxy + ObjectAxisScale.z;
+	precise float k3 = 3.0 / ss;
+	f = saturate(f * k3);
+	precise float f2 = f * f;
+	f2 = f2 + -1.0;
+	f2 = (0.0 >= f) ? -1.0 : f2;
+	precise float s = f2 * UseSkinBoundControl;
+	s = s + 1.0;
+
+	// ---- l.269-283: octahedral decode of the smoothed normal (UV1), to world, normalise ----------------------------
+	precise float z  = abs(UV1.y) + abs(UV1.x);
+	z = 1.0 - z;
+	precise float t  = saturate(z * -1.0);
+	precise float nt = t * -1.0;
+	precise float2 ge = float2((UV1.x >= 0.0) ? 1.0 : 0.0, (UV1.y >= 0.0) ? 1.0 : 0.0);
+	nt = -t + nt;
+	precise float2 nxy = nt * ge;
+	nxy = t + nxy;
+	nxy = UV1 + nxy;
+	precise float3 n = VertexTangentWS * nxy.x;
+	precise float3 nb = VertexBitangentWS * nxy.y;
+	n = nb + n;
+	precise float3 nn = VertexNormalWS * z;
+	n = n + nn;
+	n = n / sqrt(dot(n, n));
+
+	// ---- l.284-288: width (UseVertexGreen_OutlineWidth) * per-axis object scale --------------------------------------
+	precise float W = 1.0 - VertexGMinWidthFactor;
+	W = W * VertexColor.g;
+	W = W + VertexGMinWidthFactor;
+	W = W * OutlineClipWidth;
+	precise float3 widthVec = ObjectAxisScale * W;
+
+	// ---- l.289-339: clip-space extrusion with the one-pixel floor (= VS-B, cap 999) -------------------------------------
+	precise float clipW = mul(float4(TranslatedWorldPosition, 1.0), TranslatedWorldToClip).w;
+	precise float3 c0 = n.x * TranslatedWorldToClip[0].xyz;
+	precise float3 c1 = n.y * TranslatedWorldToClip[1].xyz;
+	precise float3 nClip = c1 + c0;
+	precise float3 c2 = n.z * TranslatedWorldToClip[2].xyz;
+	nClip = nClip + c2;
+	precise float aspectK = ClipToView11 / (ClipToView00 * 0.5625);
+	precise float fovK    = asfloat(0x3F446F8Bu) / ClipToView11;
+	precise float2 pixel  = (clipW * 2.0) * ViewSizeAndInvSize.zw;
+	pixel = pixel * KuroOutlinePixelScale;
+	nClip = rsqrt(dot(nClip, nClip)) * nClip;
+	precise float3 off = widthVec * nClip;
+	off = off * 0.1;
+	off = fovK * off;
+	off.xy = aspectK * off.xy;
+	precise float2 sgn = float2((0.0 < off.x) ? 1.0 : -1.0, (0.0 < off.y) ? 1.0 : -1.0);
+	precise float hold = OutlineHoldDistance * 0.1;
+	precise float2 a = abs(off.xy);
+	precise float2 floored = max(pixel, a);
+	precise float2 cap = pixel * 999.0;
+	floored = min(cap, floored);
+	precise float2 tt = pixel * hold;
+	tt = 1.0 / tt;
+	tt = saturate(a * tt);
+	precise float2 kk = tt * -2.0;
+	kk = kk + 3.0;
+	tt = tt * tt;
+	tt = tt * kk;
+	floored = -a + floored;
+	tt = tt * floored;
+	precise float2 oxy = a + tt;
+	oxy = oxy * sgn;
+	precise float3 cw0 = ClipToTranslatedWorld[0].xyz - ClipToTranslatedWorld[0].w * PreViewTranslation;
+	precise float3 cw1 = ClipToTranslatedWorld[1].xyz - ClipToTranslatedWorld[1].w * PreViewTranslation;
+	precise float3 cw2 = ClipToTranslatedWorld[2].xyz - ClipToTranslatedWorld[2].w * PreViewTranslation;
+	precise float3 cw3 = ClipToTranslatedWorld[3].xyz - ClipToTranslatedWorld[3].w * PreViewTranslation;
+	precise float3 w0 = oxy.x * cw0;
+	precise float3 w1 = oxy.y * cw1;
+	precise float3 offWS = w0 + w1;
+	precise float3 w2 = off.z * cw2;
+	offWS = offWS + w2;
+	precise float3 w3 = cw3 * 0.0;
+	offWS = offWS + w3;
+
+	// ---- l.340-357: camera push (UseVertexColorB_InnerOutline), then everything scaled by s -------------------------
+	precise float3 camDir = TranslatedWorldCameraOrigin - TranslatedWorldPosition;
+	camDir = camDir / sqrt(dot(camDir, camDir));
+	precise float D = VertexColor.b * InnerOutlineMulti;
+	D = D * InnerOutlineOffset;
+	D = D * asfloat(0xBC23D70Au);                                                   // -0.01
+	precise float3 push = camDir * D;
+	offWS = offWS + push;
+	offWS = s * offWS;
+
+	// ---- l.358-383: wavy offset in local space ---------------------------------------------------------------------
+	precise float u = UV3Y * 0.7;
+	u = u * 0.5;
+	u = u + 0.5;
+	u = saturate(u * 1.25);
+	precise float uk = u * -2.0;
+	uk = uk + 3.0;
+	u = u * u;
+	u = u * uk;
+	u = -u + 1.0;
+	precise float wavy = s * Ghost_WPOWavySize;
+	precise float ph = wavy * u;
+	precise float tsp = GameTime * Ghost_WPOTimeSpeed;
+	ph = tsp + ph;
+	ph = ph * asfloat(0x40C90FDBu);                                                  // 6.283185
+	precise float sn, cs;
+	sincos(ph, sn, cs);
+	precise float amp = s * Ghost_WPOsize;
+	precise float3 wl = float3(amp * sn, amp * cs, 0.0);
+	wl = WaveMask * wl;                                                             // ghost: VertexColor.r; Lite: TypeMask.b
+	wl = s * wl;
+	precise float3 l0 = wl.x * LocalToWorldRow0;
+	precise float3 l1 = wl.y * LocalToWorldRow1;
+	precise float3 wW = l1 + l0;
+	precise float3 l2 = wl.z * LocalToWorldRow2;
+	wW = wW + l2;
+	offWS = wW + offWS;
+
+	if (bLite)
+	{
+		// ---- VS __71534 l.414-461: "common WPO" (UV2.y mask, normal expansion, local-x cloth wave), gated ---------------
+		precise float wm = WPOMask_Width + 0.01;                                      // preshaders cb[55].z / .w
+		wm = WPOMask_Offset + wm;
+		wm = -WPOMask_Offset + wm;
+		precise float m = UV2Y - WPOMask_Offset;
+		wm = 1.0 / wm;
+		m = saturate(wm * m);
+		precise float mk = m * -2.0;
+		mk = mk + 3.0;
+		m = m * m;
+		m = m * mk;
+		m = min(m, 1.0);
+		precise float tz = GameTime * SpeedControl;
+		tz = tz * asfloat(0xBF51AD10u);                                               // -0.819047
+		precise float sw = UV2Y * 2.0;
+		sw = tz + sw;
+		sw = sw * SinWaveSize;
+		sw = sw * asfloat(0x40C90FDBu);
+		precise float swS, swC;
+		sincos(sw, swS, swC);
+		sw = swS * SinWaveAmount;
+		sw = m * sw;
+		sw = m + sw;
+		precise float ex = m * ExpendAmount;
+		ex = sw + ex;
+		precise float3 nb = VertexNormalWS * sw;
+		nb = -ex + nb;
+		nb = nb * NormalOffsetMix_Amount;
+		nb = ex + nb;
+		precise float3 absP = TranslatedWorldPosition - PreViewTranslation;          // Kuro absolute world position (r10)
+		precise float lx = absP.x * WorldToLocalColX.x;
+		precise float ly = absP.y * WorldToLocalColX.y;
+		lx = lx + ly;
+		precise float lz = absP.z * WorldToLocalColX.z;
+		lx = lx + lz;
+		lx = lx + WorldToLocalColX.w;
+		precise float me = bd.y + bd.x;
+		me = bd.z + me;
+		me = me / 3.0;
+		lx = lx / me;
+		precise float cw = tz + lx;
+		cw = cw * asfloat(0x40C90FDBu);
+		precise float cwS, cwC;
+		sincos(cw, cwS, cwC);
+		cw = cwS * SinClothWaveInt;
+		precise float3 cmn = float3(cw * m, 0.0, 0.0);
+		cmn = cmn + nb;
+		precise float gMin = (5.5 >= CommonWPOMin) ? 1.0 : 0.0;
+		precise float gMax = (CommonWPOMax >= 4.5) ? 1.0 : 0.0;
+		precise float g = gMax * gMin;
+		cmn = g * cmn;
+		offWS = offWS + cmn;
+	}
+
+	// ---- l.385-386: Kuro primitive offset (as WuwaToonOutlineWPO_Impl) ------------------------------------------------
+	bool kuroOn = (KuroEnablePrimitiveOffset != 0.0) && (0.0 < KuroPrimitiveOffset.w);
+	precise float3 posK = offWS + TranslatedWorldPosition;
+	posK = KuroPrimitiveOffset.xyz + posK;
+	precise float3 wK = posK - TranslatedWorldPosition;
+	precise float3 cK = TranslatedWorldPosition + wK;
+	precise float3 rK = posK - cK;
+	wK = wK + rK;
+	return kuroOn ? wK : offWS;
+}
+
+// UseGhost WPO (VS __182943 / __302243 / __280223): wave weighted by VertexColor.r.
+float3 WuwaToonOutlineWPO_Ghost(float2 UV1, float4 VertexColor, float UV3Y,
+	float3 VertexTangentWS, float3 VertexBitangentWS, float3 VertexNormalWS,
+	float3 ObjectAxisScale, float3 TranslatedWorldPosition, float3 TranslatedWorldCameraOrigin,
+	float4x4 TranslatedWorldToClip, float4x4 ClipToTranslatedWorld, float3 PreViewTranslation,
+	float ClipToView00, float ClipToView11, float4 ViewSizeAndInvSize, float KuroOutlinePixelScale,
+	float3 LocalToWorldRow0, float3 LocalToWorldRow1, float3 LocalToWorldRow2, float ObjectRadius,
+	float3 PreSkinnedLocalBoundsMin, float3 PreSkinnedLocalBoundsMax, float GameTime,
+	float UseSkinBoundControl, float VertexGMinWidthFactor, float OutlineClipWidth, float OutlineHoldDistance,
+	float InnerOutlineMulti, float InnerOutlineOffset, float Ghost_WPOWavySize, float Ghost_WPOTimeSpeed, float Ghost_WPOsize,
+	float KuroEnablePrimitiveOffset, float4 KuroPrimitiveOffset)
+{
+	return WuwaToonOutlineWPOGhost_Impl(false, UV1, VertexColor, UV3Y, VertexTangentWS, VertexBitangentWS, VertexNormalWS,
+		ObjectAxisScale, TranslatedWorldPosition, TranslatedWorldCameraOrigin, TranslatedWorldToClip, ClipToTranslatedWorld,
+		PreViewTranslation, ClipToView00, ClipToView11, ViewSizeAndInvSize, KuroOutlinePixelScale,
+		LocalToWorldRow0, LocalToWorldRow1, LocalToWorldRow2, ObjectRadius, PreSkinnedLocalBoundsMin, PreSkinnedLocalBoundsMax, GameTime,
+		UseSkinBoundControl, VertexGMinWidthFactor, OutlineClipWidth, OutlineHoldDistance, InnerOutlineMulti, InnerOutlineOffset,
+		Ghost_WPOWavySize, Ghost_WPOTimeSpeed, Ghost_WPOsize, KuroEnablePrimitiveOffset, KuroPrimitiveOffset,
+		VertexColor.r, 0.0, float4(0.0, 0.0, 0.0, 0.0), 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+}

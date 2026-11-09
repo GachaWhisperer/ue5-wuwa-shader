@@ -1,0 +1,62 @@
+{
+ "root_material": "M_Char_Com_Special",
+ "variants": [
+  {
+   "spec": "Char_Com_Special_FabricRampMaskCloth_FabricWPO.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ce85f7ed586a45b02f8a73040054773fa6b7362a"
+    ],
+    "base_pass_vs_hash": [
+     "8cfeece402a04539e8cff2a6911f57f1be9f950a"
+    ]
+   },
+   "verified": "research/roster/round5/facehair_eye_special.md; PS: evidence/validation/shaderdiff/roster_charcom/round5/facehair/special_ps_recheck/results_cloth_ce85f7_cloth_998649_r5recheck.json summary.cloth_ce85f7 (39 runs, o0/o1/o2/o3/o6 638976/638976 px bit-exact; round-3 harness re-run); VS #172068: UseFabricSimulation WPO ported (WuwaToonSpecialClothVS_FabricWPO) and verified on WARP, SV_POSITION 1277952/1277952, TEXCOORD2 1277952/1277952, TEXCOORD0 1277952/1277952 components bit-exact (evidence/validation/shaderdiff/roster_charcom/round5/facehair/results_vs_cloth_wpo.json; negatives {'results_vs_cloth_wpo_neg_cloth03_1ulp.json': '24359/24576', 'results_vs_cloth_wpo_neg_cloth134_1ulp.json': '24567/24576', 'results_vs_cloth_wpo_neg_cloth_lace_vcg.json': '6277/24576', 'results_vs_cloth_wpo_neg_cloth_tap_x.json': '7307/24576'})",
+   "ps_archive_index": 279875,
+   "vs_archive_index": [
+    172068
+   ],
+   "vs_status": {
+    "8cfeece402a04539e8cff2a6911f57f1be9f950a": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1AogusitaMd10011Cloth"
+   ],
+   "notes": "Augusta main mesh (UseFabricSimulation + UseBumpOffset + Second_UseObjectScreenUV + UseRampMask, masked; the PS entry discards inside). The spec adds the wpo block; it needs MPC_Cloth bound and the [U] Kuro View[368].xy (default 0).",
+   "added_by": "round5_facehair"
+  },
+  {
+   "spec": "Char_Com_Special_FabricRampMaskCloth_HETA_FabricWPO.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "9986496a39b5dd3a3ca0616583e811a944a5e4b1"
+    ],
+    "base_pass_vs_hash": [
+     "8cfeece402a04539e8cff2a6911f57f1be9f950a"
+    ]
+   },
+   "verified": "research/roster/round5/facehair_eye_special.md; PS: evidence/validation/shaderdiff/roster_charcom/round5/facehair/special_ps_recheck/results_cloth_ce85f7_cloth_998649_r5recheck.json summary.cloth_998649 (39 runs, o0/o1/o2/o3/o6 638976/638976 px bit-exact; round-3 harness re-run); VS #172068: UseFabricSimulation WPO ported (WuwaToonSpecialClothVS_FabricWPO) and verified on WARP, SV_POSITION 1277952/1277952, TEXCOORD2 1277952/1277952, TEXCOORD0 1277952/1277952 components bit-exact (evidence/validation/shaderdiff/roster_charcom/round5/facehair/results_vs_cloth_wpo.json; negatives {'results_vs_cloth_wpo_neg_cloth03_1ulp.json': '24359/24576', 'results_vs_cloth_wpo_neg_cloth134_1ulp.json': '24567/24576', 'results_vs_cloth_wpo_neg_cloth_lace_vcg.json': '6277/24576', 'results_vs_cloth_wpo_neg_cloth_tap_x.json': '7307/24576'})",
+   "ps_archive_index": 172076,
+   "vs_archive_index": [
+    172068
+   ],
+   "vs_status": {
+    "8cfeece402a04539e8cff2a6911f57f1be9f950a": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1AogusitaMd10011Cloth_HETA"
+   ],
+   "notes": "Augusta main mesh (UseFabricSimulation + UseBumpOffset + Second_UseObjectScreenUV + UseRampMask, masked; the PS entry discards inside). The spec adds the wpo block; it needs MPC_Cloth bound and the [U] Kuro View[368].xy (default 0).",
+   "added_by": "round5_facehair"
+  }
+ ],
+ "generated_by": "tools/shaderdiff/roster_charcom/register_round5_facehair.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 5, group facehair_eye_special (research/roster/round5/facehair_eye_special.md): split registry file, merged by root_material"
+}

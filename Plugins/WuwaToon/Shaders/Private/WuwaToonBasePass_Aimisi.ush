@@ -1,0 +1,1154 @@
+// WuwaToonBasePass_Aimisi.ush — Aemeath (Aimisi) special materials:
+//   M_Char_Aimisi_SPSkirt (unlit additive effect shell: spark / wave / scan light, optional circuit light and text rain,
+//   Kuro "UseEffect" + "UseDissolveAndDither" blocks) and M_Char_Aimisi_Heart (masked toon GBuffer).
+// Every function is transcribed from the cooked DXBC (evidence/roster/shadermaps/weapons/asm_hex/<index>_<hash>.asm.txt);
+// line refs: M### = PS 793f627635 (#86403), C### = PS 30a8b76b4a (#264804). research/roster/Port_Weapons_Specials.md
+// (round 3).
+//
+// CPU uniform expressions (spec kind "uniform_expression", evaluated in float32 like the preshaders): the E_Tex rotation rows
+// (cos/sin of E_Tex_Rotation * 0.002778 * 6.28319), normalize(PortalAxis) and the small preshader products / min / max.
+#ifndef WUWA_TOON_BASEPASS_AIMISI_USH
+#define WUWA_TOON_BASEPASS_AIMISI_USH
+
+#include "WuwaToonBasePass_WeaponShared.ush"   // FWuwaFXOutput, WuwaWPowGuard, WuwaWSmoothStep (read-only)
+
+// Kuro 3x3 ordered dither (immediate constant buffer of the SPSkirt PS), index (x mod 3) * 3 + (y mod 3).
+static const float kWuwaAMDither[9] = {
+	asfloat(0x00000000u), asfloat(0x3F471C72u), asfloat(0x3EAAAAABu), asfloat(0x3F2AAAABu), asfloat(0x3F0E38E4u),
+	asfloat(0x3E638E39u), asfloat(0x3EE38E39u), asfloat(0x3DE38E39u), asfloat(0x3F638E39u) };
+
+// ---------------------------------------------------------------------------------------------------------------------
+// "UseEffect" + "UseDissolveAndDither" blocks shared by the SPSkirt maps (M133-353): E_Tex layer (UV select, screen UV,
+// rotator, panner), flow-edge / dissolve emission, UV3 dissolve, portal dissolve, E_Tex mask + screen "second noise" mask,
+// selection colour, dither dissolve, Kuro E_Dither / head-mask hide, gradient translucency.
+// E0 = material colour of the root graph, Keep = (EffMask.z >= 0.5 ? 0 : 1), MaskW = EffMask.w.
+// ---------------------------------------------------------------------------------------------------------------------
+FWuwaFXOutput WuwaAMEffectTail(Texture2D E_Tex_NoiseTex, SamplerState E_Tex_NoiseTexSampler,
+	float3 E0, float Keep, float MaskW, float2 UV0, float2 UV1, float2 UV2, float2 UV3, float3 WorldPosition, float2 SP2,
+	float4 ViewSizeAndInvSize, float GameTime, float4x4 PrimWorldToLocal, float3 PrimActorWorldPosition,
+	float3 HeadMaskPosition, float3 HeadMaskAxis0, float3 HeadMaskAxis1, float3 HeadMaskAxis2,
+	float4 E_Tex_UVSwitch, float E_Tex_UseScreenUV, float E_Tex_UseTex, float2 E_Tex_RotRow0, float2 E_Tex_RotRow1,
+	float4 E_Tex_ScaleAndOffset, float2 E_Tex_Speed, float4 E_Tex_Color, float E_Emission_UseTex,
+	float E_FlowEffectEdgeColorSharp, float3 E_Dissolve_Emission, float3 E_Dissolve_EmissionDark, float E_FlowEffectEdgeSwitch,
+	float E_Dissolve_Multi01, float E_Dissolve_UseDissolve, float E_FlowEffectEdge_Strength01, float E_FlowEffectEdgerRevert,
+	float4 E_Dissolve_Channel, float E_UV3Dissolve_Reverse, float E_UV3Dissolve_Position, float E_UV3Dissolve_PositionRadius,
+	float UseShadowLordMaterialDynamic, float E_Dissolve_Progress, float E_Dissolve_Smooth, float UseLocalSpace,
+	float UseActorSpace, float3 PortalCenter, float3 PortalAxisN, float PortalEdgeNeg, float UsePortalDissolve,
+	float3 E_Emission_ColorI, float E_Tex_UseMask, float E_Tex_MaskRange, float E_Tex_UseSecondNoiseMask, float4 SelectionColor,
+	float UseDitherDissolve, float E_Dither_DitherValueMin, float E_Dither_DitherValue2, float E_HeadMaskHigh,
+	float E_UseHeadMaskHide, float E_Dither_UseDitherMax, float GradientTranslucency_Offset, float GradientTranslucency_Power,
+	float Use_GradientTranslucency)
+{
+	// M133-139: E_Tex UV = UV select, lerp toward the screen UV
+	float2 euv;
+	euv.x = dot(E_Tex_UVSwitch, float4(UV0.x, UV1.x, UV2.x, UV3.x));
+	euv.y = dot(E_Tex_UVSwitch, float4(UV0.y, UV1.y, UV2.y, UV3.y));
+	euv = E_Tex_UseScreenUV * (SP2 * ViewSizeAndInvSize.zw - euv) + euv;
+	// M140-151: rotated / scaled / scrolled E_Tex sample x E_Tex_Color (else the colour alone)
+	float4 et;
+	if (asfloat(0x3DCCCCCDu) < E_Tex_UseTex)
+	{
+		float2 d = euv + -0.5;
+		float2 ruv = float2(dot(d, E_Tex_RotRow0), dot(d, E_Tex_RotRow1)) + 0.5;
+		ruv = ruv * E_Tex_ScaleAndOffset.xy + E_Tex_ScaleAndOffset.zw;
+		ruv = GameTime * E_Tex_Speed + ruv;
+		et = E_Tex_NoiseTex.Sample(E_Tex_NoiseTexSampler, ruv) * E_Tex_Color;
+	}
+	else
+	{
+		et = E_Tex_Color;
+	}
+	// M152-163: emission tint lerp(1, E_Tex, E_Emission_UseTex); flow-edge colour pow(E_Tex.r, sharp) (guarded)
+	float3 etc = E_Emission_UseTex * (et.xyz + -1.0) + 1.0;
+	bool pg = asfloat(0x33000002u) >= et.x;
+	float pw = exp2(log2(et.x) * E_FlowEffectEdgeColorSharp);
+	float3 dcol = (E_Dissolve_Emission - E_Dissolve_EmissionDark) * pw;
+	if (pg)
+		dcol = float3(0.0, 0.0, 0.0);
+	dcol = dcol + E_Dissolve_EmissionDark;
+	dcol = E_FlowEffectEdgeSwitch * (dcol - E_Dissolve_Emission) + E_Dissolve_Emission;
+	dcol = dcol * E_Dissolve_Multi01;
+	// M164-198: dissolve (channel of the flow-edge E_Tex / UV3 gradient), UV3 dissolve smoothstep, progress / smooth
+	float3 eE;
+	float  eOp;
+	if (asfloat(0x3DCCCCCDu) < E_Dissolve_UseDissolve)
+	{
+		float uvn = 1.0 - UV3.y;
+		float4 t7;
+		t7.xyz = et.xyz * E_FlowEffectEdge_Strength01;
+		t7.w = E_FlowEffectEdgerRevert * (uvn - UV3.y) + UV3.y;
+		float4 ch = E_FlowEffectEdgeSwitch * (t7 - et) + et;
+		float dv = dot(E_Dissolve_Channel, ch);
+		float u = E_UV3Dissolve_Reverse * (UV3.y - uvn) + uvn;
+		float s = WuwaWSmoothStep(E_UV3Dissolve_Position, E_UV3Dissolve_PositionRadius, u);
+		s = min(s, 1.0);
+		s = saturate(s * (dv + -1.0) + 1.0);
+		s = UseShadowLordMaterialDynamic * (s - dv) + dv;
+		float pr = E_Dissolve_Progress * asfloat(0xBF8CCCCCu) + asfloat(0x3F866666u);
+		pr = pr * (-E_Dissolve_Smooth + -1.0) + E_Dissolve_Smooth;
+		s = s * E_Dissolve_Smooth - pr;
+		eOp = saturate(s);
+		s = min(abs(s + -1.0), 1.0);
+		eE = dcol * (1.0 - s);
+	}
+	else
+	{
+		eE = float3(0.0, 0.0, 0.0);
+		eOp = 1.0;
+	}
+	// M199-219: portal dissolve (world / local / actor space position against PortalCenter + normalised axis)
+	float3 lp = mul(float4(WorldPosition, 1.0), PrimWorldToLocal).xyz;
+	lp = UseLocalSpace * (lp - WorldPosition) + WorldPosition;
+	lp = UseActorSpace * ((WorldPosition - PrimActorWorldPosition) - lp) + lp;
+	lp = lp - PortalCenter;
+	lp = lp / sqrt(dot(lp, lp));
+	float pd = dot(PortalAxisN, lp);
+	float back = (0.0 >= pd) ? 1.0 : 0.0;
+	float edge = ((pd >= PortalEdgeNeg) ? 1.0 : 0.0) * back;
+	eE = UsePortalDissolve * (edge * dcol) + eE;
+	eE = E_Emission_ColorI * etc + eE;
+	// M220-241: E_Tex alpha mask (no pow guard) x screen-space "second noise" mask
+	float mk;
+	if (asfloat(0x3DCCCCCDu) < E_Tex_UseMask)
+	{
+		mk = exp2(log2(E_Tex_NoiseTex.Sample(E_Tex_NoiseTexSampler, euv).w) * E_Tex_MaskRange);
+	}
+	else
+	{
+		mk = 1.0;
+	}
+	float2 suv = -SP2 * ViewSizeAndInvSize.zw + 1.0;
+	float a2 = suv.y + suv.y;
+	float sy = suv.x * 2.0 + asfloat(0xBD4CCCCDu);
+	sy = -GameTime * asfloat(0x3E99999Au) + sy;
+	sy = SP2.y * ViewSizeAndInvSize.w + sy;
+	sy = sin(sy * asfloat(0x40C90FDBu));
+	a2 = -GameTime * asfloat(0x3E99999Au) + a2;
+	a2 = sin(a2 * asfloat(0x40490FDBu));
+	float nm = sy * a2;
+	nm = abs(nm) * suv.y + -1.0;
+	nm = E_Tex_UseSecondNoiseMask * nm + 1.0;
+	mk = nm * mk;
+	eE = eE * mk;
+	// M242-244: colour = root * keep + effect, selection colour
+	FWuwaFXOutput O;
+	float3 E = E0 * Keep + eE;
+	O.Emissive = SelectionColor.w * (SelectionColor.xyz - E) + E;
+	// M245-256: opacity: portal back-face min, interleaved-gradient dither dissolve
+	float op = UsePortalDissolve * (min(eOp, back) - eOp) + eOp;
+	float2 dn = GameTime * float2(asfloat(0x40B2D2D8u), asfloat(0x40490FD0u)) + SP2;
+	float ign = frac(dot(dn, float2(asfloat(0x3D897143u), asfloat(0x3BBF4590u))));
+	ign = frac(ign * asfloat(0x4253EE82u));
+	op = UseDitherDissolve * (((op >= ign) ? 1.0 : 0.0) - op) + op;
+	// M257-300: Kuro E_Dither value / head-mask hide (CPD 2..10 head axes, CPD 23..25 head position), 3x3 dither
+	float dvv = min(E_Dither_DitherValueMin, E_Dither_DitherValue2);
+	float3 hd = -HeadMaskPosition;
+	float3 hp = WorldPosition + hd;
+	float3 hl = hp.x * HeadMaskAxis0;
+	hl = HeadMaskAxis1 * hp.y + hl;
+	hl = HeadMaskAxis2 * hp.z + hl;
+	float hx = hl.x - E_HeadMaskHigh;
+	float hr = sqrt(dot(hl.yz, hl.yz)) * asfloat(0x3C7C0FC1u) + asfloat(0xBE4CCCCDu);
+	hr = saturate(hr * 1.25);
+	hr = (hr * hr) * (hr * -2.0 + 3.0);
+	hr = hr * saturate(-hl.y + -1.0);
+	dvv = min(dvv, 0.0);
+	hr = min(hr, 1.0);
+	hr = hr * 54.5 + 0.5;
+	hr = 1.0 - saturate(hx / hr);
+	dvv = E_UseHeadMaskHide * (hr - dvv) + dvv;
+	int2 ip = (int2)SP2;                                   // signed (C) remainder of the pixel coordinate by 3
+	uint2 um = ((uint2)max(ip, -ip)) % 3u;
+	int2 im = (int2)um;
+	im.x = (ip.x < 0) ? -im.x : im.x;
+	im.y = (ip.y < 0) ? -im.y : im.y;
+	int di = max(im.x * 3 + im.y, 0);
+	float dt = saturate(dvv * 2.0 - kWuwaAMDither[di]);
+	dt = dt + asfloat(0x3EA87CF8u);
+	dt = (asfloat(0x3E99999Au) >= E_Dither_UseDitherMax) ? 1.0 : dt;
+	float hc = (sqrt(dot(hd, hd)) >= asfloat(0x3C23D70Au)) ? 0.0 : 1.0;
+	hc = (asfloat(0x3C23D70Au) >= hx) ? 1.0 : hc;
+	hc = hc * E_UseHeadMaskHide;
+	dt = hc * (1.0 - dt) + dt;
+	op = min(op, dt);
+	// M301-307: opacity = mask * (op - 1) + 0.667, gradient translucency (UV0.y)
+	op = mk * (op + -1.0) + asfloat(0x3F2AC083u);
+	float g = UV0.y + GradientTranslucency_Offset;
+	float gp = g * GradientTranslucency_Power;
+	float gg = MaskW * (-g * GradientTranslucency_Power + 1.0) + gp;
+	O.Opacity = saturate(Use_GradientTranslucency * (gg * op - op) + op);
+	return O;
+}
+
+// =====================================================================================================================
+// M_Char_Aimisi_SPSkirt, PS 793f627635 (#86403; MI_SS1HuliHead_FX, MI_SS1HuliTail2_FX, MI_SS1HuliTail3_FX = Hsin's fox
+// "SS1Huli" effect shells), additive unlit, VS #13669 (engine-only). Static switches Use_MilkSpark, UseDissolveAndDither,
+// UseEffect. Root colour = wave * spark * BaseColTex + scan light; EffMask (Normal_Metallic_EffMask) .xy normal, .z keep
+// mask, .w inside/outside weight.
+// =====================================================================================================================
+FWuwaFXOutput WuwaFXAimisiSPSkirt_MilkSpark(
+	Texture2D BaseColTex, SamplerState BaseColTexSampler,
+	Texture2D CommonNoiseMap, SamplerState CommonNoiseMapSampler,
+	Texture2D Normal_Metallic_EffMask, SamplerState Normal_Metallic_EffMaskSampler,
+	Texture2D E_Tex_NoiseTex, SamplerState E_Tex_NoiseTexSampler,
+	float2 UV0, float2 UV1, float2 UV2, float2 UV3, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 CameraVector, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize,
+	float GameTime, float MaterialTextureMipBias, float ClipToView00, float3 WorldCameraOrigin, float4x4 TranslatedWorldToView,
+	float3 LocalToWorldRow2, float3 LocalToWorldRow3, float4x4 PrimWorldToLocal, float3 PrimActorWorldPosition,
+	float3 HeadMaskPosition, float3 HeadMaskAxis0, float3 HeadMaskAxis1, float3 HeadMaskAxis2,
+	float4 SparkTillingSpeed, float SparkIntensity, float SparkIntensityMax, float SparkPower_Inside, float SparkPower_Outside,
+	float SparkStrength_Inside, float SparkStrength_Outside, float4 FlowLight_UV_Switch, float WaveTiling_Inside,
+	float WaveTiling_Outside, float WaveSpeed_Inside, float WaveSpeed_Outside, float NormalStrength, float Normal_ViewBlend,
+	float WaveNormalAmount, float WaveAmount_Inside, float WaveAmount_Outside, float ScanLine_Speed, float ScanLightTilling,
+	float ScanLightStep, float ScanLine_DistanceFade, float3 ScanLightColor,
+	float4 E_Tex_UVSwitch, float E_Tex_UseScreenUV, float E_Tex_UseTex, float2 E_Tex_RotRow0, float2 E_Tex_RotRow1,
+	float4 E_Tex_ScaleAndOffset, float2 E_Tex_Speed, float4 E_Tex_Color, float E_Emission_UseTex,
+	float E_FlowEffectEdgeColorSharp, float3 E_Dissolve_Emission, float3 E_Dissolve_EmissionDark, float E_FlowEffectEdgeSwitch,
+	float E_Dissolve_Multi01, float E_Dissolve_UseDissolve, float E_FlowEffectEdge_Strength01, float E_FlowEffectEdgerRevert,
+	float4 E_Dissolve_Channel, float E_UV3Dissolve_Reverse, float E_UV3Dissolve_Position, float E_UV3Dissolve_PositionRadius,
+	float UseShadowLordMaterialDynamic, float E_Dissolve_Progress, float E_Dissolve_Smooth, float UseLocalSpace,
+	float UseActorSpace, float3 PortalCenter, float3 PortalAxisN, float PortalEdgeNeg, float UsePortalDissolve,
+	float3 E_Emission_ColorI, float E_Tex_UseMask, float E_Tex_MaskRange, float E_Tex_UseSecondNoiseMask, float4 SelectionColor,
+	float UseDitherDissolve, float E_Dither_DitherValueMin, float E_Dither_DitherValue2, float E_HeadMaskHigh,
+	float E_UseHeadMaskHide, float E_Dither_UseDitherMax, float GradientTranslucency_Offset, float GradientTranslucency_Power,
+	float Use_GradientTranslucency)
+{
+	// M43-56: base colour, two spark-noise taps (mip bias - 2; the first scrolled and offset by the camera vector)
+	float3 Bt = cross(WorldNormal, WorldTangent) * TangentSign;
+	float3 BaseCol = BaseColTex.SampleBias(BaseColTexSampler, UV0, MaterialTextureMipBias).xyz;
+	float2 SpUV = UV2 * SparkTillingSpeed.xy;
+	float2 SpUV2 = GameTime * SparkTillingSpeed.zw + SpUV;
+	float mb2 = MaterialTextureMipBias + -2.0;
+	float n1 = CommonNoiseMap.SampleBias(CommonNoiseMapSampler, CameraVector.xy * 0.2 + SpUV2, mb2).x;
+	float n2 = CommonNoiseMap.SampleBias(CommonNoiseMapSampler, SpUV, mb2).x;
+	// M57-66: camera distance to (object + 80 * local Z) -> spark intensity
+	float3 dC = WorldCameraOrigin - (LocalToWorldRow2 * 80.0 + LocalToWorldRow3);
+	float d01 = min(sqrt(dot(dC, dC)) * 0.001, 1.0);
+	float SI = d01 * (SparkIntensityMax - SparkIntensity) + SparkIntensity;
+	float sa = n2 * SI;
+	sa = sa * (n1 * n1);
+	// M67-75: EffMask, inside/outside spark power and strength, guarded pow
+	float4 EM = Normal_Metallic_EffMask.SampleBias(Normal_Metallic_EffMaskSampler, UV0, MaterialTextureMipBias);
+	float SPw = EM.w * (SparkPower_Inside - SparkPower_Outside) + SparkPower_Outside;
+	float SSt = EM.w * (SparkStrength_Inside - SparkStrength_Outside) + SparkStrength_Outside;
+	sa = WuwaWPowGuard(sa, SPw);
+	sa = SI * sa;
+	// M76-99: field-of-view factor saturate((atan(ClipToView[0][0]) / 0.785)^5)
+	float fv = atan(ClipToView00) * asfloat(0x3FA30EACu);
+	float fv2 = fv * fv;
+	fv2 = fv2 * fv2;
+	fv = saturate(fv * fv2);
+	sa = sa * (fv * SSt);
+	// M100-131: flow-light wave (UV select V, normal-mapped view-space z), scan line
+	float fvv = dot(FlowLight_UV_Switch, float4(UV0.y, UV1.y, UV2.y, UV3.y));
+	float2 SP2 = SvPositionXY - ViewRectMin;
+	float WT = EM.w * (WaveTiling_Inside - WaveTiling_Outside) + WaveTiling_Outside;
+	float WS = EM.w * (WaveSpeed_Inside - WaveSpeed_Outside) + WaveSpeed_Outside;
+	float wph = fvv * WT - WS * GameTime;
+	float2 nxy = (EM.xy * 2.0 + -1.0) * NormalStrength;
+	float3 nw = (nxy.x * WorldTangent + Bt * nxy.y) + WorldNormal;
+	float vz = mul(nw, (float3x3)TranslatedWorldToView).z;
+	vz = Normal_ViewBlend * (1.0 - vz) + vz;
+	wph = -vz * WaveNormalAmount + wph;
+	float ws = sin(wph * asfloat(0x40C90FDBu)) + 1.0;
+	float wh = ws * 0.5;
+	float w = (wh * wh) * wh;
+	w = (asfloat(0x33800002u) >= ws) ? 0.0 : w;
+	float WA = EM.w * (WaveAmount_Inside - WaveAmount_Outside) + WaveAmount_Outside;
+	w = WA * w;
+	w = w * sa;
+	float sc = GameTime * ScanLine_Speed + UV2.y;
+	sc = (sc + -0.5) * ScanLightTilling;
+	sc = (ScanLightStep >= frac(sc)) ? 1.0 : 0.0;
+	float3 dW = WorldCameraOrigin - WorldPosition;
+	float df = saturate(1.0 - sqrt(dot(dW, dW)) / ScanLine_DistanceFade);
+	sc = df * sc;
+	float3 scan = (sc * ScanLightColor) * EM.w;
+	float3 E0 = w * BaseCol + scan;
+	float Keep = (EM.z >= 0.5) ? 0.0 : 1.0;
+	return WuwaAMEffectTail(E_Tex_NoiseTex, E_Tex_NoiseTexSampler, E0, Keep, EM.w, UV0, UV1, UV2, UV3, WorldPosition, SP2,
+		ViewSizeAndInvSize, GameTime, PrimWorldToLocal, PrimActorWorldPosition, HeadMaskPosition, HeadMaskAxis0, HeadMaskAxis1,
+		HeadMaskAxis2, E_Tex_UVSwitch, E_Tex_UseScreenUV, E_Tex_UseTex, E_Tex_RotRow0, E_Tex_RotRow1, E_Tex_ScaleAndOffset,
+		E_Tex_Speed, E_Tex_Color, E_Emission_UseTex, E_FlowEffectEdgeColorSharp, E_Dissolve_Emission, E_Dissolve_EmissionDark,
+		E_FlowEffectEdgeSwitch, E_Dissolve_Multi01, E_Dissolve_UseDissolve, E_FlowEffectEdge_Strength01, E_FlowEffectEdgerRevert,
+		E_Dissolve_Channel, E_UV3Dissolve_Reverse, E_UV3Dissolve_Position, E_UV3Dissolve_PositionRadius,
+		UseShadowLordMaterialDynamic, E_Dissolve_Progress, E_Dissolve_Smooth, UseLocalSpace, UseActorSpace, PortalCenter,
+		PortalAxisN, PortalEdgeNeg, UsePortalDissolve, E_Emission_ColorI, E_Tex_UseMask, E_Tex_MaskRange,
+		E_Tex_UseSecondNoiseMask, SelectionColor, UseDitherDissolve, E_Dither_DitherValueMin, E_Dither_DitherValue2,
+		E_HeadMaskHigh, E_UseHeadMaskHide, E_Dither_UseDitherMax, GradientTranslucency_Offset, GradientTranslucency_Power,
+		Use_GradientTranslucency);
+}
+
+// Kuro text-rain hue rotation (UE RotateAboutAxis about normalize(1,1,1) by Angle, simplified as emitted: C306-315 / C349-358):
+// d = dot(K, V); W = V - d * k; result = d * k + (W * cos + cross(K, W) * sin), k = 0.57735 (0x3F13CD3A).
+float3 WuwaAMHueRotate(float3 V, float Angle)
+{
+	const float k = asfloat(0x3F13CD3Au);
+	float d = dot(float3(k, k, k), V);
+	float3 W = V - d * k;
+	float3 cr = cross(float3(k, k, k), W);
+	float s, c;
+	sincos(Angle, s, c);
+	float3 t = s * cr;
+	t = W * c + t;
+	return d * k + t;
+}
+
+// Kuro inside/outside "light flow" term (C113-126 circuit, C198-211 flow): t = lerp(pow guarded(0.5 * wave + noise - 0.5, 9)
+// * 3, cube * amount, 0.5) clamped to [0, 0.75] * 1.333.
+float WuwaAMFlowT(float WaveS, float Cube, float Amount, float Noise)
+{
+	float p = WaveS * 0.5 + Noise;
+	p = p + -0.5;
+	float q = exp2(log2(p) * 9.0) * 3.0;
+	q = (asfloat(0x33000002u) >= p) ? 0.0 : q;
+	float t = lerp(q, Cube * Amount, 0.5);
+	t = min(max(t, 0.0), 0.75);
+	return t * asfloat(0x3FAA9FBEu);
+}
+
+// =====================================================================================================================
+// M_Char_Aimisi_SPSkirt, PS 30a8b76b4a (#264804; MI_Char_Aimisi_SPSkirt = Aemeath main mesh (+ Invisible Starlight skin),
+// MI_R2T1AimisiGDMd10011Head1FX_OL), additive unlit, VS #13669 (engine-only). Static switches Use_CircuitLight,
+// Use_FlowLight, Use_MilkSpark, Use_TextRain, UseDissolveAndDither, UseEffect (Use_WaveLight_Inside off).
+// Root colour = circuit light x circuit mask + flow light + flow wave * spark * BaseColTex + text rain (base + bump, hue
+// rotated) + scan light. Line refs C### = asm_hex line numbers.
+// =====================================================================================================================
+FWuwaFXOutput WuwaFXAimisiSPSkirt_CircuitFlowSparkTextRain(
+	Texture2D Normal_Metallic_EffMask, SamplerState Normal_Metallic_EffMaskSampler,
+	Texture2D BaseColTex, SamplerState BaseColTexSampler,
+	Texture2D CircuitFlowNoise, SamplerState CircuitFlowNoiseSampler,
+	Texture2D Tex_CircuitMask, SamplerState Tex_CircuitMaskSampler,
+	Texture2D CommonNoiseMap, SamplerState CommonNoiseMapSampler,
+	Texture2D String_Tex, SamplerState String_TexSampler,
+	Texture2D E_Tex_NoiseTex, SamplerState E_Tex_NoiseTexSampler,
+	float2 UV0, float2 UV1, float2 UV2, float2 UV3, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 CameraVector, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize,
+	float GameTime, float MaterialTextureMipBias, float ClipToView00, float3 WorldCameraOrigin, float4x4 TranslatedWorldToView,
+	float3 LocalToWorldRow2, float3 LocalToWorldRow3, float4x4 PrimWorldToLocal, float3 PrimActorWorldPosition,
+	float3 HeadMaskPosition, float3 HeadMaskAxis0, float3 HeadMaskAxis1, float3 HeadMaskAxis2,
+	float4 CircuitLight_UV_Switch, float CircuitLightTiling_Inside, float CircuitLightTiling_Outside, float CircuitLightSpeed_Inside,
+	float CircuitLightSpeed_Outside, float NormalStrength, float Normal_ViewBlend, float CircuitLightNormalAmount,
+	float CircuitLightAmount_Inside, float CircuitLightAmount_Outside, float3 CircuitLight02_Outside, float3 CircuitLightColor_Outside,
+	float3 CircuitLight02_Inside, float3 CircuitLightColor_Inside, float2 CircuitMask_Tiling_Outside, float2 CircuitMask_Offset_Outside,
+	float2 CircuitMask_Tiling_Inside, float2 CircuitMask_Offset_Inside, float CircuitMask_GradientUp_SmoothMin_Outside,
+	float CircuitMask_GradientUp_SmoothMax_Outside, float CircuitMask_Up_Intensity_Outside, float CircuitMask_GradientUp_SmoothMin_Inside,
+	float CircuitMask_GradientUp_SmoothMax_Inside, float CircuitMask_Up_Intensity_Inside, float CircuitMask_GradientDown_SmoothMin_Outside,
+	float CircuitMask_GradientDown_SmoothMax_Outside, float CircuitMask_Down_Intensity_Outside,
+	float CircuitMask_GradientDown_SmoothMin_Inside, float CircuitMask_GradientDown_SmoothMax_Inside,
+	float CircuitMask_Down_Intensity_Inside, float4 FlowLight_UV_Switch, float WaveTiling_Inside, float WaveTiling_Outside,
+	float WaveSpeed_Inside, float WaveSpeed_Outside, float WaveNormalAmount, float WaveAmount_Inside, float WaveAmount_Outside,
+	float3 TintColorFlow02_Outside, float3 TintColorFlow_Outside, float3 TintColorFlow02_Inside, float3 TintColorFlow_Inside,
+	float4 SparkTillingSpeed, float SparkIntensity, float SparkIntensityMax, float SparkPower_Inside, float SparkPower_Outside,
+	float SparkStrength_Inside, float SparkStrength_Outside, float StringsRain_Tilling_Base005, float String_Speed,
+	float Rain_Speed_Base, float Rain_Intensity, float HueShiftColor_Offset01, float StringsRain_RangeMin_Base,
+	float StringsRain_RangeMax_Base, float3 StringsRain_Color_Base, float StringsRain_Base_Intensity, float TexRain_BumpOffset,
+	float StringsRain_Tilling_Bump005, float2 MatrixXY, float2 MatrixXX, float Rain_Speed_Bump, float StringsRain_RangeMin_Bump,
+	float StringsRain_RangeMax_Bump, float3 StringsRain_Color_Bump, float StringsRain_BumpOffset_Intensity,
+	float ScanLine_Speed, float ScanLightTilling, float ScanLightStep, float ScanLine_DistanceFade, float3 ScanLightColor,
+	float4 E_Tex_UVSwitch, float E_Tex_UseScreenUV, float E_Tex_UseTex, float2 E_Tex_RotRow0, float2 E_Tex_RotRow1,
+	float4 E_Tex_ScaleAndOffset, float2 E_Tex_Speed, float4 E_Tex_Color, float E_Emission_UseTex,
+	float E_FlowEffectEdgeColorSharp, float3 E_Dissolve_Emission, float3 E_Dissolve_EmissionDark, float E_FlowEffectEdgeSwitch,
+	float E_Dissolve_Multi01, float E_Dissolve_UseDissolve, float E_FlowEffectEdge_Strength01, float E_FlowEffectEdgerRevert,
+	float4 E_Dissolve_Channel, float E_UV3Dissolve_Reverse, float E_UV3Dissolve_Position, float E_UV3Dissolve_PositionRadius,
+	float UseShadowLordMaterialDynamic, float E_Dissolve_Progress, float E_Dissolve_Smooth, float UseLocalSpace,
+	float UseActorSpace, float3 PortalCenter, float3 PortalAxisN, float PortalEdgeNeg, float UsePortalDissolve,
+	float3 E_Emission_ColorI, float E_Tex_UseMask, float E_Tex_MaskRange, float E_Tex_UseSecondNoiseMask, float4 SelectionColor,
+	float UseDitherDissolve, float E_Dither_DitherValueMin, float E_Dither_DitherValue2, float E_HeadMaskHigh,
+	float E_UseHeadMaskHide, float E_Dither_UseDitherMax, float GradientTranslucency_Offset, float GradientTranslucency_Power,
+	float Use_GradientTranslucency)
+{
+	const float4 Ux = float4(UV0.x, UV1.x, UV2.x, UV3.x);
+	const float4 Uy = float4(UV0.y, UV1.y, UV2.y, UV3.y);
+	float3 Bt = cross(WorldNormal, WorldTangent) * TangentSign;
+	// C75-86: circuit UV, EffMask, inside/outside circuit tiling / speed
+	float2 CUV = float2(dot(CircuitLight_UV_Switch, Ux), dot(CircuitLight_UV_Switch, Uy));
+	float2 SP2 = SvPositionXY - ViewRectMin;
+	float4 EM = Normal_Metallic_EffMask.SampleBias(Normal_Metallic_EffMaskSampler, UV0, MaterialTextureMipBias);
+	float CT = EM.w * (CircuitLightTiling_Inside - CircuitLightTiling_Outside) + CircuitLightTiling_Outside;
+	float CS = EM.w * (CircuitLightSpeed_Inside - CircuitLightSpeed_Outside) + CircuitLightSpeed_Outside;
+	float cst = CS * GameTime;
+	float cph = CUV.y * CT - cst;
+	// C87-108: normal-mapped view-space z (lerp toward 1 by Normal_ViewBlend), circuit wave
+	float2 nxy = (EM.xy * 2.0 + -1.0) * NormalStrength;
+	float3 nw = (nxy.x * WorldTangent + Bt * nxy.y) + WorldNormal;
+	float vz = mul(nw, (float3x3)TranslatedWorldToView).z;
+	vz = Normal_ViewBlend * (1.0 - vz) + vz;
+	cph = -vz * CircuitLightNormalAmount + cph;
+	float cws = sin(cph * asfloat(0x40C90FDBu)) + 1.0;
+	float ch = cws * 0.5;
+	float cc = ch * (ch * ch);
+	cc = (asfloat(0x33800002u) >= cws) ? 0.0 : cc;
+	float CA = EM.w * (CircuitLightAmount_Inside - CircuitLightAmount_Outside) + CircuitLightAmount_Outside;
+	float cw = cc * CA;
+	// C109-134: circuit colour lerp(Base * Light02, Color * Base, t) inside/outside
+	float3 Base = BaseColTex.SampleBias(BaseColTexSampler, UV0, MaterialTextureMipBias).xyz;
+	float cn = CircuitFlowNoise.SampleBias(CircuitFlowNoiseSampler, float2(CUV.x * 12.0, cst * 0.1), MaterialTextureMipBias).x;
+	float ct = WuwaAMFlowT(cws, cc, CA, cn);
+	float3 co = lerp(Base * CircuitLight02_Outside, CircuitLightColor_Outside * Base, ct);
+	float3 ci = lerp(Base * CircuitLight02_Inside, CircuitLightColor_Inside * Base, ct);
+	float3 CC = (EM.w * (ci - co) + co) * cw;
+	// C135-175: circuit mask texture (inside/outside tiling) x up / down gradients of the circuit V
+	float2 mo = CUV * CircuitMask_Tiling_Outside + CircuitMask_Offset_Outside;
+	float2 mi = CUV * CircuitMask_Tiling_Inside + CircuitMask_Offset_Inside;
+	float2 muv = EM.w * (mi - mo) + mo;
+	float cm = Tex_CircuitMask.SampleBias(Tex_CircuitMaskSampler, muv, MaterialTextureMipBias).x;
+	float upO = WuwaWSmoothStep(CircuitMask_GradientUp_SmoothMin_Outside, CircuitMask_GradientUp_SmoothMax_Outside, CUV.y) * CircuitMask_Up_Intensity_Outside;
+	float upI = WuwaWSmoothStep(CircuitMask_GradientUp_SmoothMin_Inside, CircuitMask_GradientUp_SmoothMax_Inside, CUV.y);
+	float up = EM.w * (upI * CircuitMask_Up_Intensity_Inside - upO) + upO;
+	float vy = 1.0 - CUV.y;
+	float dnO = WuwaWSmoothStep(CircuitMask_GradientDown_SmoothMin_Outside, CircuitMask_GradientDown_SmoothMax_Outside, vy) * CircuitMask_Down_Intensity_Outside;
+	float dnI = WuwaWSmoothStep(CircuitMask_GradientDown_SmoothMin_Inside, CircuitMask_GradientDown_SmoothMax_Inside, vy);
+	float dn = EM.w * (dnI * CircuitMask_Down_Intensity_Inside - dnO) + dnO;
+	cm = cm * (dn * up);
+	// C176-220: flow light (FlowLight UV, inside/outside wave), tint flow colours
+	float2 FUV = float2(dot(FlowLight_UV_Switch, Ux), dot(FlowLight_UV_Switch, Uy));
+	float WT = EM.w * (WaveTiling_Inside - WaveTiling_Outside) + WaveTiling_Outside;
+	float WS = EM.w * (WaveSpeed_Inside - WaveSpeed_Outside) + WaveSpeed_Outside;
+	float wst = WS * GameTime;
+	float fph = FUV.y * WT - wst;
+	fph = -vz * WaveNormalAmount + fph;
+	float fws = sin(fph * asfloat(0x40C90FDBu)) + 1.0;
+	float fh = fws * 0.5;
+	float fc = fh * (fh * fh);
+	fc = (asfloat(0x33800002u) >= fws) ? 0.0 : fc;
+	float WA = EM.w * (WaveAmount_Inside - WaveAmount_Outside) + WaveAmount_Outside;
+	float fw = WA * fc;
+	float fn = CircuitFlowNoise.SampleBias(CircuitFlowNoiseSampler, float2(FUV.x * 12.0, wst * 0.1), MaterialTextureMipBias).x;
+	float ft = WuwaAMFlowT(fws, fc, WA, fn);
+	float3 fo = lerp(Base * TintColorFlow02_Outside, TintColorFlow_Outside * Base, ft);
+	float3 fi = lerp(Base * TintColorFlow02_Inside, TintColorFlow_Inside * Base, ft);
+	float3 FC = (EM.w * (fi - fo) + fo) * fw;
+	float3 E = CC * cm + FC;
+	// C221-270: milk spark (two noise taps, camera distance intensity, guarded pow, FOV factor) x flow wave x Base
+	float2 SpUV = UV2 * SparkTillingSpeed.xy;
+	float2 SpUV2 = GameTime * SparkTillingSpeed.zw + SpUV;
+	float2 nuv = CameraVector.xy * 0.2 + SpUV2;
+	float mb2 = MaterialTextureMipBias + -2.0;
+	float mb1 = MaterialTextureMipBias + -1.0;
+	float n1 = CommonNoiseMap.SampleBias(CommonNoiseMapSampler, nuv, mb2).x;
+	float n2 = CommonNoiseMap.SampleBias(CommonNoiseMapSampler, SpUV, mb2).x;
+	float3 dC = WorldCameraOrigin - (LocalToWorldRow2 * 80.0 + LocalToWorldRow3);
+	float d01 = min(sqrt(dot(dC, dC)) * 0.001, 1.0);
+	float SI = d01 * (SparkIntensityMax - SparkIntensity) + SparkIntensity;
+	float sa = (n1 * n1) * (n2 * SI);
+	float SPw = EM.w * (SparkPower_Inside - SparkPower_Outside) + SparkPower_Outside;
+	float SSt = EM.w * (SparkStrength_Inside - SparkStrength_Outside) + SparkStrength_Outside;
+	sa = WuwaWPowGuard(sa, SPw);
+	sa = SI * sa;
+	float fv = atan(ClipToView00) * asfloat(0x3FA30EACu);
+	float fv2 = fv * fv;
+	fv2 = fv2 * fv2;
+	fv = saturate(fv * fv2);
+	sa = sa * (fv * SSt);
+	sa = fw * sa;
+	E = sa * Base + E;
+	// C271-315: text rain, base layer (String_Tex atlas: 256 x 16 time frames, column hash -> rain phase)
+	float tbx = UV2.x * StringsRain_Tilling_Base005;
+	float tby = UV2.y * StringsRain_Tilling_Base005;
+	float tm = fmod(GameTime, 100.0);
+	float sf = frac(tm * String_Speed);
+	float2 fl = floor(sf * float2(256.0, 16.0));
+	float2 suv = fl * 0.0625 + float2(tbx, tby) * asfloat(0x3B800000u);
+	float sv = String_Tex.SampleLevel(String_TexSampler, suv, mb1).x;
+	float col = floor(tbx * 0.0625);
+	col = -col * 16.0 + tbx;
+	col = UV2.x * StringsRain_Tilling_Base005 - col;
+	float2 cc2 = col * float2(asfloat(0x3F80ADFDu), asfloat(0x4196CBE4u));
+	float rr = sin(cc2.x);
+	float rs = cos(cc2.y) * Rain_Speed_Base;
+	rr = rs * tm + rr;
+	rr = frac(rr - UV2.y);
+	rr = rr * Rain_Intensity;
+	rr = 1.0 / rr;
+	float hue = sv * rr + HueShiftColor_Offset01;
+	float ra = WuwaWSmoothStep(StringsRain_RangeMin_Base, StringsRain_RangeMax_Base, sv * rr);
+	ra = min(ra, 1.0);
+	ra = EM.w * ra;
+	float3 rainB = WuwaAMHueRotate(ra * StringsRain_Color_Base, hue * asfloat(0x40C90FDBu));
+	// C316-360: text rain, bump layer (camera-offset UV, Matrix x Matrix atlas)
+	float2 bo = CameraVector.xy * TexRain_BumpOffset;
+	bo = bo * asfloat(0x3D4CCCCDu) + UV2;
+	float2 tbb = bo * StringsRain_Tilling_Bump005;
+	float2 t7 = tbb * 0.0625;
+	float2 buv = t7 / MatrixXY + floor(sf * MatrixXX) / MatrixXY;
+	float bv = String_Tex.SampleLevel(String_TexSampler, buv, mb1).x;
+	float bcol = floor(t7.x);
+	bcol = -bcol * 16.0 + tbb.x;
+	bcol = bo.x * StringsRain_Tilling_Bump005 - bcol;
+	float2 bc2 = bcol * float2(asfloat(0x3F80ADFDu), asfloat(0x4196CBE4u));
+	float br = sin(bc2.x);
+	float bs = cos(bc2.y) * Rain_Speed_Bump;
+	br = bs * tm + br;
+	br = frac(br - bo.y);
+	br = br * Rain_Intensity;
+	br = 1.0 / br;
+	float bhue = (bv * br + HueShiftColor_Offset01) * asfloat(0x40C90FDBu);
+	float bra = WuwaWSmoothStep(StringsRain_RangeMin_Bump, StringsRain_RangeMax_Bump, bv * br);
+	bra = min(bra, 1.0);
+	bra = EM.w * bra;
+	float3 rainU = WuwaAMHueRotate(bra * StringsRain_Color_Bump, bhue) * StringsRain_BumpOffset_Intensity;
+	E = E + (rainB * StringsRain_Base_Intensity + rainU);
+	// C361-376: scan line, keep mask
+	float sc = GameTime * ScanLine_Speed + UV2.y;
+	sc = (sc + -0.5) * ScanLightTilling;
+	sc = (ScanLightStep >= frac(sc)) ? 1.0 : 0.0;
+	float3 dW = WorldCameraOrigin - WorldPosition;
+	float df = saturate(1.0 - sqrt(dot(dW, dW)) / ScanLine_DistanceFade);
+	sc = sc * df;
+	E = (sc * ScanLightColor) * EM.w + E;
+	float Keep = (EM.z >= 0.5) ? 0.0 : 1.0;
+	return WuwaAMEffectTail(E_Tex_NoiseTex, E_Tex_NoiseTexSampler, E, Keep, EM.w, UV0, UV1, UV2, UV3, WorldPosition, SP2,
+		ViewSizeAndInvSize, GameTime, PrimWorldToLocal, PrimActorWorldPosition, HeadMaskPosition, HeadMaskAxis0, HeadMaskAxis1,
+		HeadMaskAxis2, E_Tex_UVSwitch, E_Tex_UseScreenUV, E_Tex_UseTex, E_Tex_RotRow0, E_Tex_RotRow1, E_Tex_ScaleAndOffset,
+		E_Tex_Speed, E_Tex_Color, E_Emission_UseTex, E_FlowEffectEdgeColorSharp, E_Dissolve_Emission, E_Dissolve_EmissionDark,
+		E_FlowEffectEdgeSwitch, E_Dissolve_Multi01, E_Dissolve_UseDissolve, E_FlowEffectEdge_Strength01, E_FlowEffectEdgerRevert,
+		E_Dissolve_Channel, E_UV3Dissolve_Reverse, E_UV3Dissolve_Position, E_UV3Dissolve_PositionRadius,
+		UseShadowLordMaterialDynamic, E_Dissolve_Progress, E_Dissolve_Smooth, UseLocalSpace, UseActorSpace, PortalCenter,
+		PortalAxisN, PortalEdgeNeg, UsePortalDissolve, E_Emission_ColorI, E_Tex_UseMask, E_Tex_MaskRange,
+		E_Tex_UseSecondNoiseMask, SelectionColor, UseDitherDissolve, E_Dither_DitherValueMin, E_Dither_DitherValue2,
+		E_HeadMaskHigh, E_UseHeadMaskHide, E_Dither_UseDitherMax, GradientTranslucency_Offset, GradientTranslucency_Power,
+		Use_GradientTranslucency);
+}
+
+// ---- GENERATED M_Char_Aimisi_Heart (tools/shaderdiff/weapons/r3/aimisi_gen_entries.py) - do not edit by hand ----
+// =====================================================================================================================
+// M_Char_Aimisi_Heart: masked toon GBuffer (id 12) with a black surface (A = (oct(N), 0, mode flag), B = (0,0,0,id),
+// C = D = 0); the visible colour is the emissive o0: Kuro UseEffect block (E_Tex / flow-edge dissolve / portal) + hologram,
+// flow light (rotated / scrolled / bump-offset colour texture, noise-texture edge), heart outline layers (implicit heart
+// curve (x^2 + y^2 - 0.5)^3 - x^2 y^3 <= 0 minus Heart_Mask.r), XingHen SDF flow, refracted / panned diamond texture,
+// parallax-occlusion heart flow light (Heart_FlowLight_Height), structure-normal and highlight terms, three colour-blend
+// layers with transition powers, quad / string rain (hue rotated), day/night (MPC GlobalTimeHour), selection colour.
+// Opacity mask = BaseCol.a (engine clip 0.3333); the Kuro primitive dither is clipped inside.
+// Line refs H### = PS fab1a44e7b (#229475, MI_R2T1AimisiMd10011Fx01), K### = PS f2f1fbd94d (#269144,
+// MI_R2T1AimisiGDMd10011Corn01) asm_hex line numbers.
+//   bTwoSided  : MI two-sided (shading normal * TwoSidedSign; H89-91, H102)                        Fx01 true, Corn01 false
+//   bFlowNoise : static switch UseFlowLightNoise (flow-light UV += FlowLight_NoiseTex(noise UV).r * NoiseStrength^2;
+//                K278-287)                                                                         Fx01 false, Corn01 true
+//   bGrassHL   : static switch Use_GrassHighLight (highlight = HeightLightTex(UV2 * HLScale + view-dependent move).rgb
+//                instead of the HightLight_Normal smoothstep; K593-602)                           Fx01 false, Corn01 true
+// =====================================================================================================================
+FWuwaToonGBuffer WuwaToonAimisiHeart_Impl(const bool bTwoSided, const bool bFlowNoise, const bool bGrassHL,
+	Texture2D E_Tex_NoiseTex, SamplerState E_Tex_NoiseTexSampler,
+	Texture2D FlowLight_ColorTex, SamplerState FlowLight_ColorTexSampler,
+	Texture2D FlowLight_NoiseTex, SamplerState FlowLight_NoiseTexSampler,
+	Texture2D BaseCol, SamplerState BaseColSampler,
+	Texture2D Heart_Mask, SamplerState Heart_MaskSampler,
+	Texture2D XingHen_Tex, SamplerState XingHen_TexSampler,
+	Texture2D Diamond_MainTex, SamplerState Diamond_MainTexSampler,
+	Texture2D Heart_FlowLight_Height, SamplerState Heart_FlowLight_HeightSampler,
+	Texture2D StructureNormal_Tex, SamplerState StructureNormal_TexSampler,
+	Texture2D Heart_ColorBlend, SamplerState Heart_ColorBlendSampler,
+	Texture2D String_Tex, SamplerState String_TexSampler,
+	Texture2D HighLightTex, SamplerState HighLightTexSampler,
+	float2 UV0, float2 UV1, float2 UV2, float2 UV3, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 TranslatedWorldPosition, float3 WorldPosition, float2 SvPositionXY, float TwoSidedSign,
+	float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime, float MaterialTextureMipBias, float4 NormalOverrideParameter,
+	float4x4 TranslatedWorldToView, float4x4 TranslatedWorldToCameraView, float3 PreViewTranslation, float ClipToView11,
+	float3 KuroView296, float3 ViewForward, float3 LocalToWorldRow0, float4x4 PrimWorldToLocal, float3 PrimActorWorldPosition,
+	float MPC_GlobalTimeHour,
+	float4 E_Tex_UVSwitch, float E_Tex_UseScreenUV, float E_Tex_UseTex, float2 E_Tex_RotRow0, float2 E_Tex_RotRow1,
+	float4 E_Tex_ScaleAndOffset, float2 E_Tex_Speed, float4 E_Tex_Color, float E_Emission_UseTex,
+	float E_FlowEffectEdgeColorSharp, float3 E_Dissolve_Emission, float3 E_Dissolve_EmissionDark, float E_FlowEffectEdgeSwitch,
+	float E_Dissolve_Multi01, float E_Dissolve_UseDissolve, float E_FlowEffectEdge_Strength01, float E_FlowEffectEdgerRevert,
+	float4 E_Dissolve_Channel, float E_UV3Dissolve_Reverse, float E_UV3Dissolve_Position, float E_UV3Dissolve_PositionRadius,
+	float UseShadowLordMaterialDynamic, float E_Dissolve_Progress, float E_Dissolve_Smooth, float UseLocalSpace,
+	float UseActorSpace, float3 PortalCenter, float3 PortalAxisN, float PortalEdgeNeg, float UsePortalDissolve,
+	float3 E_Emission_ColorI, float3 E_Hologram_HightColor, float USE_Hologram, float E_Hologram_Width,
+	float E_Hologram_Width1m, float3 E_Hologram_Color, float E_Tex_UseMask, float E_Tex_MaskRange, float E_Tex_UseSecondNoiseMask,
+	float4 FlowLightTex_UVSwitch, float FlowLight_UseScreenUV, float2 FlowLight_RotRow0, float2 FlowLight_RotRow1,
+	float4 FlowLight_UV, float2 FlowLight_UV_Offset2, float2 FlowLight_NoiseStrength0, float4 FlowLightNoise_UVSwitch,
+	float FlowLightNoise_UseScreenUV, float4 FlowLightNoiseUV, float FlowLight_NoiseStrength,
+	float FlowLight_BumpHeightRadio, float FlowLight_BumpHeight, float4 FlowLight_Refine, float3 FlowLight_ColorTint,
+	float FlowEffectEdge_Strength01, float FlowLightNoise_Progress1m,
+	float3 Heart_OutLineColor_Layer1, float3 Heart_OutLineColor_Layer2, float3 Heart_OutLineColor_Layer3,
+	float HeartTransition_L1, float HeartTransition_L2, float FlowLightColorBlend, float XingHen_BumpOffset, float2 UVScale2,
+	float2 UVPosition2, float ShakeNoiseAbs3, float ShakeNoiseSatAbs, float ShakeNoise03, float XingHen_FlowLight_RangeMax,
+	float XingHen_FlowLight_RangeMin, float3 XingHenColorShake, float HeartTransition_L1_20m, float HeartTransition_L2_20m,
+	float2 Diamond_PannerSpeed2, float Diamond_Tiling, float UseDiamond_UV_Switch, float HeartPartten_Intensity,
+	float2 Heart_FlowLight_Offset2, float HeartSDF_Bump, float ParallaxStepsInv, float ParallaxStepsFloor,
+	float Heart_FlowLight_SatAbsInt, float Heart_FlowLight_Frequency, float Heart_Partten_RangeOffset,
+	float Heart_FlowLight_RangeMax, float Heart_FlowLight_RangeMin, float Heart_FlowLight_Int03,
+	float StructureNormal_Tilling, float StructureNormal_Height, float StructureNormal_Intensity,
+	float StructureNormal_In_Offset, float StructureNormal_In_Intensity,
+	float3 Heart_Layer1_Color1, float3 Heart_Layer1_Color2, float3 Heart_Layer1_DarkColor,
+	float3 Heart_Layer2_Color1, float3 Heart_Layer2_Color2, float3 Heart_Layer2_DarkColor,
+	float3 Heart_Layer3_Color1, float3 Heart_Layer3_Color2, float3 Heart_Layer3_Color3, float3 Heart_Layer3_DarkColor,
+	float HeartDarkColor_Int_Layer1, float HeartDarkColor_Int_Layer2, float HeartDarkColor_Int_Layer3,
+	float TexRain_BumpOffset, float Quad_Tilling_Bump005, float Quad_Speed_Bump, float Quad_Intensity,
+	float QuadRain_RangeMin_Bump, float QuadRain_RangeMax_Bump, float StringsRain_Tilling_Bump005, float2 MatrixXY,
+	float2 MatrixXX, float String_Speed, float Rain_Speed_Bump, float Rain_Intensity, float HueShiftColor_Offset01,
+	float StringsRain_RangeMin_Bump, float StringsRain_RangeMax_Bump, float3 StringsRain_Color_Bump,
+	float HighLight_NormalTilling, float Heart_HighLightSmoothMax, float Heart_HighLightSmoothMin, float HLScale,
+	float HLmoveSpeed, float HLmoveSpeedNeg, float2 HLposition2, float Heart_HighLightIntensity,
+	float FinalCol_RangeMax_Layer1, float FinalCol_RangeMin_Layer1, float3 FinalCol_Tint_Layer1, float HeartTintColor_Layer1_Blend,
+	float Heart_FlowLight_Speed, float Heart_FlowLight_RangeOffset, float Heart_FlowLight_Clip,
+	float FinalCol_RangeMax_Layer2, float FinalCol_RangeMin_Layer2, float3 FinalCol_Tint_Layer2, float HeartTintColor_Layer2_Blend,
+	float FinalCol_RangeMax_Layer4, float FinalCol_RangeMin_Layer3, float3 FinalCol_Tint_Layer3, float HeartTintColor_Layer3_Blend,
+	float FinalRender_Lightness_Night, float SeqSwitchFactor, float4 SelectionColor,
+	float KuroPrimDitherEnable, float KuroPrimDitherFade, float KuroGBufferMode, float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds, uint LightingChannelMask,
+	out float OpacityMask)
+{
+	FWuwaToonGBuffer G;
+	const float4 Ux = float4(UV0.x, UV1.x, UV2.x, UV3.x);
+	const float4 Uy = float4(UV0.y, UV1.y, UV2.y, UV3.y);
+	// H75-102: bitangent, screen pixel, camera vector, shading normal (x two-sided sign)
+	float3 Bt = cross(WorldNormal, WorldTangent) * TangentSign;
+	float2 SP2 = SvPositionXY - ViewRectMin;
+	float sv = SP2.y * ViewSizeAndInvSize.w;
+	float rs = rsqrt(dot(-TranslatedWorldPosition, -TranslatedWorldPosition));
+	float3 V = rs * -TranslatedWorldPosition;
+	float3 N = WuwaWShadingNormal(WorldTangent, Bt, WorldNormal, NormalOverrideParameter);
+	if (bTwoSided)
+		N = TwoSidedSign * N;
+	const float mb = MaterialTextureMipBias;
+
+	// H103-134: E_Tex layer (UV select, screen UV, rotator, panner) and flow-edge / dissolve emission colour
+	float2 euv;
+	euv.x = dot(E_Tex_UVSwitch, Ux);
+	euv.y = dot(E_Tex_UVSwitch, Uy);
+	euv = E_Tex_UseScreenUV * (SP2 * ViewSizeAndInvSize.zw - euv) + euv;
+	float4 et;
+	if (asfloat(0x3DCCCCCDu) < E_Tex_UseTex)
+	{
+		float2 d = euv + -0.5;
+		float2 ruv = float2(dot(d, E_Tex_RotRow0), dot(d, E_Tex_RotRow1)) + 0.5;
+		ruv = ruv * E_Tex_ScaleAndOffset.xy + E_Tex_ScaleAndOffset.zw;
+		ruv = GameTime * E_Tex_Speed + ruv;
+		et = E_Tex_NoiseTex.Sample(E_Tex_NoiseTexSampler, ruv) * E_Tex_Color;
+	}
+	else
+	{
+		et = E_Tex_Color;
+	}
+	bool pg = asfloat(0x33000002u) >= et.x;
+	float pw = exp2(log2(et.x) * E_FlowEffectEdgeColorSharp);
+	float3 dcol = (E_Dissolve_Emission - E_Dissolve_EmissionDark) * pw;
+	if (pg)
+		dcol = float3(0.0, 0.0, 0.0);
+	dcol = dcol + E_Dissolve_EmissionDark;
+	dcol = E_FlowEffectEdgeSwitch * (dcol - E_Dissolve_Emission) + E_Dissolve_Emission;
+	dcol = dcol * E_Dissolve_Multi01;
+	// H135-168: dissolve edge emission (no opacity output in this root)
+	float3 eE;
+	if (asfloat(0x3DCCCCCDu) < E_Dissolve_UseDissolve)
+	{
+		float uvn = 1.0 - UV3.y;
+		float4 t7;
+		t7.xyz = et.xyz * E_FlowEffectEdge_Strength01;
+		t7.w = E_FlowEffectEdgerRevert * (uvn - UV3.y) + UV3.y;
+		float4 ch = E_FlowEffectEdgeSwitch * (t7 - et) + et;
+		float dv = dot(E_Dissolve_Channel, ch);
+		float u = E_UV3Dissolve_Reverse * (UV3.y - uvn) + uvn;
+		float s = WuwaWSmoothStep(E_UV3Dissolve_Position, E_UV3Dissolve_PositionRadius, u);
+		s = min(s, 1.0);
+		s = saturate(s * (dv + -1.0) + 1.0);
+		s = UseShadowLordMaterialDynamic * (s - dv) + dv;
+		float pr = E_Dissolve_Progress * asfloat(0xBF8CCCCCu) + asfloat(0x3F866666u);
+		pr = pr * (-E_Dissolve_Smooth + -1.0) + E_Dissolve_Smooth;
+		s = s * E_Dissolve_Smooth - pr;
+		s = min(abs(s + -1.0), 1.0);
+		eE = dcol * (1.0 - s);
+	}
+	else
+	{
+		eE = float3(0.0, 0.0, 0.0);
+	}
+	// H169-189: portal dissolve
+	float3 lp = mul(float4(WorldPosition, 1.0), PrimWorldToLocal).xyz;
+	lp = UseLocalSpace * (lp - WorldPosition) + WorldPosition;
+	lp = UseActorSpace * ((WorldPosition - PrimActorWorldPosition) - lp) + lp;
+	lp = lp - PortalCenter;
+	lp = lp / sqrt(dot(lp, lp));
+	float pd = dot(PortalAxisN, lp);
+	float back = (0.0 >= pd) ? 1.0 : 0.0;
+	float edge = ((pd >= PortalEdgeNeg) ? 1.0 : 0.0) * back;
+	eE = UsePortalDissolve * (edge * dcol) + eE;
+	// H190-243: emission tint, hologram (screen-v scan bands from the actor's view-space position; off: white)
+	float3 etc = E_Emission_UseTex * (et.xyz + -1.0) + 1.0;
+	float ssv = saturate(sv);
+	float3 hl0 = ssv * (E_Emission_ColorI * etc - E_Hologram_HightColor) + E_Hologram_HightColor;
+	bool holoOff = asfloat(0x38D1B717u) >= USE_Hologram;
+	float holoOffF = holoOff ? 1.0 : 0.0;
+	float3 hc;
+	if (holoOff)
+	{
+		hc = float3(1.0, 1.0, 1.0);
+	}
+	else
+	{
+		float ht = GameTime * asfloat(0x39800000u);
+		ht = (ht >= -ht) ? frac(abs(ht)) : -frac(abs(ht));
+		ht = ht * asfloat(0x43CCCCCDu);
+		float3 ap = PreViewTranslation + PrimActorWorldPosition;
+		float2 vyz = mul(float4(ap, 1.0), TranslatedWorldToCameraView).yz;
+		float dz = vyz.y * 0.01;
+		float pj = vyz.x / (vyz.y * ClipToView11);
+		float f = -pj * -0.5 + sv;
+		f = f + -0.5;
+		f = dz * f + ht;
+		f = frac(f + 0.5);
+		f = 1.0 - f;
+		float s1 = saturate((f * f) * (1.0 / E_Hologram_Width));
+		s1 = (s1 * s1) * (s1 * -2.0 + 3.0);
+		float s2 = saturate((1.0 / E_Hologram_Width1m) * (-f * f + 1.0));
+		s2 = (s2 * s2) * (s2 * -2.0 + 3.0);
+		float m = min(s2, s1);
+		float m16 = m * m;
+		m16 = m16 * m16;
+		m16 = m16 * m16;
+		m16 = m16 * m16;
+		m16 = m16 * 0.5;
+		m = m * asfloat(0x3E4CCCCDu) + m16;
+		m = min(m, 1.0);
+		hc = m * E_Hologram_Color;
+	}
+	float3 hsum = hc * ssv + hl0;
+	float3 EE = holoOffF * (E_Emission_ColorI * etc - hsum) + hsum;
+	EE = EE + eE;
+	// H244-267: E_Tex alpha mask x screen "second noise" mask
+	float mk;
+	if (asfloat(0x3DCCCCCDu) < E_Tex_UseMask)
+	{
+		mk = exp2(log2(E_Tex_NoiseTex.Sample(E_Tex_NoiseTexSampler, euv).w) * E_Tex_MaskRange);
+	}
+	else
+	{
+		mk = 1.0;
+	}
+	float2 suv = -SP2 * ViewSizeAndInvSize.zw + 1.0;
+	float a2 = suv.y + suv.y;
+	float sy = suv.x * 2.0 + asfloat(0xBD4CCCCDu);
+	sy = -GameTime * asfloat(0x3E99999Au) + sy;
+	sy = SP2.y * ViewSizeAndInvSize.w + sy;
+	sy = sin(sy * asfloat(0x40C90FDBu));
+	a2 = -GameTime * asfloat(0x3E99999Au) + a2;
+	a2 = sin(a2 * asfloat(0x40490FDBu));
+	float nm = a2 * sy;
+	nm = abs(nm) * suv.y + -1.0;
+	nm = E_Tex_UseSecondNoiseMask * nm + 1.0;
+	mk = mk * nm;
+	// H268-306 / K263-308: flow light (UV select, screen UV, rotation, time scroll, bump offset), refine, edge noise
+	float t600 = fmod(GameTime, 600.0);
+	float t100 = fmod(GameTime, 100.0);
+	float2 fuv;
+	fuv.x = dot(FlowLightTex_UVSwitch, Ux);
+	fuv.y = dot(FlowLightTex_UVSwitch, Uy);
+	fuv = FlowLight_UseScreenUV * (SP2 * ViewSizeAndInvSize.zw - fuv) + fuv;
+	float2 fd = fuv + -0.5;
+	fuv = float2(dot(fd, FlowLight_RotRow0), dot(fd, FlowLight_RotRow1)) + 0.5;
+	fuv = fuv * FlowLight_UV.xy + t600 * FlowLight_UV.zw;
+	fuv = fuv + FlowLight_UV_Offset2;
+	float br;
+	if (bFlowNoise)
+	{
+		float2 nuv;
+		nuv.x = dot(FlowLightNoise_UVSwitch, Ux);
+		nuv.y = dot(FlowLightNoise_UVSwitch, Uy);
+		nuv = FlowLightNoise_UseScreenUV * (SP2 * ViewSizeAndInvSize.zw - nuv) + nuv;
+		nuv = nuv * FlowLightNoiseUV.xy;
+		nuv = GameTime * FlowLightNoiseUV.zw + nuv;
+		float fnz = FlowLight_NoiseTex.SampleBias(FlowLight_NoiseTexSampler, nuv, mb).x;
+		float2 nsh = float2(FlowLight_NoiseStrength, FlowLight_BumpHeight) * float2(FlowLight_NoiseStrength, FlowLight_BumpHeightRadio);
+		fuv = fnz * nsh.x + fuv;
+		br = FlowLight_BumpHeightRadio * -0.5 + nsh.y;
+	}
+	else
+	{
+		fuv = fuv + FlowLight_NoiseStrength0;
+		br = FlowLight_BumpHeightRadio * -0.5;
+		br = FlowLight_BumpHeightRadio * FlowLight_BumpHeight + br;
+	}
+	float2 Vts = float2(dot(WorldTangent, V), dot(Bt, V));
+	float NoV = dot(WorldNormal, V);
+	fuv = Vts * br + fuv;
+	float3 fc = FlowLight_ColorTex.SampleBias(FlowLight_ColorTexSampler, fuv, mb).xyz;
+	float3 fp = float3(WuwaWPowGuard(fc.x, FlowLight_Refine.x), WuwaWPowGuard(fc.y, FlowLight_Refine.x),
+		WuwaWPowGuard(fc.z, FlowLight_Refine.x)) * FlowLight_Refine.y;
+	float3 fr = FlowLight_Refine.w * (fc * FlowLight_Refine.z - fp) + fp;
+	fr = fr * FlowLight_ColorTint;
+	float2 nuv2 = fc.x * FlowEffectEdge_Strength01 + UV0;
+	float fn = FlowLight_NoiseTex.SampleBias(FlowLight_NoiseTexSampler, nuv2, mb).w;
+	fn = WuwaWPowGuard(fn, FlowLightNoise_Progress1m);
+	// H307-329: base colour, outline layer colours, implicit heart curve - Heart_Mask.r, flow light
+	float4 bc = BaseCol.SampleBias(BaseColSampler, UV0, mb);
+	float3 ol = HeartTransition_L1 * (Heart_OutLineColor_Layer2 - Heart_OutLineColor_Layer1) + Heart_OutLineColor_Layer1;
+	ol = HeartTransition_L2 * (Heart_OutLineColor_Layer3 - ol) + ol;
+	float2 hq = (UV0 + -0.5) * 2.0 + float2(asfloat(0xBE75C28Fu), asfloat(0x3EAB851Fu));
+	hq = hq * float2(-2.5, asfloat(0xC00E38E4u));
+	float hx2 = hq.x * hq.x;
+	float hy2 = hq.y * hq.y;
+	float hs = hy2 + hx2;
+	hs = hs + -0.5;
+	float hv = (hs * hs) * hs - (hq.y * hy2) * hx2;
+	float inH = (0.0 >= hv) ? 1.0 : 0.0;
+	float2 hm = Heart_Mask.SampleBias(Heart_MaskSampler, UV0, mb).xy;
+	float hw = inH - hm.x;
+	float3 hcol = hw * (ol - bc.xyz) + bc.xyz;
+	hcol = hcol * FlowLightColorBlend;
+	hcol = fn * fr + hcol;
+	// H330-372: XingHen SDF flow (bump-offset UV, scale / position), shake-noise flow band
+	float xr = XingHen_BumpOffset * asfloat(0x3D4CCCCDu) + asfloat(0xBCCCCCCDu);
+	float2 xuv = Vts * xr + UV0;
+	xuv = (xuv + -0.5) * UVScale2 + 0.5;
+	xuv = xuv - UVPosition2;
+	float3 xt = XingHen_Tex.SampleBias(XingHen_TexSampler, xuv, mb).xzw;
+	float xa = 1.0 - xt.x;
+	float xm = saturate(xt.z * xa);
+	float ss = saturate(ShakeNoiseAbs3);
+	ss = (ss * ss) * (ss * -2.0 + 3.0);
+	xa = ss * -xa + xa;
+	float xe = ShakeNoiseSatAbs * asfloat(0xC1EC3D71u) + 30.0;
+	float xp = min(exp2(log2(xt.y) * xe), 1.0);
+	xp = (asfloat(0x33000002u) >= xt.y) ? 0.0 : xp;
+	float xf = frac(xp * 3.0 + GameTime * 3.0);
+	xf = (xf * xf) * (xf * -2.0 + 3.0);
+	float xq = xp * xf;
+	float xv = saturate(WuwaWSmoothStep(XingHen_FlowLight_RangeMin, XingHen_FlowLight_RangeMax, xq * ShakeNoise03) + xa);
+	float3 xc = xv * XingHenColorShake;
+	float3 xcm = xm * xc;
+	float lhy = log2(hm.y);
+	bool ghy = asfloat(0x33000002u) >= hm.y;
+	float p1 = min(exp2(lhy * HeartTransition_L1_20m), 1.0);
+	p1 = ghy ? 0.0 : p1;
+	float3 xd = xc * xm - xm;
+	float3 x12 = p1 * xd + xm;
+	// H373-389: refracted view vector (eta 0.750188) in view space, lerp toward the panned UV, diamond texture
+	float k2 = -NoV * NoV + 1.0;
+	k2 = -k2 * asfloat(0x3F101271u) + 1.0;
+	float sq = sqrt(k2);
+	sq = NoV * asfloat(0x3F400C4Bu) + sq;
+	float3 rf = V * asfloat(0x3F400C4Bu) - sq * WorldNormal;
+	if (!(k2 >= 0.0))
+		rf = float3(0.0, 0.0, 0.0);
+	float2 rv = mul(rf, (float3x3)TranslatedWorldToView).xy;
+	float2 duv = UV0 * Diamond_Tiling;
+	duv = GameTime * Diamond_PannerSpeed2 + duv;
+	duv = UseDiamond_UV_Switch * (duv - rv) + rv;
+	float3 dm = Diamond_MainTex.SampleBias(Diamond_MainTexSampler, duv, mb).xyz;
+	float3 dmi = dm * HeartPartten_Intensity;
+	// H390-427: parallax occlusion march of Heart_FlowLight_Height.b (floor(ParallaxSteps) + 2 steps, coarse gradients)
+	float2 huv = UV0 + Heart_FlowLight_Offset2;
+	float2 P = -Vts / NoV;
+	float2 PB = P * HeartSDF_Bump;
+	huv = -HeartSDF_Bump * P + huv;
+	float2 stp = PB * ParallaxStepsInv;
+	float2 gx = ddx_coarse(huv);
+	float2 gy = ddy_coarse(huv);
+	float nst = ParallaxStepsFloor + 2.0;
+	float2 ofs = float2(0.0, 0.0);
+	float ch = 1.0, ph = 1.0, ps = 1.0;
+	int i = 0;
+	[loop] while (true)
+	{
+		if ((float)i >= nst)
+			break;
+		float s = Heart_FlowLight_Height.SampleGrad(Heart_FlowLight_HeightSampler, huv + ofs, gx, gy).z;
+		if (ch < s)
+		{
+			float a = s - ch;
+			float t = a / ((ph - ps) + a);
+			ofs = -t * stp + ofs;
+			break;
+		}
+		float nh = ch - ParallaxStepsInv;
+		ofs = ParallaxStepsInv * PB + ofs;
+		i = i + 1;
+		ph = ch;
+		ps = s;
+		ch = nh;
+	}
+	huv = huv + ofs;
+	float2 hm2 = Heart_Mask.SampleBias(Heart_MaskSampler, huv, mb).zw;
+	// H428-448: heart flow band
+	float hfr = Heart_FlowLight_SatAbsInt * (Heart_FlowLight_Frequency + -40.0) + 40.0;
+	float lhx = log2(hm2.x);
+	bool ghx = asfloat(0x33000002u) >= hm2.x;
+	float hp = min(exp2(hfr * lhx), 1.0);
+	hp = ghx ? 0.0 : hp;
+	float hp3 = hp * 3.0;
+	float hf = frac(hp * 3.0 + Heart_Partten_RangeOffset);
+	hf = min(WuwaWSmoothStep(Heart_FlowLight_RangeMin, Heart_FlowLight_RangeMax, hf), 1.0);
+	hf = hp * hf;
+	hf = hf * Heart_FlowLight_Int03;
+	// H449-470: half vector (View[296] + V), structure normal
+	float3 Hh = -TranslatedWorldPosition * rs + KuroView296;
+	Hh = Hh / sqrt(dot(Hh, Hh));
+	float2 snuv = UV0 * StructureNormal_Tilling;
+	float sh = StructureNormal_Height * asfloat(0x3D4CCCCDu) + asfloat(0xBCCCCCCDu);
+	snuv = Vts * sh + snuv;
+	float2 sn = StructureNormal_Tex.SampleBias(StructureNormal_TexSampler, snuv, mb).xy * 2.0 + -1.0;
+	float snz = sqrt(max(1.0 - dot(sn, sn), 0.0));
+	float3 snw = Bt * sn.y;
+	snw = sn.x * WorldTangent + snw;
+	snw = snz * WorldNormal + snw;
+	snw = StructureNormal_Intensity * (snw - WorldNormal) + WorldNormal;
+	float sd = saturate((dot(Hh, snw) + StructureNormal_In_Offset) * StructureNormal_In_Intensity);
+	sd = sd * hf;
+	// H471-480: layer-1 diamond / XingHen mix
+	float sm = hm2.y * sd;
+	float3 dd = dmi * sm;
+	float3 di = -sm * dmi + 1.0;
+	float3 a16 = xm * di + dd;
+	float3 b14 = xcm * di + dd;
+	float3 c14 = p1 * (b14 - a16) + a16;
+	float w1 = sd * hm2.y - xv;
+	float3 e14 = w1 * (c14 - x12) + x12;
+	// H481-515: colour-blend layers 1..3 (dark colours, transition powers)
+	float4 cb = Heart_ColorBlend.SampleBias(Heart_ColorBlendSampler, UV0, mb);
+	float3 dk = cb.w * float3(HeartDarkColor_Int_Layer1, HeartDarkColor_Int_Layer2, HeartDarkColor_Int_Layer3);
+	float3 l1 = cb.x * (Heart_Layer1_Color2 - Heart_Layer1_Color1) + Heart_Layer1_Color1;
+	l1 = dk.x * (Heart_Layer1_DarkColor - l1) + l1;
+	l1 = hm.x * (l1 - hcol) + hcol;
+	float3 l2 = cb.y * (Heart_Layer2_Color2 - Heart_Layer2_Color1) + Heart_Layer2_Color1;
+	l2 = dk.y * (Heart_Layer2_DarkColor - l2) + l2;
+	l2 = hm.x * (l2 - hcol) + hcol;
+	float3 l12 = p1 * (l2 - l1) + l1;
+	float3 l3 = cb.z * (Heart_Layer3_Color2 - Heart_Layer3_Color1) + Heart_Layer3_Color1;
+	float pz = exp2(log2(cb.z) * 12.0);
+	pz = (asfloat(0x33000002u) >= cb.z) ? 0.0 : pz;
+	l3 = pz * (Heart_Layer3_Color3 - l3) + l3;
+	l3 = dk.z * (Heart_Layer3_DarkColor - l3) + l3;
+	l3 = hm.x * (l3 - hcol) + hcol;
+	float p2 = min(exp2(lhy * HeartTransition_L2_20m), 1.0);
+	p2 = ghy ? 0.0 : p2;
+	float3 L = p2 * (l3 - l12) + l12;
+	// H516-589: quad rain x layers + string rain (hue rotated), layer-1 XingHen weight
+	float2 bo = V.xy * TexRain_BumpOffset;
+	bo = bo * asfloat(0x3D4CCCCDu) + UV2;
+	float qx = bo.x * Quad_Tilling_Bump005;
+	float qc = floor(qx * 0.0625);
+	qc = -qc * 16.0 + qx;
+	qc = bo.x * Quad_Tilling_Bump005 - qc;
+	float2 q2 = qc * float2(asfloat(0x3F80ADFDu), asfloat(0x4196CBE4u));
+	float qr = sin(q2.x);
+	float qs = cos(q2.y) * Quad_Speed_Bump;
+	qr = qs * t100 + qr;
+	float by = 1.0 - bo.y;
+	qr = frac(qr + by);
+	qr = qr * Quad_Intensity;
+	qr = 1.0 / qr;
+	qr = min(WuwaWSmoothStep(QuadRain_RangeMin_Bump, QuadRain_RangeMax_Bump, qr), 1.0);
+	float2 sbb = bo * StringsRain_Tilling_Bump005;
+	float2 s7 = sbb * 0.0625;
+	float sf = frac(t100 * String_Speed);
+	float2 stuv = s7 / MatrixXY + floor(sf * MatrixXX) / MatrixXY;
+	float stv = String_Tex.SampleLevel(String_TexSampler, stuv, mb + -1.0).x;
+	float sc = floor(s7.x);
+	sc = -sc * 16.0 + sbb.x;
+	sc = bo.x * StringsRain_Tilling_Bump005 - sc;
+	float2 c2 = sc * float2(asfloat(0x3F80ADFDu), asfloat(0x4196CBE4u));
+	float rr = sin(c2.x);
+	float rsp = cos(c2.y) * Rain_Speed_Bump;
+	rr = rsp * t100 + rr;
+	rr = frac(by + rr);
+	rr = rr * Rain_Intensity;
+	rr = 1.0 / rr;
+	float hue = (stv * rr + HueShiftColor_Offset01) * asfloat(0x40C90FDBu);
+	float ra = min(WuwaWSmoothStep(StringsRain_RangeMin_Bump, StringsRain_RangeMax_Bump, stv * rr), 1.0);
+	float3 rain = WuwaAMHueRotate(ra * StringsRain_Color_Bump, hue);
+	float3 LQ = L * qr + rain;
+	float3 f15 = LQ + e14;
+	float xw = xv * xm - xm;
+	float w6 = p1 * xw + xm;
+	float3 g14 = w6 * (e14 - f15) + f15;
+	// H590-608 / K593-602: highlight (normal-map smoothstep, or the grass highlight texture)
+	float3 HL;
+	if (bGrassHL)
+	{
+		float hy = UV2.y * HLScale;
+		float hmv = (dot(ViewForward.xy, LocalToWorldRow0.xy) + 1.0) * 0.5;
+		hmv = hmv * (HLmoveSpeed - HLmoveSpeedNeg) + HLmoveSpeedNeg;
+		float hxx = UV2.x * HLScale + hmv;
+		HL = HighLightTex.SampleBias(HighLightTexSampler, float2(hxx, hy) - HLposition2, mb).xyz;
+	}
+	else
+	{
+		float2 hn = HighLightTex.SampleBias(HighLightTexSampler, UV0 * HighLight_NormalTilling, mb).xy * 2.0 + -1.0;
+		float hz = sqrt(max(1.0 - dot(hn, hn), 0.0));
+		float3 hnw = Bt * hn.y;
+		hnw = hn.x * WorldTangent + hnw;
+		hnw = hz * WorldNormal + hnw;
+		HL = WuwaWSmoothStep(Heart_HighLightSmoothMin, Heart_HighLightSmoothMax, dot(hnw, Hh)).xxx;
+	}
+	// H608-622: final layer 1
+	float3 c2a = HL * Heart_HighLightIntensity + g14;
+	float s1f = min(WuwaWSmoothStep(FinalCol_RangeMin_Layer1, FinalCol_RangeMax_Layer1, hm.y), 1.0);
+	float3 t1 = s1f * (c2a - FinalCol_Tint_Layer1) + FinalCol_Tint_Layer1;
+	t1 = HeartTintColor_Layer1_Blend * (t1 - c2a) + c2a;
+	float3 c1 = hm.x * (t1 - hcol) + hcol;
+	// H623-667: final layer 2 (time-scrolled heart flow band, flow clip)
+	float hf2 = frac(GameTime * Heart_FlowLight_Speed + hp3 + Heart_FlowLight_RangeOffset);
+	hf2 = min(WuwaWSmoothStep(Heart_FlowLight_RangeMin, Heart_FlowLight_RangeMax, hf2), 1.0);
+	hf2 = hp * hf2;
+	hf2 = hf2 * Heart_FlowLight_Int03;
+	float sm2 = hm2.y * hf2;
+	float3 dd2 = dm * sm2;
+	float3 di2 = -sm2 * dm + 1.0;
+	float3 a2_ = xm * di2 + dd2;
+	float3 bd = (xcm * di2 + dd2) - a2_;
+	float3 c2_ = p1 * bd + a2_;
+	float w2 = hf2 * hm2.y - xv;
+	float pc = exp2(lhx * Heart_FlowLight_Clip);
+	pc = ghx ? 0.0 : pc;
+	w2 = w2 - pc;                                                      // original: (guard ? -0 : -pow) + w2
+	float3 e2 = w2 * (c2_ - x12) + x12;
+	float3 f2 = LQ + e2;
+	float3 g2 = w6 * (e2 - f2) + f2;
+	g2 = HL * Heart_HighLightIntensity + g2;
+	float s2f = min(WuwaWSmoothStep(FinalCol_RangeMin_Layer2, FinalCol_RangeMax_Layer2, hm.y), 1.0);
+	float3 t2 = s2f * (g2 - FinalCol_Tint_Layer2) + FinalCol_Tint_Layer2;
+	t2 = HeartTintColor_Layer2_Blend * (t2 - g2) + g2;
+	float3 c2c = hm.x * (t2 - hcol) + hcol;
+	float3 c12 = p1 * (c2c - c1) + c1;
+	// H668-693: final layer 3, effect emission
+	float3 a3 = p2 * xd + xm;
+	float3 b3 = p2 * bd + a2_;
+	float3 e3 = w2 * (b3 - a3) + a3;
+	float3 f3 = LQ + e3;
+	float w7 = p2 * xw + xm;
+	float3 g3 = w7 * (e3 - f3) + f3;
+	g3 = HL * Heart_HighLightIntensity + g3;
+	float s3f = min(WuwaWSmoothStep(FinalCol_RangeMin_Layer3, FinalCol_RangeMax_Layer4, hm.y), 1.0);
+	float3 t3 = s3f * (g3 - FinalCol_Tint_Layer3) + FinalCol_Tint_Layer3;
+	t3 = HeartTintColor_Layer3_Blend * (t3 - g3) + g3;
+	float3 c3 = hm.x * (t3 - hcol) + hcol;
+	float3 C = p2 * (c3 - c12) + c12;
+	C = mk * EE + C;
+	// H694-709: night lightness (MPC GlobalTimeHour day factor smoothstep(6..7) * smoothstep(19..18)), selection colour
+	float3 Cn = C * FinalRender_Lightness_Night;
+	float2 hr = MPC_GlobalTimeHour + float2(-6.0, -19.0);
+	float da = saturate(hr.x);
+	da = (da * -2.0 + 3.0) * (da * da);
+	float db = saturate(-hr.y);
+	db = (db * db) * (db * -2.0 + 3.0);
+	float day = da * db;
+	day = SeqSwitchFactor * -day + day;
+	C = day * (-C * FinalRender_Lightness_Night + C) + Cn;
+	C = SelectionColor.w * (SelectionColor.xyz - C) + C;
+	// H710-728: opacity mask = BaseCol.a (engine clip 0.3333), Kuro primitive dither
+	OpacityMask = bc.w;
+	clip(WuwaPrimDitherClip(KuroPrimDitherEnable, KuroPrimDitherFade, SvPositionXY));
+	// H762-830: emissive tail, black-surface GBuffer (normal re-normalised before the octahedral encode)
+	G.Emissive = WuwaBPFinalEmissive(C, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask, WorldPosition,
+		ObjectWorldPosition, ObjectBounds);
+	WuwaWEncodeBlack(G, N * rsqrt(dot(N, N)), KuroGBufferMode, LightingChannelMask);
+	return G;
+}
+
+// PS fab1a44e7b (#229475, MI_R2T1AimisiMd10011Fx01 = Aemeath main mesh + Invisible Starlight skin), two-sided, VS #229430
+FWuwaToonGBuffer WuwaToonAimisiHeartBasePass_Fx2S(
+	Texture2D E_Tex_NoiseTex, SamplerState E_Tex_NoiseTexSampler, Texture2D FlowLight_ColorTex, SamplerState FlowLight_ColorTexSampler,
+	Texture2D FlowLight_NoiseTex, SamplerState FlowLight_NoiseTexSampler, Texture2D BaseCol, SamplerState BaseColSampler,
+	Texture2D Heart_Mask, SamplerState Heart_MaskSampler, Texture2D XingHen_Tex, SamplerState XingHen_TexSampler,
+	Texture2D Diamond_MainTex, SamplerState Diamond_MainTexSampler, Texture2D Heart_FlowLight_Height, SamplerState Heart_FlowLight_HeightSampler,
+	Texture2D StructureNormal_Tex, SamplerState StructureNormal_TexSampler, Texture2D Heart_ColorBlend, SamplerState Heart_ColorBlendSampler,
+	Texture2D String_Tex, SamplerState String_TexSampler, Texture2D HightLight_Normal, SamplerState HightLight_NormalSampler,
+	float2 UV0, float2 UV1, float2 UV2, float2 UV3,
+	float3 WorldTangent, float3 WorldNormal, float TangentSign, float3 TranslatedWorldPosition,
+	float3 WorldPosition, float2 SvPositionXY, float TwoSidedSign, float2 ViewRectMin,
+	float4 ViewSizeAndInvSize, float GameTime, float MaterialTextureMipBias, float4 NormalOverrideParameter,
+	float4x4 TranslatedWorldToView, float4x4 TranslatedWorldToCameraView, float3 PreViewTranslation, float ClipToView11,
+	float3 KuroView296, float4x4 PrimWorldToLocal, float3 PrimActorWorldPosition, float MPC_GlobalTimeHour,
+	float4 E_Tex_UVSwitch, float E_Tex_UseScreenUV, float E_Tex_UseTex, float2 E_Tex_RotRow0,
+	float2 E_Tex_RotRow1, float4 E_Tex_ScaleAndOffset, float2 E_Tex_Speed, float4 E_Tex_Color,
+	float E_Emission_UseTex, float E_FlowEffectEdgeColorSharp, float3 E_Dissolve_Emission, float3 E_Dissolve_EmissionDark,
+	float E_FlowEffectEdgeSwitch, float E_Dissolve_Multi01, float E_Dissolve_UseDissolve, float E_FlowEffectEdge_Strength01,
+	float E_FlowEffectEdgerRevert, float4 E_Dissolve_Channel, float E_UV3Dissolve_Reverse, float E_UV3Dissolve_Position,
+	float E_UV3Dissolve_PositionRadius, float UseShadowLordMaterialDynamic, float E_Dissolve_Progress, float E_Dissolve_Smooth,
+	float UseLocalSpace, float UseActorSpace, float3 PortalCenter, float3 PortalAxisN,
+	float PortalEdgeNeg, float UsePortalDissolve, float3 E_Emission_ColorI, float3 E_Hologram_HightColor,
+	float USE_Hologram, float E_Hologram_Width, float E_Hologram_Width1m, float3 E_Hologram_Color,
+	float E_Tex_UseMask, float E_Tex_MaskRange, float E_Tex_UseSecondNoiseMask, float4 FlowLightTex_UVSwitch,
+	float FlowLight_UseScreenUV, float2 FlowLight_RotRow0, float2 FlowLight_RotRow1, float4 FlowLight_UV,
+	float2 FlowLight_UV_Offset2, float2 FlowLight_NoiseStrength0, float FlowLight_BumpHeightRadio, float FlowLight_BumpHeight,
+	float4 FlowLight_Refine, float3 FlowLight_ColorTint, float FlowEffectEdge_Strength01, float FlowLightNoise_Progress1m,
+	float3 Heart_OutLineColor_Layer1, float3 Heart_OutLineColor_Layer2, float3 Heart_OutLineColor_Layer3, float HeartTransition_L1,
+	float HeartTransition_L2, float FlowLightColorBlend, float XingHen_BumpOffset, float2 UVScale2,
+	float2 UVPosition2, float ShakeNoiseAbs3, float ShakeNoiseSatAbs, float ShakeNoise03,
+	float XingHen_FlowLight_RangeMax, float XingHen_FlowLight_RangeMin, float3 XingHenColorShake, float HeartTransition_L1_20m,
+	float HeartTransition_L2_20m, float2 Diamond_PannerSpeed2, float Diamond_Tiling, float UseDiamond_UV_Switch,
+	float HeartPartten_Intensity, float2 Heart_FlowLight_Offset2, float HeartSDF_Bump, float ParallaxStepsInv,
+	float ParallaxStepsFloor, float Heart_FlowLight_SatAbsInt, float Heart_FlowLight_Frequency, float Heart_Partten_RangeOffset,
+	float Heart_FlowLight_RangeMax, float Heart_FlowLight_RangeMin, float Heart_FlowLight_Int03, float StructureNormal_Tilling,
+	float StructureNormal_Height, float StructureNormal_Intensity, float StructureNormal_In_Offset, float StructureNormal_In_Intensity,
+	float3 Heart_Layer1_Color1, float3 Heart_Layer1_Color2, float3 Heart_Layer1_DarkColor, float3 Heart_Layer2_Color1,
+	float3 Heart_Layer2_Color2, float3 Heart_Layer2_DarkColor, float3 Heart_Layer3_Color1, float3 Heart_Layer3_Color2,
+	float3 Heart_Layer3_Color3, float3 Heart_Layer3_DarkColor, float HeartDarkColor_Int_Layer1, float HeartDarkColor_Int_Layer2,
+	float HeartDarkColor_Int_Layer3, float TexRain_BumpOffset, float Quad_Tilling_Bump005, float Quad_Speed_Bump,
+	float Quad_Intensity, float QuadRain_RangeMin_Bump, float QuadRain_RangeMax_Bump, float StringsRain_Tilling_Bump005,
+	float2 MatrixXY, float2 MatrixXX, float String_Speed, float Rain_Speed_Bump,
+	float Rain_Intensity, float HueShiftColor_Offset01, float StringsRain_RangeMin_Bump, float StringsRain_RangeMax_Bump,
+	float3 StringsRain_Color_Bump, float HighLight_NormalTilling, float Heart_HighLightSmoothMax, float Heart_HighLightSmoothMin,
+	float Heart_HighLightIntensity, float FinalCol_RangeMax_Layer1, float FinalCol_RangeMin_Layer1, float3 FinalCol_Tint_Layer1,
+	float HeartTintColor_Layer1_Blend, float Heart_FlowLight_Speed, float Heart_FlowLight_RangeOffset, float Heart_FlowLight_Clip,
+	float FinalCol_RangeMax_Layer2, float FinalCol_RangeMin_Layer2, float3 FinalCol_Tint_Layer2, float HeartTintColor_Layer2_Blend,
+	float FinalCol_RangeMax_Layer4, float FinalCol_RangeMin_Layer3, float3 FinalCol_Tint_Layer3, float HeartTintColor_Layer3_Blend,
+	float FinalRender_Lightness_Night, float SeqSwitchFactor, float4 SelectionColor, float KuroPrimDitherEnable,
+	float KuroPrimDitherFade, float KuroGBufferMode, float3 KuroEmissiveScale, float KuroSkipEmissiveScale,
+	float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds, uint LightingChannelMask,
+	out float OpacityMask)
+{
+	return WuwaToonAimisiHeart_Impl(true, false, false, E_Tex_NoiseTex, E_Tex_NoiseTexSampler, FlowLight_ColorTex, FlowLight_ColorTexSampler, FlowLight_NoiseTex, FlowLight_NoiseTexSampler, BaseCol, BaseColSampler, Heart_Mask, Heart_MaskSampler, XingHen_Tex, XingHen_TexSampler, Diamond_MainTex, Diamond_MainTexSampler, Heart_FlowLight_Height, Heart_FlowLight_HeightSampler, StructureNormal_Tex, StructureNormal_TexSampler, Heart_ColorBlend, Heart_ColorBlendSampler, String_Tex, String_TexSampler, HightLight_Normal, HightLight_NormalSampler, UV0, UV1, UV2, UV3, WorldTangent, WorldNormal, TangentSign, TranslatedWorldPosition, WorldPosition, SvPositionXY, TwoSidedSign, ViewRectMin, ViewSizeAndInvSize, GameTime, MaterialTextureMipBias, NormalOverrideParameter, TranslatedWorldToView, TranslatedWorldToCameraView, PreViewTranslation, ClipToView11, KuroView296, (float3)0, (float3)0, PrimWorldToLocal, PrimActorWorldPosition, MPC_GlobalTimeHour, E_Tex_UVSwitch, E_Tex_UseScreenUV, E_Tex_UseTex, E_Tex_RotRow0, E_Tex_RotRow1, E_Tex_ScaleAndOffset, E_Tex_Speed, E_Tex_Color, E_Emission_UseTex, E_FlowEffectEdgeColorSharp, E_Dissolve_Emission, E_Dissolve_EmissionDark, E_FlowEffectEdgeSwitch, E_Dissolve_Multi01, E_Dissolve_UseDissolve, E_FlowEffectEdge_Strength01, E_FlowEffectEdgerRevert, E_Dissolve_Channel, E_UV3Dissolve_Reverse, E_UV3Dissolve_Position, E_UV3Dissolve_PositionRadius, UseShadowLordMaterialDynamic, E_Dissolve_Progress, E_Dissolve_Smooth, UseLocalSpace, UseActorSpace, PortalCenter, PortalAxisN, PortalEdgeNeg, UsePortalDissolve, E_Emission_ColorI, E_Hologram_HightColor, USE_Hologram, E_Hologram_Width, E_Hologram_Width1m, E_Hologram_Color, E_Tex_UseMask, E_Tex_MaskRange, E_Tex_UseSecondNoiseMask, FlowLightTex_UVSwitch, FlowLight_UseScreenUV, FlowLight_RotRow0, FlowLight_RotRow1, FlowLight_UV, FlowLight_UV_Offset2, FlowLight_NoiseStrength0, (float4)0, 0.0, (float4)0, 0.0, FlowLight_BumpHeightRadio, FlowLight_BumpHeight, FlowLight_Refine, FlowLight_ColorTint, FlowEffectEdge_Strength01, FlowLightNoise_Progress1m, Heart_OutLineColor_Layer1, Heart_OutLineColor_Layer2, Heart_OutLineColor_Layer3, HeartTransition_L1, HeartTransition_L2, FlowLightColorBlend, XingHen_BumpOffset, UVScale2, UVPosition2, ShakeNoiseAbs3, ShakeNoiseSatAbs, ShakeNoise03, XingHen_FlowLight_RangeMax, XingHen_FlowLight_RangeMin, XingHenColorShake, HeartTransition_L1_20m, HeartTransition_L2_20m, Diamond_PannerSpeed2, Diamond_Tiling, UseDiamond_UV_Switch, HeartPartten_Intensity, Heart_FlowLight_Offset2, HeartSDF_Bump, ParallaxStepsInv, ParallaxStepsFloor, Heart_FlowLight_SatAbsInt, Heart_FlowLight_Frequency, Heart_Partten_RangeOffset, Heart_FlowLight_RangeMax, Heart_FlowLight_RangeMin, Heart_FlowLight_Int03, StructureNormal_Tilling, StructureNormal_Height, StructureNormal_Intensity, StructureNormal_In_Offset, StructureNormal_In_Intensity, Heart_Layer1_Color1, Heart_Layer1_Color2, Heart_Layer1_DarkColor, Heart_Layer2_Color1, Heart_Layer2_Color2, Heart_Layer2_DarkColor, Heart_Layer3_Color1, Heart_Layer3_Color2, Heart_Layer3_Color3, Heart_Layer3_DarkColor, HeartDarkColor_Int_Layer1, HeartDarkColor_Int_Layer2, HeartDarkColor_Int_Layer3, TexRain_BumpOffset, Quad_Tilling_Bump005, Quad_Speed_Bump, Quad_Intensity, QuadRain_RangeMin_Bump, QuadRain_RangeMax_Bump, StringsRain_Tilling_Bump005, MatrixXY, MatrixXX, String_Speed, Rain_Speed_Bump, Rain_Intensity, HueShiftColor_Offset01, StringsRain_RangeMin_Bump, StringsRain_RangeMax_Bump, StringsRain_Color_Bump, HighLight_NormalTilling, Heart_HighLightSmoothMax, Heart_HighLightSmoothMin, 0.0, 0.0, 0.0, (float2)0, Heart_HighLightIntensity, FinalCol_RangeMax_Layer1, FinalCol_RangeMin_Layer1, FinalCol_Tint_Layer1, HeartTintColor_Layer1_Blend, Heart_FlowLight_Speed, Heart_FlowLight_RangeOffset, Heart_FlowLight_Clip, FinalCol_RangeMax_Layer2, FinalCol_RangeMin_Layer2, FinalCol_Tint_Layer2, HeartTintColor_Layer2_Blend, FinalCol_RangeMax_Layer4, FinalCol_RangeMin_Layer3, FinalCol_Tint_Layer3, HeartTintColor_Layer3_Blend, FinalRender_Lightness_Night, SeqSwitchFactor, SelectionColor, KuroPrimDitherEnable, KuroPrimDitherFade, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, OpacityMask);
+}
+
+// PS f2f1fbd94d (#269144, MI_R2T1AimisiGDMd10011Corn01 = Aemeath GD main mesh), UseFlowLightNoise + Use_GrassHighLight, VS #269125
+FWuwaToonGBuffer WuwaToonAimisiHeartBasePass_FlowNoiseGrassHL(
+	Texture2D E_Tex_NoiseTex, SamplerState E_Tex_NoiseTexSampler, Texture2D FlowLight_ColorTex, SamplerState FlowLight_ColorTexSampler,
+	Texture2D FlowLight_NoiseTex, SamplerState FlowLight_NoiseTexSampler, Texture2D BaseCol, SamplerState BaseColSampler,
+	Texture2D Heart_Mask, SamplerState Heart_MaskSampler, Texture2D XingHen_Tex, SamplerState XingHen_TexSampler,
+	Texture2D Diamond_MainTex, SamplerState Diamond_MainTexSampler, Texture2D Heart_FlowLight_Height, SamplerState Heart_FlowLight_HeightSampler,
+	Texture2D StructureNormal_Tex, SamplerState StructureNormal_TexSampler, Texture2D Heart_ColorBlend, SamplerState Heart_ColorBlendSampler,
+	Texture2D String_Tex, SamplerState String_TexSampler, Texture2D HeightLightTex, SamplerState HeightLightTexSampler,
+	float2 UV0, float2 UV1, float2 UV2, float2 UV3,
+	float3 WorldTangent, float3 WorldNormal, float TangentSign, float3 TranslatedWorldPosition,
+	float3 WorldPosition, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize,
+	float GameTime, float MaterialTextureMipBias, float4 NormalOverrideParameter, float4x4 TranslatedWorldToView,
+	float4x4 TranslatedWorldToCameraView, float3 PreViewTranslation, float ClipToView11, float3 KuroView296,
+	float3 ViewForward, float3 LocalToWorldRow0, float4x4 PrimWorldToLocal, float3 PrimActorWorldPosition,
+	float MPC_GlobalTimeHour, float4 E_Tex_UVSwitch, float E_Tex_UseScreenUV, float E_Tex_UseTex,
+	float2 E_Tex_RotRow0, float2 E_Tex_RotRow1, float4 E_Tex_ScaleAndOffset, float2 E_Tex_Speed,
+	float4 E_Tex_Color, float E_Emission_UseTex, float E_FlowEffectEdgeColorSharp, float3 E_Dissolve_Emission,
+	float3 E_Dissolve_EmissionDark, float E_FlowEffectEdgeSwitch, float E_Dissolve_Multi01, float E_Dissolve_UseDissolve,
+	float E_FlowEffectEdge_Strength01, float E_FlowEffectEdgerRevert, float4 E_Dissolve_Channel, float E_UV3Dissolve_Reverse,
+	float E_UV3Dissolve_Position, float E_UV3Dissolve_PositionRadius, float UseShadowLordMaterialDynamic, float E_Dissolve_Progress,
+	float E_Dissolve_Smooth, float UseLocalSpace, float UseActorSpace, float3 PortalCenter,
+	float3 PortalAxisN, float PortalEdgeNeg, float UsePortalDissolve, float3 E_Emission_ColorI,
+	float3 E_Hologram_HightColor, float USE_Hologram, float E_Hologram_Width, float E_Hologram_Width1m,
+	float3 E_Hologram_Color, float E_Tex_UseMask, float E_Tex_MaskRange, float E_Tex_UseSecondNoiseMask,
+	float4 FlowLightTex_UVSwitch, float FlowLight_UseScreenUV, float2 FlowLight_RotRow0, float2 FlowLight_RotRow1,
+	float4 FlowLight_UV, float2 FlowLight_UV_Offset2, float4 FlowLightNoise_UVSwitch, float FlowLightNoise_UseScreenUV,
+	float4 FlowLightNoiseUV, float FlowLight_NoiseStrength, float FlowLight_BumpHeightRadio, float FlowLight_BumpHeight,
+	float4 FlowLight_Refine, float3 FlowLight_ColorTint, float FlowEffectEdge_Strength01, float FlowLightNoise_Progress1m,
+	float3 Heart_OutLineColor_Layer1, float3 Heart_OutLineColor_Layer2, float3 Heart_OutLineColor_Layer3, float HeartTransition_L1,
+	float HeartTransition_L2, float FlowLightColorBlend, float XingHen_BumpOffset, float2 UVScale2,
+	float2 UVPosition2, float ShakeNoiseAbs3, float ShakeNoiseSatAbs, float ShakeNoise03,
+	float XingHen_FlowLight_RangeMax, float XingHen_FlowLight_RangeMin, float3 XingHenColorShake, float HeartTransition_L1_20m,
+	float HeartTransition_L2_20m, float2 Diamond_PannerSpeed2, float Diamond_Tiling, float UseDiamond_UV_Switch,
+	float HeartPartten_Intensity, float2 Heart_FlowLight_Offset2, float HeartSDF_Bump, float ParallaxStepsInv,
+	float ParallaxStepsFloor, float Heart_FlowLight_SatAbsInt, float Heart_FlowLight_Frequency, float Heart_Partten_RangeOffset,
+	float Heart_FlowLight_RangeMax, float Heart_FlowLight_RangeMin, float Heart_FlowLight_Int03, float StructureNormal_Tilling,
+	float StructureNormal_Height, float StructureNormal_Intensity, float StructureNormal_In_Offset, float StructureNormal_In_Intensity,
+	float3 Heart_Layer1_Color1, float3 Heart_Layer1_Color2, float3 Heart_Layer1_DarkColor, float3 Heart_Layer2_Color1,
+	float3 Heart_Layer2_Color2, float3 Heart_Layer2_DarkColor, float3 Heart_Layer3_Color1, float3 Heart_Layer3_Color2,
+	float3 Heart_Layer3_Color3, float3 Heart_Layer3_DarkColor, float HeartDarkColor_Int_Layer1, float HeartDarkColor_Int_Layer2,
+	float HeartDarkColor_Int_Layer3, float TexRain_BumpOffset, float Quad_Tilling_Bump005, float Quad_Speed_Bump,
+	float Quad_Intensity, float QuadRain_RangeMin_Bump, float QuadRain_RangeMax_Bump, float StringsRain_Tilling_Bump005,
+	float2 MatrixXY, float2 MatrixXX, float String_Speed, float Rain_Speed_Bump,
+	float Rain_Intensity, float HueShiftColor_Offset01, float StringsRain_RangeMin_Bump, float StringsRain_RangeMax_Bump,
+	float3 StringsRain_Color_Bump, float HLScale, float HLmoveSpeed, float HLmoveSpeedNeg,
+	float2 HLposition2, float Heart_HighLightIntensity, float FinalCol_RangeMax_Layer1, float FinalCol_RangeMin_Layer1,
+	float3 FinalCol_Tint_Layer1, float HeartTintColor_Layer1_Blend, float Heart_FlowLight_Speed, float Heart_FlowLight_RangeOffset,
+	float Heart_FlowLight_Clip, float FinalCol_RangeMax_Layer2, float FinalCol_RangeMin_Layer2, float3 FinalCol_Tint_Layer2,
+	float HeartTintColor_Layer2_Blend, float FinalCol_RangeMax_Layer4, float FinalCol_RangeMin_Layer3, float3 FinalCol_Tint_Layer3,
+	float HeartTintColor_Layer3_Blend, float FinalRender_Lightness_Night, float SeqSwitchFactor, float4 SelectionColor,
+	float KuroPrimDitherEnable, float KuroPrimDitherFade, float KuroGBufferMode, float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask, out float OpacityMask)
+{
+	return WuwaToonAimisiHeart_Impl(false, true, true, E_Tex_NoiseTex, E_Tex_NoiseTexSampler, FlowLight_ColorTex, FlowLight_ColorTexSampler, FlowLight_NoiseTex, FlowLight_NoiseTexSampler, BaseCol, BaseColSampler, Heart_Mask, Heart_MaskSampler, XingHen_Tex, XingHen_TexSampler, Diamond_MainTex, Diamond_MainTexSampler, Heart_FlowLight_Height, Heart_FlowLight_HeightSampler, StructureNormal_Tex, StructureNormal_TexSampler, Heart_ColorBlend, Heart_ColorBlendSampler, String_Tex, String_TexSampler, HeightLightTex, HeightLightTexSampler, UV0, UV1, UV2, UV3, WorldTangent, WorldNormal, TangentSign, TranslatedWorldPosition, WorldPosition, SvPositionXY, 0.0, ViewRectMin, ViewSizeAndInvSize, GameTime, MaterialTextureMipBias, NormalOverrideParameter, TranslatedWorldToView, TranslatedWorldToCameraView, PreViewTranslation, ClipToView11, KuroView296, ViewForward, LocalToWorldRow0, PrimWorldToLocal, PrimActorWorldPosition, MPC_GlobalTimeHour, E_Tex_UVSwitch, E_Tex_UseScreenUV, E_Tex_UseTex, E_Tex_RotRow0, E_Tex_RotRow1, E_Tex_ScaleAndOffset, E_Tex_Speed, E_Tex_Color, E_Emission_UseTex, E_FlowEffectEdgeColorSharp, E_Dissolve_Emission, E_Dissolve_EmissionDark, E_FlowEffectEdgeSwitch, E_Dissolve_Multi01, E_Dissolve_UseDissolve, E_FlowEffectEdge_Strength01, E_FlowEffectEdgerRevert, E_Dissolve_Channel, E_UV3Dissolve_Reverse, E_UV3Dissolve_Position, E_UV3Dissolve_PositionRadius, UseShadowLordMaterialDynamic, E_Dissolve_Progress, E_Dissolve_Smooth, UseLocalSpace, UseActorSpace, PortalCenter, PortalAxisN, PortalEdgeNeg, UsePortalDissolve, E_Emission_ColorI, E_Hologram_HightColor, USE_Hologram, E_Hologram_Width, E_Hologram_Width1m, E_Hologram_Color, E_Tex_UseMask, E_Tex_MaskRange, E_Tex_UseSecondNoiseMask, FlowLightTex_UVSwitch, FlowLight_UseScreenUV, FlowLight_RotRow0, FlowLight_RotRow1, FlowLight_UV, FlowLight_UV_Offset2, (float2)0, FlowLightNoise_UVSwitch, FlowLightNoise_UseScreenUV, FlowLightNoiseUV, FlowLight_NoiseStrength, FlowLight_BumpHeightRadio, FlowLight_BumpHeight, FlowLight_Refine, FlowLight_ColorTint, FlowEffectEdge_Strength01, FlowLightNoise_Progress1m, Heart_OutLineColor_Layer1, Heart_OutLineColor_Layer2, Heart_OutLineColor_Layer3, HeartTransition_L1, HeartTransition_L2, FlowLightColorBlend, XingHen_BumpOffset, UVScale2, UVPosition2, ShakeNoiseAbs3, ShakeNoiseSatAbs, ShakeNoise03, XingHen_FlowLight_RangeMax, XingHen_FlowLight_RangeMin, XingHenColorShake, HeartTransition_L1_20m, HeartTransition_L2_20m, Diamond_PannerSpeed2, Diamond_Tiling, UseDiamond_UV_Switch, HeartPartten_Intensity, Heart_FlowLight_Offset2, HeartSDF_Bump, ParallaxStepsInv, ParallaxStepsFloor, Heart_FlowLight_SatAbsInt, Heart_FlowLight_Frequency, Heart_Partten_RangeOffset, Heart_FlowLight_RangeMax, Heart_FlowLight_RangeMin, Heart_FlowLight_Int03, StructureNormal_Tilling, StructureNormal_Height, StructureNormal_Intensity, StructureNormal_In_Offset, StructureNormal_In_Intensity, Heart_Layer1_Color1, Heart_Layer1_Color2, Heart_Layer1_DarkColor, Heart_Layer2_Color1, Heart_Layer2_Color2, Heart_Layer2_DarkColor, Heart_Layer3_Color1, Heart_Layer3_Color2, Heart_Layer3_Color3, Heart_Layer3_DarkColor, HeartDarkColor_Int_Layer1, HeartDarkColor_Int_Layer2, HeartDarkColor_Int_Layer3, TexRain_BumpOffset, Quad_Tilling_Bump005, Quad_Speed_Bump, Quad_Intensity, QuadRain_RangeMin_Bump, QuadRain_RangeMax_Bump, StringsRain_Tilling_Bump005, MatrixXY, MatrixXX, String_Speed, Rain_Speed_Bump, Rain_Intensity, HueShiftColor_Offset01, StringsRain_RangeMin_Bump, StringsRain_RangeMax_Bump, StringsRain_Color_Bump, 0.0, 0.0, 0.0, HLScale, HLmoveSpeed, HLmoveSpeedNeg, HLposition2, Heart_HighLightIntensity, FinalCol_RangeMax_Layer1, FinalCol_RangeMin_Layer1, FinalCol_Tint_Layer1, HeartTintColor_Layer1_Blend, Heart_FlowLight_Speed, Heart_FlowLight_RangeOffset, Heart_FlowLight_Clip, FinalCol_RangeMax_Layer2, FinalCol_RangeMin_Layer2, FinalCol_Tint_Layer2, HeartTintColor_Layer2_Blend, FinalCol_RangeMax_Layer4, FinalCol_RangeMin_Layer3, FinalCol_Tint_Layer3, HeartTintColor_Layer3_Blend, FinalRender_Lightness_Night, SeqSwitchFactor, SelectionColor, KuroPrimDitherEnable, KuroPrimDitherFade, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, OpacityMask);
+}
+// ---- END GENERATED M_Char_Aimisi_Heart ----
+
+#endif // WUWA_TOON_BASEPASS_AIMISI_USH

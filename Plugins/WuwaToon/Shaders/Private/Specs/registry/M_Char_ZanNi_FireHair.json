@@ -1,0 +1,225 @@
+{
+ "root_material": "M_Char_ZanNi_FireHair",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "Char_ZanNi_FireHair_TwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "7fcacad8abef4b1bb9a01295722eb8134e29575d"
+    ],
+    "base_pass_vs_hash": [
+     "38610ca4b813b48e1fda97586557eb9aba0ebff3"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/zani/results_multi_final.json summary.zani_7fcaca (33 runs, o0 540672/540672 o1 540672/540672 o2 540672/540672 o3 540672/540672 o6 540672/540672 bit-exact); VS #163622 ported_wpo_verified (fire-hair WPO ported as WuwaToonZaniFireHairWPO: SV_POSITION bit-exact (round3/zani/results_vs_wpo_toon_zani.json, neg: results_vs_wpo_toon_zani_neg1ulp.json); E_Hologram / E_Motion WPO block gated off at every roster MI (USE Hologram = 0, E_Motion_Offset.w = 0); TEXCOORD2 symbolically identical to the verified Body VS #35700 (round3/zani/vs_status_zani.json))",
+   "ps_archive_index": 163643,
+   "vs_archive_index": [
+    163622
+   ],
+   "vs_status": {
+    "38610ca4b813b48e1fda97586557eb9aba0ebff3": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 2,
+   "roster_slot_uses": 5,
+   "entities": [
+    "character:Galbrena",
+    "character:Zani",
+    "skin:Daybreak Horizon",
+    "skin:Hunt Unending"
+   ],
+   "example_mis": [
+    "MI_ECalbrenaChimeraMd10011Hair",
+    "MI_R2T1ZanniMd10011Hair1"
+   ],
+   "notes": "MIs: MI_ECalbrenaChimeraMd10011Hair, MI_R2T1ZanniMd10011Hair1"
+  },
+  {
+   "spec": "Char_ZanNi_FireHair_OneSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "bb9e952ef45817036e80442b0146d8b56e70104a"
+    ],
+    "base_pass_vs_hash": [
+     "38610ca4b813b48e1fda97586557eb9aba0ebff3"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/zani/results_multi_final.json summary.zani_bb9e95 (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #163622 ported_wpo_verified (fire-hair WPO ported as WuwaToonZaniFireHairWPO: SV_POSITION bit-exact (round3/zani/results_vs_wpo_toon_zani.json, neg: results_vs_wpo_toon_zani_neg1ulp.json); E_Hologram / E_Motion WPO block gated off at every roster MI (USE Hologram = 0, E_Motion_Offset.w = 0); TEXCOORD2 symbolically identical to the verified Body VS #35700 (round3/zani/vs_status_zani.json))",
+   "ps_archive_index": 295906,
+   "vs_archive_index": [
+    163622
+   ],
+   "vs_status": {
+    "38610ca4b813b48e1fda97586557eb9aba0ebff3": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 3,
+   "entities": [
+    "character:Zani",
+    "skin:Daybreak Horizon"
+   ],
+   "example_mis": [
+    "MI_R2T1ZanniMd10011Bangs1"
+   ],
+   "notes": "MIs: MI_R2T1ZanniMd10011Bangs1"
+  },
+  {
+   "spec": "Char_ZanNi_FireHair_OneSidedHETA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "35ea3ef57fdfa2af4f379fe2d99346c54c347412"
+    ],
+    "base_pass_vs_hash": [
+     "38610ca4b813b48e1fda97586557eb9aba0ebff3"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/zani/results_multi_final.json summary.zani_35ea3e (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #163622 ported_wpo_verified (fire-hair WPO ported as WuwaToonZaniFireHairWPO: SV_POSITION bit-exact (round3/zani/results_vs_wpo_toon_zani.json, neg: results_vs_wpo_toon_zani_neg1ulp.json); E_Hologram / E_Motion WPO block gated off at every roster MI (USE Hologram = 0, E_Motion_Offset.w = 0); TEXCOORD2 symbolically identical to the verified Body VS #35700 (round3/zani/vs_status_zani.json))",
+   "ps_archive_index": 286798,
+   "vs_archive_index": [
+    163622
+   ],
+   "vs_status": {
+    "38610ca4b813b48e1fda97586557eb9aba0ebff3": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 3,
+   "entities": [
+    "character:Zani",
+    "skin:Daybreak Horizon"
+   ],
+   "example_mis": [
+    "MI_R2T1ZanniMd10011Bangs_HETA2"
+   ],
+   "notes": "MIs: MI_R2T1ZanniMd10011Bangs_HETA2"
+  },
+  {
+   "spec": "Char_ZanNi_FireHair_TwoSidedShadowLord.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "9a8fcd012454d1e20a5d6be74d407f6cd58f4b8a"
+    ],
+    "base_pass_vs_hash": [
+     "0d6678f2ab6fa7c26f3e2dc92fecc69a158ff5be"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/zani/results_multi_final.json summary.zani_9a8fcd (33 runs, o0 540672/540672 o1 540672/540672 o2 540672/540672 o3 540672/540672 o6 540672/540672 bit-exact); VS #56022 ported_wpo_verified (fire-hair WPO ported as WuwaToonZaniFireHairWPO: SV_POSITION bit-exact (round3/zani/results_vs_wpo_toon_zani.json, neg: results_vs_wpo_toon_zani_neg1ulp.json); E_Hologram / E_Motion WPO block gated off at every roster MI (USE Hologram = 0, E_Motion_Offset.w = 0); TEXCOORD2 symbolically identical to the verified Body VS #35700 (round3/zani/vs_status_zani.json))",
+   "ps_archive_index": 327529,
+   "vs_archive_index": [
+    56022
+   ],
+   "vs_status": {
+    "0d6678f2ab6fa7c26f3e2dc92fecc69a158ff5be": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 1,
+   "entities": [
+    "skin:Downtown Repose"
+   ],
+   "example_mis": [
+    "MI_R2T1ZanniMd20011Hair1"
+   ],
+   "notes": "MIs: MI_R2T1ZanniMd20011Hair1"
+  },
+  {
+   "spec": "Char_ZanNi_FireHair_OneSidedShadowLord.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6d41a98a27cb83f0f3fa4371835a7eae9d1097eb"
+    ],
+    "base_pass_vs_hash": [
+     "0d6678f2ab6fa7c26f3e2dc92fecc69a158ff5be"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/zani/results_multi_final.json summary.zani_6d41a9 (33 runs, o0 540672/540672 o1 540672/540672 o2 540672/540672 o3 540672/540672 o6 540672/540672 bit-exact); VS #56022 ported_wpo_verified (fire-hair WPO ported as WuwaToonZaniFireHairWPO: SV_POSITION bit-exact (round3/zani/results_vs_wpo_toon_zani.json, neg: results_vs_wpo_toon_zani_neg1ulp.json); E_Hologram / E_Motion WPO block gated off at every roster MI (USE Hologram = 0, E_Motion_Offset.w = 0); TEXCOORD2 symbolically identical to the verified Body VS #35700 (round3/zani/vs_status_zani.json))",
+   "ps_archive_index": 56050,
+   "vs_archive_index": [
+    56022
+   ],
+   "vs_status": {
+    "0d6678f2ab6fa7c26f3e2dc92fecc69a158ff5be": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 1,
+   "entities": [
+    "skin:Downtown Repose"
+   ],
+   "example_mis": [
+    "MI_R2T1ZanniMd20011Bangs1"
+   ],
+   "notes": "MIs: MI_R2T1ZanniMd20011Bangs1"
+  },
+  {
+   "spec": "Char_ZanNi_FireHair_OneSidedHETAShadowLord.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "faa84b7e7763ce6efa338a462c6a642530080a94"
+    ],
+    "base_pass_vs_hash": [
+     "0d6678f2ab6fa7c26f3e2dc92fecc69a158ff5be"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/zani/results_multi_final.json summary.zani_faa84b (33 runs, o0 540672/540672 o1 540672/540672 o2 540672/540672 o3 540672/540672 o6 540672/540672 bit-exact); VS #56022 ported_wpo_verified (fire-hair WPO ported as WuwaToonZaniFireHairWPO: SV_POSITION bit-exact (round3/zani/results_vs_wpo_toon_zani.json, neg: results_vs_wpo_toon_zani_neg1ulp.json); E_Hologram / E_Motion WPO block gated off at every roster MI (USE Hologram = 0, E_Motion_Offset.w = 0); TEXCOORD2 symbolically identical to the verified Body VS #35700 (round3/zani/vs_status_zani.json))",
+   "ps_archive_index": 94449,
+   "vs_archive_index": [
+    56022
+   ],
+   "vs_status": {
+    "0d6678f2ab6fa7c26f3e2dc92fecc69a158ff5be": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 1,
+   "entities": [
+    "skin:Downtown Repose"
+   ],
+   "example_mis": [
+    "MI_R2T1ZanniMd20011Bangs_HETA2"
+   ],
+   "notes": "MIs: MI_R2T1ZanniMd20011Bangs_HETA2"
+  },
+  {
+   "spec": "Char_ZanNi_FireHair_TwoSidedFireCore.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "94ecc4f9c688d8469c765e2bbe36a0b5803eaf8d"
+    ],
+    "base_pass_vs_hash": [
+     "fa0ca8e0f8bd7b611bb303d9da69b07ddfba6000"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/zani/results_multi_final.json summary.zani_94ecc4 (33 runs, o0 540672/540672 o1 540672/540672 o2 540672/540672 o3 540672/540672 o6 540672/540672 bit-exact); VS #27986 ported_wpo_verified (fire-hair WPO ported as WuwaToonZaniFireHairWPO: SV_POSITION bit-exact (round3/zani/results_vs_wpo_toon_zani.json, neg: results_vs_wpo_toon_zani_neg1ulp.json); E_Hologram / E_Motion WPO block gated off at every roster MI (USE Hologram = 0, E_Motion_Offset.w = 0); TEXCOORD2 symbolically identical to the verified Body VS #35700 (round3/zani/vs_status_zani.json))",
+   "ps_archive_index": 27953,
+   "vs_archive_index": [
+    27986
+   ],
+   "vs_status": {
+    "fa0ca8e0f8bd7b611bb303d9da69b07ddfba6000": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Lupa",
+    "skin:Wildfire"
+   ],
+   "example_mis": [
+    "MI_R2T1LupaMd10011Tail"
+   ],
+   "notes": "MIs: MI_R2T1LupaMd10011Tail"
+  }
+ ]
+}

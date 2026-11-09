@@ -1,0 +1,42 @@
+// WuwaToonBasePass_OutlineLite.ush — M_CharacterOutline_Lite vertex shader (round 4, research/roster/Port_CharCom_Coverage.md
+// "Round 4 — eye/outline"): VS __71534 (MI_R2T1ShenXinMd10011Bangs_OL / Hair_OL; UseCommonWPO + UseGhost + UseIDMask).
+// The PS __71516 is WuwaToonOutlineBasePass_MainTexUV4Blend (WuwaToonBasePass_OutlineVS2.ush, verified in round 3).
+//
+// = the ghost WPO (WuwaToonBasePass_OutlineGhost.ush) with
+//   * the wave weighted by TypeMask.SampleLevel(UV0, 0).b — a VERTEX-SHADER texture fetch (l.401), instead of VertexColor.r;
+//   * the "common WPO": m = smoothstep(saturate((UV2.y - WPOMask_Offset) / (WPOMask_Width + 0.01))) (min 1),
+//       a = m + m * SinWaveAmount * sin(2pi * SinWaveSize * (2 * UV2.y - 0.819047 * GameTime * SpeedControl)),
+//       b = a + m * ExpendAmount,  n = lerp(b, a * VertexNormalWS, NormalOffsetMix_Amount),
+//       x = m * SinClothWaveInt * sin(2pi * (localX / mean(PreSkinnedLocalBounds extent) - 0.819047 * GameTime * SpeedControl)),
+//       added as (x, 0, 0) + n when CommonWPOMin <= 5.5 and CommonWPOMax >= 4.5 (l.414-461).
+//   localX = (absolute world position * WorldToLocal).x, absolute = TranslatedWorldPosition - PreViewTranslation (as Kuro).
+// Generator inputs beyond the outline WPO set: TypeMask texture + sampler sampled in the VS (UE: a Texture Object
+// parameter feeding the WPO Custom node; SampleLevel only), UV0 / UV2.y / UV3.y in the VS, WorldToLocal column x
+// (Primitive[6..9].x), PreSkinnedLocalBounds, ObjectRadius, LocalToWorld rows and View.GameTime.
+#pragma once
+
+#include "WuwaToonBasePass_OutlineGhost.ush"
+
+float3 WuwaToonOutlineWPO_Lite(Texture2D TypeMask, SamplerState TypeMaskSampler, float2 UV0, float2 UV1, float UV2Y, float UV3Y,
+	float3 VertexTangentWS, float3 VertexBitangentWS, float3 VertexNormalWS, float4 VertexColor,
+	float3 ObjectAxisScale, float3 TranslatedWorldPosition, float3 TranslatedWorldCameraOrigin,
+	float4x4 TranslatedWorldToClip, float4x4 ClipToTranslatedWorld, float3 PreViewTranslation,
+	float ClipToView00, float ClipToView11, float4 ViewSizeAndInvSize, float KuroOutlinePixelScale,
+	float3 LocalToWorldRow0, float3 LocalToWorldRow1, float3 LocalToWorldRow2, float4 WorldToLocalColX, float ObjectRadius,
+	float3 PreSkinnedLocalBoundsMin, float3 PreSkinnedLocalBoundsMax, float GameTime,
+	float UseSkinBoundControl, float VertexGMinWidthFactor, float OutlineClipWidth, float OutlineHoldDistance,
+	float InnerOutlineMulti, float InnerOutlineOffset, float Ghost_WPOWavySize, float Ghost_WPOTimeSpeed, float Ghost_WPOsize,
+	float WPOMask_Offset, float WPOMask_Width, float SpeedControl, float SinWaveSize, float SinWaveAmount, float ExpendAmount,
+	float NormalOffsetMix_Amount, float SinClothWaveInt, float CommonWPOMin, float CommonWPOMax,
+	float KuroEnablePrimitiveOffset, float4 KuroPrimitiveOffset)
+{
+	precise float wave = TypeMask.SampleLevel(TypeMaskSampler, UV0, 0.0).b;                 // l.401 (t3.xzyw -> .y = B)
+	return WuwaToonOutlineWPOGhost_Impl(true, UV1, VertexColor, UV3Y, VertexTangentWS, VertexBitangentWS, VertexNormalWS,
+		ObjectAxisScale, TranslatedWorldPosition, TranslatedWorldCameraOrigin, TranslatedWorldToClip, ClipToTranslatedWorld,
+		PreViewTranslation, ClipToView00, ClipToView11, ViewSizeAndInvSize, KuroOutlinePixelScale,
+		LocalToWorldRow0, LocalToWorldRow1, LocalToWorldRow2, ObjectRadius, PreSkinnedLocalBoundsMin, PreSkinnedLocalBoundsMax, GameTime,
+		UseSkinBoundControl, VertexGMinWidthFactor, OutlineClipWidth, OutlineHoldDistance, InnerOutlineMulti, InnerOutlineOffset,
+		Ghost_WPOWavySize, Ghost_WPOTimeSpeed, Ghost_WPOsize, KuroEnablePrimitiveOffset, KuroPrimitiveOffset,
+		wave, UV2Y, WorldToLocalColX, WPOMask_Offset, WPOMask_Width, SpeedControl, SinWaveSize, SinWaveAmount, ExpendAmount,
+		NormalOffsetMix_Amount, SinClothWaveInt, CommonWPOMin, CommonWPOMax);
+}

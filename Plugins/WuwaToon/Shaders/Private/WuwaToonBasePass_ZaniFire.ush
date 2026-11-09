@@ -1,0 +1,1134 @@
+// WuwaToonBasePass_ZaniFire.ush — Kuro "fire hair" material set (Zani + skin, Lupa tail, Galbrena chimera):
+//   M_Distortion_ZanniFireHair  (translucent unlit fire shell, PS f1d0fdf07f #168383, VS f8fbfc981d #168384 with a WPO)
+//   M_FaceShadowMesh_ZanniFireHair (masked ToonFace shadow mesh, PS cdada70f0b #299871)
+//   M_Char_ZanNi_FireHair       (masked toon hair / bangs / tail / head, 8 PS; one Impl with compile-time switches)
+// research/roster/Port_Weapons_Specials.md (round 3, batch zani). Line refs D### / S### / H### = asm_hex line of the
+// original PS (evidence/roster/shadermaps/weapons/asm_hex/<index>_<hash>.asm.txt), V### = of VS #168384.
+// New file; it only #includes verified headers read-only (WeaponShared -> WriteStencil -> WuwaToonBasePassShared).
+#pragma once
+#ifndef WUWA_ZANIFIRE_USH
+#define WUWA_ZANIFIRE_USH
+
+#include "WuwaToonBasePass_WeaponShared.ush"   // FWuwaFXOutput, WuwaWSmoothStep, WuwaPrimDitherClip, toon GBuffer helpers
+
+// =====================================================================================================================
+// M_Distortion_ZanniFireHair (PS f1d0fdf07f, #168383; MIs MI_R2T1ZanniMd10011Hair1_FX, MI_R2T1ZanniMd20011Hair1_FX,
+// MI_R2T1LupaMd10011Tail_FX). Translucent unlit, two-sided. Material CB = CB3 (b0 View, b1 TranslucentBasePass,
+// b2 Primitive, b3 Material). Kuro's engine tail (primitive fade, fog, emissive scale, OOB, effect grading) is not part
+// of the port (reproduced in tools/shaderdiff/weapons/hlsl/kuro_tail_zani.hlsli for the diff only).
+// =====================================================================================================================
+
+// Kuro 3x3 screen dither (E_Dither, D45-58): immediate-CB table k/9 indexed by (x mod 3) * 3 + (y mod 3) of
+// int(SvPosition.xy - ViewRectMin) (C truncating modulo, as the original's udiv/ineg sequence).
+static const float kWuwaZaniDither3x3[9] = { 0.0, 0.777777791, 0.333333343, 0.666666687, 0.555555582,
+                                             0.222222224, 0.444444448, 0.111111112, 0.888888896 };
+
+float WuwaZaniDither3x3(float2 SvPositionXY, float2 ViewRectMin, float E_Dither_UseDither, float E_Dither_UseDither2,
+	float E_Dither_DitherValue, float E_Dither_DitherValue_MainPass, float E_Dither_DitherValue2)
+{
+	float v = min(min(E_Dither_DitherValue2, min(E_Dither_DitherValue_MainPass, E_Dither_DitherValue)), 1.0);
+	int2 p = (int2)(SvPositionXY - ViewRectMin);
+	uint2 r = (uint2)abs(p) % 3u;                                     // C truncating modulo written on uints (fxc X3556)
+	int mx = ((asuint(p.x) & 0x80000000u) != 0u) ? -(int)r.x : (int)r.x;
+	int my = ((asuint(p.y) & 0x80000000u) != 0u) ? -(int)r.y : (int)r.y;
+	int i = max(mx * 3 + my, 0);
+	float d = saturate(v * 2.0 - kWuwaZaniDither3x3[i]) + asfloat(0xBA719608u);       // - 0.000922
+	return (asfloat(0x3E99999Au) >= max(E_Dither_UseDither, E_Dither_UseDither2)) ? asfloat(0x3F2B851Eu) : d;   // 0.3 / 0.67
+}
+
+// D7-63. BaseTex.r is the fire intensity (emissive = lerp(BaseTex.r, SelectionColor.rgb, SelectionColor.a)); the opacity
+// fades the shell toward UV0.y = 1 and along a 4-period cosine in UV0.x, gated by the Mask texture (UV2) through a
+// smoothstep(MaskControl.x, MaskControl.x + MaskControl.y), then min() with the E_Dither value. MaskControl_End is the
+// CPU preshader MaskControl.x + MaskControl.y (spec uniform_expression; fxc would fold (x + y) - x to y in the shader).
+FWuwaFXOutput WuwaFXZaniFireDistortion(Texture2D BaseTex, SamplerState BaseTexSampler, Texture2D Mask, SamplerState MaskSampler,
+	float2 UV0, float2 UV2, float2 SvPositionXY, float2 ViewRectMin, float GameTime, float MaterialTextureMipBias,
+	float4 BaseTexSW1, float4 MaskTexSW1, float4 MaskControl, float MaskControl_End, float4 SelectionColor, float Opacity,
+	float E_Dither_UseDither, float E_Dither_UseDither2, float E_Dither_DitherValue, float E_Dither_DitherValue_MainPass,
+	float E_Dither_DitherValue2)
+{
+	FWuwaFXOutput X;
+	// D13-18: BaseTex panner
+	float2 buv = (UV0 * BaseTexSW1.xy) * float2(0.5, 3.0) + GameTime * BaseTexSW1.zw;
+	float B = BaseTex.SampleBias(BaseTexSampler, buv, MaterialTextureMipBias).r;
+	X.Emissive = SelectionColor.a * (SelectionColor.rgb - B) + B;
+	// D19-35: dither
+	float d = WuwaZaniDither3x3(SvPositionXY, ViewRectMin, E_Dither_UseDither, E_Dither_UseDither2, E_Dither_DitherValue,
+		E_Dither_DitherValue_MainPass, E_Dither_DitherValue2);
+	// D36-63: mask
+	float a = B * Opacity;
+	float2 muv = (UV2 * MaskTexSW1.xy) * float2(0.5, 3.0) + GameTime * MaskTexSW1.zw;
+	float M = Mask.SampleBias(MaskSampler, muv, MaterialTextureMipBias).r;
+	float s = 1.0 - (cos(frac(UV0.x * 4.0) * asfloat(0x40C90FDBu)) + 0.5) * 0.5;
+	float v = 1.0 - saturate(UV0.y);
+	float w = v * s;
+	float t = WuwaWSmoothStep(MaskControl.x, MaskControl_End, w * (s * v + M));   // End = preshader MaskControl.x + .y
+	X.Opacity = max(min(a * t, d), 0.0);
+	return X;
+}
+
+// VS #168384 WPO (V102-128), always on at the three roster MIs (ExpandAmount 50 / 40, NoiseDisplaceAmount 3 / 5,
+// SineWaveAmount 10): the shell expands along the tangent by (UV2.x - 0.5) and along the normal with a FlowTex noise and
+// a travelling sine, weighted by saturate(UV0.y)^2:
+//   q = saturate(UV0.y)^2
+//   n = (FlowTex(UV0 * (0.07, 1) * WPOTexSW.xy + (WPOTexSW.z, 0) + GameTime * (0, WPOTexSW.w)).r - 0.5) * 2 * NoiseDisplaceAmount * q
+//   w = n + sin((2 UV0.y - 0.819 GameTime) * 2pi) * q * SineWaveAmount
+//   o = TangentToWorld * (UV2.x - 0.5, 0, 0) * (q * ExpandAmount + w);  WPO = lerp(o, WorldNormal * w, 0.5)
+// All arithmetic is `precise` like the original (the x * 0 terms of the material's tangent transform are kept). The
+// FlowTex fetch is a SampleLevel at LOD -1 (the material's vertex-shader texture sample, as compiled).
+// UE contract: connect the result to World Position Offset (absolute offset added to the translated world position).
+float3 WuwaFXZaniFireWPO(Texture2D FlowTex, SamplerState FlowTexSampler, float2 UV0, float UV2X,
+	float3 WorldTangent, float3 WorldBitangent, float3 WorldNormal, float GameTime,
+	float4 WPOTexSW, float NoiseDisplaceAmount, float SineWaveAmount, float ExpandAmount)
+{
+	precise float q = saturate(UV0.y);
+	q = q * q;
+	precise float2 tt = GameTime * float2(0.0, WPOTexSW.w);
+	precise float3 u = UV0.xyy * float3(asfloat(0x3D8F5C29u), 1.0, 2.0);
+	precise float2 su = u.xy * WPOTexSW.xy;
+	su = su + float2(WPOTexSW.z, 0.0);
+	precise float2 fuv = tt + su;
+	precise float n = FlowTex.SampleLevel(FlowTexSampler, fuv, -1.0).r;
+	n = n + -0.5;
+	n = n * 2.0;
+	n = n * NoiseDisplaceAmount;
+	n = q * n;
+	precise float sw = GameTime * asfloat(0xBF51AD10u);
+	sw = u.z + sw;
+	sw = sw * asfloat(0x40C90FDBu);
+	sw = sin(sw);
+	sw = q * sw;
+	sw = sw * SineWaveAmount;
+	precise float w = n + sw;
+	precise float e = q * ExpandAmount;
+	e = e + w;
+	precise float t = UV2X + -0.5;
+	precise float3 v = WorldBitangent * 0.0;
+	v = v + WorldTangent * t;
+	v = v + WorldNormal * 0.0;
+	precise float3 o = v * e;
+	precise float3 m = WorldNormal * w;
+	m = m - o;
+	m = m * 0.5;
+	o = o + m;
+	return o;
+}
+
+// =====================================================================================================================
+// Fire-hair opacity core shared by M_Char_ZanNi_FireHair (H### = PS 163643 7fcacad8ab) and M_FaceShadowMesh_ZanniFireHair
+// (S### = PS 299871 cdada70f0b). Masked (BLEND_Masked): Kuro folds the 0.3333 clip into the opacity
+// (mad(mask, heta, -0.3333)), so the entry returns OpacityMask = mask * heta (the UE material clips at 0.3333) and clips
+// the Kuro primitive dither inside.
+//   VertexColor.x = group id (4 bands [0,0.1) [0.1,0.2) [0.2,0.3) [0.3,0.4) select the Group_* vector component; outside -> 0;
+//                   the IDButtomNoiseStrength select has no 0.2..0.3 case in the compiled graph -> 0 there)
+//   VertexColor.y <= 0 -> "tail" (Tail_* parameters, GBuffer id 12 instead of 15), VertexColor.z = random phase,
+//   VertexColor.w = HETA alpha (lerp(HETA_OpacityMulti, 1, a)).
+// UV2 = texcoord 2 (Kuro TEXCOORD1.xy): x = around the strand (cosine bands), y = root (0) .. tip (1).
+// Uniform expressions (CPU preshaders; fxc would fold "(a + b) - a" to "b"): <X>_End = start + width, *Outer* =
+// Tail_DissolveInnerRange - Tail_DissolveOuterRange (+ Tail_DissolveWidth).
+// =====================================================================================================================
+float WuwaZaniBandSel(float4 G, bool4 b, const bool bNoZ)
+{
+	float r = b.x ? G.x : 0.0;
+	r = b.y ? G.y : r;
+	if (!bNoZ)
+		r = b.z ? G.z : r;
+	r = b.w ? G.w : r;
+	return r;
+}
+
+struct FWuwaZaniFireCore
+{
+	float Tail;          // VertexColor.y <= 0
+	float Time;          // GameTime + TimeBiasAmount
+	float2 UV2S;         // UV2 * (0.5, 3) + VertexColor.z * RandomAmount
+	float Dissolve;      // DissolveTex.r (dissolve UV)
+	float Spark;         // DissolveTex.r (spark UV)
+	float CosF;          // (1 - (cos(2pi UV2.x) + 1) / 2)^2 * (1 - saturate(UV2.y)^2)
+	float SatV2;         // saturate(UV2.y)^2
+	float Sp2;           // spark smoothstep (before min)
+	float4 TM2;          // TypeMask at the flow-displaced UV0 (.z black floor, .w id mask)
+	float BM0;           // (1 - IDButtomNoiseStrength * SatV2) * TM2.w
+	float A;             // saturate(BM0 * (Dissolve + DissolveMaskStrength))
+	float TailAlpha;     // fresnel / inner-outer ring alpha
+	float Op;            // opacity before the TAA dither
+	float DUVS;          // Group_DissolveUVStrength (selected)
+	float BCR;           // Group_BlackColorRange (selected)
+	float CME;           // Group_ColorMaskExtra (selected)
+	float OSF;           // pow(UV2.y, TailBlackMaskRange) (guarded)
+};
+
+FWuwaZaniFireCore WuwaZaniFireCore(const bool bFaceShadow,
+	Texture2D DissolveTex, SamplerState DissolveTexSampler, Texture2D TypeMask, SamplerState TypeMaskSampler,
+	Texture2D FlowTex, SamplerState FlowTexSampler,
+	float2 UV0, float2 UV2, float4 VertexColor, float3 CameraVector, float3 FresnelNormal, float GameTime, float MaterialTextureMipBias,
+	float TimeBiasAmount, float SpeedControl, float RandomAmount, float4 DissolveTexSW, float4 Tail_DissolveTexSWAndBlackContril,
+	float4 Group_DissolveTexSpeed, float4 Group_DissolvePos, float4 Group_ColorMaskExtra, float4 Group_DissolveUVStrength,
+	float4 Group_IDNoiseUVStrength, float4 Group_IDButtomNoiseStrength, float4 Group_BlackColorRange,
+	float4 NoiseSparkTexSW, float4 NoiseSparkColorMaskControl, float NoiseSparkColorAdd_W, float4 WPOTexSW, float4 IDNoiseUVControl,
+	float DissolveMaskStrength, float DissolveWidth, float OverallOpacity, float Tail_FresnelPos, float Tail_FresnelEnd,
+	float Tail_DissolveInnerRange, float Tail_DissolveInnerEnd, float Tail_DissolveOuterStart, float Tail_DissolveOuterEnd,
+	float Tail_DissolveOpacityAdd, float TailBlackMaskRange)
+{
+	FWuwaZaniFireCore F;
+	// H74-104 / S48-70: group bands on VertexColor.x
+	float c = VertexColor.x;
+	bool4 b = bool4(c >= 0.0 && c < asfloat(0x3DCCCCCDu), c >= asfloat(0x3DCCCCCDu) && c < asfloat(0x3E4CCCCDu),
+	                c >= asfloat(0x3E4CCCCDu) && c < asfloat(0x3E99999Au), c >= asfloat(0x3E99999Au) && c < asfloat(0x3ECCCCCDu));
+	float dts  = WuwaZaniBandSel(Group_DissolveTexSpeed, b, false);
+	float dpos = WuwaZaniBandSel(Group_DissolvePos, b, false);
+	F.CME      = WuwaZaniBandSel(Group_ColorMaskExtra, b, false);
+	F.DUVS     = WuwaZaniBandSel(Group_DissolveUVStrength, b, false);
+	float idns = WuwaZaniBandSel(Group_IDNoiseUVStrength, b, false);
+	float idbn = WuwaZaniBandSel(Group_IDButtomNoiseStrength, b, true);
+	F.BCR      = WuwaZaniBandSel(Group_BlackColorRange, b, false);
+	// H86, H105-117 / S71-82: dissolve UV
+	F.Time = GameTime + TimeBiasAmount;
+	F.Tail = (0.0 >= VertexColor.y) ? 1.0 : 0.0;
+	F.UV2S = UV2 * float2(0.5, 3.0) + VertexColor.z * RandomAmount;
+	float2 sw = F.Tail * (Tail_DissolveTexSWAndBlackContril.xy - DissolveTexSW.xy) + DissolveTexSW.xy;
+	float2 duv = F.Time * float2(DissolveTexSW.z * SpeedControl, dts * SpeedControl) + F.UV2S * (F.DUVS * sw);
+	F.Dissolve = DissolveTex.SampleBias(DissolveTexSampler, duv, MaterialTextureMipBias).r;
+	// H128-133 / S93-104 cosine bands
+	float cp = cos(UV2.x * asfloat(0x40C90FDBu)) + 1.0;
+	float sv = saturate(UV2.y);
+	F.SatV2 = sv * sv;
+	float cf = 1.0 - cp * 0.5;
+	cf = cf * cf;
+	F.CosF = cf * (1.0 - sv * sv);
+	// H162-188 / S129-150: spark
+	float2 suv = F.UV2S * (F.DUVS * NoiseSparkTexSW.xy) + F.Time * (SpeedControl * NoiseSparkTexSW.zw);
+	F.Spark = DissolveTex.SampleBias(DissolveTexSampler, suv, MaterialTextureMipBias).r;
+	float sp1 = min(WuwaWSmoothStep(NoiseSparkColorMaskControl.w, 0.5, F.CosF * F.SatV2), 1.0);
+	F.Sp2 = WuwaWSmoothStep(NoiseSparkColorAdd_W, 1.0, saturate(F.Spark + 0.5) * sp1);
+	// H334-345 / S83-104: flow-displaced TypeMask
+	float2 fuv = float2((UV2.x * WPOTexSW.x) * asfloat(0x3D8F5C29u), UV2.y * WPOTexSW.y) + float2(WPOTexSW.z, 0.0);
+	fuv = VertexColor.z * RandomAmount + fuv;
+	fuv = F.Time * (float2(0.0, WPOTexSW.w) * SpeedControl) + fuv;
+	float fl = FlowTex.SampleBias(FlowTexSampler, fuv, MaterialTextureMipBias).r;
+	fl = fl * (IDNoiseUVControl.y - IDNoiseUVControl.x) + IDNoiseUVControl.x;
+	fl = F.CosF * fl;
+	F.TM2 = TypeMask.SampleLevel(TypeMaskSampler, float2(fl * idns + UV0.x, UV0.y), MaterialTextureMipBias);
+	F.BM0 = (idbn * -F.SatV2 + 1.0) * F.TM2.w;
+	F.A = saturate(F.BM0 * (F.Dissolve + DissolveMaskStrength));
+	// H352-380 / S151-176: fresnel ring
+	float fr = min(WuwaWSmoothStep(Tail_FresnelPos, Tail_FresnelEnd, dot(CameraVector, FresnelNormal)), 1.0);
+	float inner = WuwaWSmoothStep(Tail_DissolveInnerRange, Tail_DissolveInnerEnd, F.A * fr);
+	float outer = WuwaWSmoothStep(Tail_DissolveOuterStart, Tail_DissolveOuterEnd, F.A * fr);
+	F.TailAlpha = saturate(((outer - inner) * 0.5 + inner) + Tail_DissolveOpacityAdd);
+	F.OSF = (asfloat(0x33000002u) >= UV2.y) ? 0.0 : exp2(log2(UV2.y) * TailBlackMaskRange);
+	// H425-442 / S105-128, S177-179: dissolve edge + spark, tail lerp
+	float dm = saturate((F.A - dpos) * (1.0 / DissolveWidth));
+	dm = min((dm * dm) * (dm * -2.0 + 3.0), 1.0);
+	float e = saturate((dm * ((F.Dissolve - UV2.y) + 2.0) + asfloat(0xBF266666u)) * asfloat(0x409FFFFEu));   // -0.65, 4.999999
+	float op = (e * -2.0 + 3.0) * (e * e) + min(F.Sp2, 1.0);
+	F.Op = F.Tail * (F.TailAlpha - op * OverallOpacity) + op * OverallOpacity;
+	return F;
+}
+
+// H443-458 / S180-191: Kuro TAA screen dither ((x + 2y + TAA index) mod 5 + DitherTex(screen / 64)) / 6, - 0.5, then
+// * lerp(HETA_OpacityMulti, 1, VertexColor.a).
+float WuwaZaniFireOpacityMask(Texture2D DitherTex, SamplerState DitherTexSampler, float Op, float2 SvPositionXY, float2 ViewRectMin,
+	float TemporalAAParamsX, float MaterialTextureMipBias, float VertexColorA, float HETA_OpacityMulti)
+{
+	float2 p = SvPositionXY - ViewRectMin;
+	uint2 q = (uint2)(p + TemporalAAParamsX);
+	uint k = ((q.y << 1) + q.x) % 5u;
+	float n = DitherTex.SampleBias(DitherTexSampler, p * 0.015625, MaterialTextureMipBias).r;
+	float m = saturate(((float)k + n) * asfloat(0x3E2AAAABu) + Op + -0.5);
+	return m * (VertexColorA * (1.0 - HETA_OpacityMulti) + HETA_OpacityMulti);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// M_FaceShadowMesh_ZanniFireHair (PS cdada70f0b #299871; MI_R2T1ZanniMd10011Bangs1_Shadow, MI_R2T1ZanniMd20011Bangs1_Shadow):
+// the face-shadow caster of the fire bangs, ToonFace id 12, masked by the fire-hair opacity. Like the verified
+// M_FaceShadowMesh port (WuwaToonFaceFSBasePass): A = (oct(N), SolidShadowStrength, mode flag), B = (0, 0, 0, id 12),
+// C = D = 0; emissive = SelectionColor.rgb * SelectionColor.a.
+// ---------------------------------------------------------------------------------------------------------------------
+FWuwaToonGBuffer WuwaToonZaniFireFaceShadowBasePass(
+	Texture2D DissolveTex, SamplerState DissolveTexSampler, Texture2D FlowTex, SamplerState FlowTexSampler,
+	Texture2D TypeMask, SamplerState TypeMaskSampler, Texture2D DitherTex, SamplerState DitherTexSampler,
+	float2 UV0, float2 UV2, float4 VertexColor, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 CameraVector, float2 SvPositionXY, float2 ViewRectMin, float TemporalAAParamsX, float GameTime,
+	float TimeBiasAmount, float SpeedControl, float RandomAmount, float4 DissolveTexSW, float4 Tail_DissolveTexSWAndBlackContril,
+	float4 Group_DissolveTexSpeed, float4 Group_DissolvePos, float4 Group_DissolveUVStrength,
+	float4 Group_IDNoiseUVStrength, float4 Group_IDButtomNoiseStrength,
+	float4 NoiseSparkTexSW, float4 NoiseSparkColorMaskControl, float4 NoiseSparkColorAdd, float4 WPOTexSW, float4 IDNoiseUVControl,
+	float DissolveMaskStrength, float DissolveWidth, float OverallOpacity, float Tail_FresnelPos, float Tail_FresnelEnd,
+	float Tail_DissolveInnerRange, float Tail_DissolveInnerEnd, float Tail_DissolveOuterStart, float Tail_DissolveOuterEnd,
+	float Tail_DissolveOpacityAdd, float HETA_OpacityMulti, float4 SelectionColor, float SolidShadowStrength,
+	float KuroPrimDitherEnable, float KuroPrimDitherFade, float MaterialTextureMipBias, float4 NormalOverrideParameter,
+	float KuroGBufferMode, float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask,
+	float3 ObjectWorldPosition, float3 ObjectBounds, uint LightingChannelMask, out float OpacityMask)
+{
+	FWuwaToonGBuffer G;
+	// S36-53: shading normal (tangent basis, NormalOverrideParameter)
+	float3 B = cross(WorldNormal, WorldTangent) * TangentSign;
+	float3 N = WuwaWShadingNormal(WorldTangent, B, WorldNormal, NormalOverrideParameter);
+	FWuwaZaniFireCore F = WuwaZaniFireCore(true, DissolveTex, DissolveTexSampler, TypeMask, TypeMaskSampler, FlowTex, FlowTexSampler,
+		UV0, UV2, VertexColor, CameraVector, WorldNormal, GameTime, MaterialTextureMipBias,
+		TimeBiasAmount, SpeedControl, RandomAmount, DissolveTexSW, Tail_DissolveTexSWAndBlackContril,
+		Group_DissolveTexSpeed, Group_DissolvePos, (float4)0, Group_DissolveUVStrength, Group_IDNoiseUVStrength,
+		Group_IDButtomNoiseStrength, (float4)0, NoiseSparkTexSW, NoiseSparkColorMaskControl, NoiseSparkColorAdd.w, WPOTexSW,
+		IDNoiseUVControl, DissolveMaskStrength, DissolveWidth, OverallOpacity, Tail_FresnelPos, Tail_FresnelEnd,
+		Tail_DissolveInnerRange, Tail_DissolveInnerEnd, Tail_DissolveOuterStart, Tail_DissolveOuterEnd, Tail_DissolveOpacityAdd, 0.0);
+	OpacityMask = WuwaZaniFireOpacityMask(DitherTex, DitherTexSampler, F.Op, SvPositionXY, ViewRectMin, TemporalAAParamsX,
+		MaterialTextureMipBias, VertexColor.w, HETA_OpacityMulti);
+	clip(WuwaPrimDitherClip(KuroPrimDitherEnable, KuroPrimDitherFade, SvPositionXY));
+	// S226-273: outputs
+	G.Emissive = WuwaBPFinalEmissive(SelectionColor.rgb * SelectionColor.a, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+	G.A = float4(WuwaBPOctEncode(N), SolidShadowStrength, (KuroGBufferMode == 1.0) ? 1.0 : 0.0);
+	G.B = float4(0.0, 0.0, 0.0, WuwaBPShadingModelByte(LightingChannelMask, 12u));
+	G.C = float4(0.0, 0.0, 0.0, 0.0);
+	G.D = float4(0.0, 0.0, 0.0, 0.0);
+	return G;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// M_Char_ZanNi_FireHair: one Impl, compile-time switches
+//   bTwoSided   : two-sided normal lerp(-N, N, TwoSidedSign) (H62-77; MIs whose map compiled the two-sided graph)
+//   bHETA       : IsHairHET: C.a = VertexColor.a (mode 0) / odd rim byte of VertexColor.a (mode 1) instead of
+//                 MainTex.a * OpacityIntensity / even ToonRimWidth byte (PS 35ea3ef57f / faa84b7e77, ToonHair)
+//   bShadowLord : UseShadowLordMaterial (the Zani skin maps 6d41a98a27 / 9a8fcd0124 / faa84b7e77): C.rgb +=
+//                 UseShadowLordMaterialDynamic * (ShadowLordTex((GameTime * Tiling.zw + UV3) * Tiling.xy).rgb * ColorMulti + 0.1)
+//                 * ColorOpacity (the emissive is unchanged)
+//   bFireCore   : UseFresnelFireCoreMask (Lupa tail 94ecc4f9c6): a fire-core fresnel band around the axis CPD_FireCoreA -> B
+//                 (Custom Primitive Data 14..16 / 18..20 [U: two tail positions]) seen from the camera, a range mask
+//                 lerp(UV3.y, UV2.y, RangeMaskType) and a noise band multiply the black mask (H' 329-456 of PS #27953)
+// Lighting = the verified M_Char_Com light direction (WuwaBPMainLightDir) + half-Lambert toon step; colour = MainTex
+// (UV0 displaced by TypeMask.x * DiffuseNoise) + flame tint (ColorMidTint -> ColorTopTint) + spark colour (lerp by the
+// view light level max(View[292]) * 3.14), desaturated toward the shadow, day/night brightness (MPC GlobalTimeHour),
+// dark edge (BlackEdgeColor_UP -> _Button over UV2.y) blended by the black mask; GBuffer id 15 (12 on tail vertices),
+// A.z = 0.95, B.rgb = sqrt(saturate(FireRimColor)).
+// ---------------------------------------------------------------------------------------------------------------------
+FWuwaToonGBuffer WuwaToonZaniFireHair_Impl(const bool bTwoSided, const bool bHETA, const bool bShadowLord, const bool bFireCore,
+	Texture2D DissolveTex, SamplerState DissolveTexSampler, Texture2D TypeMask, SamplerState TypeMaskSampler,
+	Texture2D MainTex, SamplerState MainTexSampler, Texture2D FlowTex, SamplerState FlowTexSampler,
+	Texture2D DitherTex, SamplerState DitherTexSampler, Texture2D ShadowLordTex, SamplerState ShadowLordTexSampler,
+	float2 UV0, float2 UV2, float2 UV3, float4 VertexColor, float3 WorldNormal, float TwoSidedSign, float3 WorldPosition, float3 CameraVector,
+	float2 SvPositionXY, float2 ViewRectMin, float TemporalAAParamsX, float GameTime, float3 LightDirVS, float MotionEmissiveMask,
+	float TimeBiasAmount, float SpeedControl, float RandomAmount, float4 DissolveTexSW, float4 Tail_DissolveTexSWAndBlackContril,
+	float4 Group_DissolveTexSpeed, float4 Group_DissolvePos, float4 Group_ColorMaskExtra, float4 Group_DissolveUVStrength,
+	float4 Group_IDNoiseUVStrength, float4 Group_IDButtomNoiseStrength, float4 Group_BlackColorRange,
+	float4 DiffuseNoiseUVControl, float4 BaseColorTint, float Tail_ColorMaskExtra, float4 ColorTopTint, float4 ColorMidTint,
+	float4 ColorTintStrengthInDark, float4 NoiseSparkColorAdd, float4 NoiseSparkTexSW, float4 NoiseSparkColorMaskControl,
+	float NoiseSparkColorMaskControl_End, float SolidShadowProcess, float SolidShadowProcess_Eps, float ShadowOffsetAdjustFactor,
+	float ShadowOffsetPower, float MaskShadowOffsetStrength, float RaytracingReflectionFix, float LightOffset_Pitch,
+	float ShadowProcess_Lo, float ShadowProcess_Hi, float AniSwitch_FaceShadow, float SolidShadow_A, float SolidShadow_B,
+	float SolidShadow_Mul, float4 FinalColorControl, float FinalColorMul_Night, float4 BlackEdgeColor_UP, float4 BlackEdgeColor_Button,
+	float4 BlackMaskControl, float4 WPOTexSW, float4 IDNoiseUVControl, float DissolveMaskStrength, float Tail_FresnelPos,
+	float Tail_FresnelEnd, float Tail_DissolveInnerRange, float Tail_DissolveInnerEnd, float Tail_DissolveOuterStart,
+	float Tail_DissolveOuterEnd, float Tail_DissolveOpacityAdd, float TailBlackMaskRange, float FinalEmissionStrength,
+	float DefaultSkinFactor, float UseSkinMask_DYN, float UseFaceAni_SkinMask, float4 SkinColor, float EmissionIntensity,
+	float4 EmissionColor, float4 E_Motion_Emissive, float4 SelectionColor, float DissolveWidth, float OverallOpacity,
+	float HETA_OpacityMulti, float4 FireRimColor, float OpacityIntensity, float ToonRimWidth,
+	float4 ShadowLord_ColorTiling, float4 ShadowLord_ColorMulti, float ShadowLord_ColorOpacity, float UseShadowLordMaterialDynamic,
+	float RangeMaskType, float BlackRangePos, float BlackRangeEnd, float FireCore_FresnelPos, float FireCore_FresnelPos2,
+	float BlackFresnelWidth, float FireCoreDissolveMaskStrength, float RangePos, float RangeEnd, float FireCore_FresnelWidth,
+	float NoisePos, float NoiseEnd, float3 CPD_FireCoreA, float3 CPD_FireCoreB, float3 WorldCameraOrigin,
+	float CPD1, float CPD13, float3 KuroViewLightColorB, float MPC_GlobalTimeHour,
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float KuroPrimDitherEnable, float KuroPrimDitherFade, float MaterialTextureMipBias, float4 NormalOverrideParameter,
+	float KuroGBufferMode, float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask,
+	float3 ObjectWorldPosition, float3 ObjectBounds, uint LightingChannelMask, out float OpacityMask,
+	const bool bEffect = false, float3 EffectEmissive = float3(0.0, 0.0, 0.0))   // round 7: UseSecond / UseRim / UseNoise effect layer
+{
+	FWuwaToonGBuffer G;
+	// H62-77: normal (two-sided: lerp(-N, N, TwoSidedSign); NormalOverrideParameter.w lerp from the vertex normal)
+	float3 FN = WorldNormal;
+	if (bTwoSided)
+		FN = TwoSidedSign * (WorldNormal + WorldNormal) - WorldNormal;
+	float3 Nu = (1.0 - NormalOverrideParameter.w) * WorldNormal;
+	Nu = FN * NormalOverrideParameter.w + Nu;
+	float3 N = Nu * rsqrt(dot(Nu, Nu));
+
+	FWuwaZaniFireCore F = WuwaZaniFireCore(false, DissolveTex, DissolveTexSampler, TypeMask, TypeMaskSampler, FlowTex, FlowTexSampler,
+		UV0, UV2, VertexColor, CameraVector, FN, GameTime, MaterialTextureMipBias,
+		TimeBiasAmount, SpeedControl, RandomAmount, DissolveTexSW, Tail_DissolveTexSWAndBlackContril,
+		Group_DissolveTexSpeed, Group_DissolvePos, Group_ColorMaskExtra, Group_DissolveUVStrength, Group_IDNoiseUVStrength,
+		Group_IDButtomNoiseStrength, Group_BlackColorRange, NoiseSparkTexSW, NoiseSparkColorMaskControl, NoiseSparkColorAdd.w, WPOTexSW,
+		IDNoiseUVControl, DissolveMaskStrength, DissolveWidth, OverallOpacity, Tail_FresnelPos, Tail_FresnelEnd,
+		Tail_DissolveInnerRange, Tail_DissolveInnerEnd, Tail_DissolveOuterStart, Tail_DissolveOuterEnd, Tail_DissolveOpacityAdd,
+		TailBlackMaskRange);
+
+	// H118-127: base colour at the TypeMask-displaced UV0
+	float4 TM = TypeMask.SampleLevel(TypeMaskSampler, UV0, MaterialTextureMipBias);
+	float dn = (F.Dissolve * (DiffuseNoiseUVControl.y - DiffuseNoiseUVControl.x) + DiffuseNoiseUVControl.x) * DiffuseNoiseUVControl.z;
+	float3 Bc = MainTex.SampleBias(MainTexSampler, TM.x * dn + UV0, MaterialTextureMipBias).rgb * BaseColorTint.rgb;
+	float3 B2 = Bc + Bc;
+	// H128-147: flame colour mask -> Mid / Top tint
+	float cp = cos(UV2.x * asfloat(0x40C90FDBu)) + 1.0;
+	float h = cp * 0.5;
+	h = h * h;
+	h = h * h;
+	h = -h * h + 1.0;
+	float ov = 1.0 - UV2.y;
+	float ov2 = ov * ov;
+	h = ov2 * (1.0 - h) + h;
+	float g = ov2 * (ov * ov + F.Dissolve);
+	float cme = F.Tail * (Tail_ColorMaskExtra - F.CME) + F.CME;
+	float cm = saturate(((h * g + cme) + asfloat(0xBE4CCCCDu)) * 5.0);
+	cm = (cm * cm) * (cm * -2.0 + 3.0);
+	float3 col = B2 * (cm * (ColorTopTint.rgb - ColorMidTint.rgb) + ColorMidTint.rgb) + Bc;
+	// H148-188: spark colour, scaled by the view light level
+	float lv = max(max(KuroViewLightColorB.y, KuroViewLightColorB.x), KuroViewLightColorB.z) * asfloat(0x4048F5C3u);   // 3.14
+	lv = saturate(lv * (1.0 / ColorTintStrengthInDark.w));
+	lv = (lv * lv) * (lv * -2.0 + 3.0);
+	float3 dark = ColorTintStrengthInDark.z * NoiseSparkColorAdd.rgb;
+	float3 spk = F.Sp2 * (lv * (NoiseSparkColorAdd.rgb - dark) + dark);
+	float t3 = saturate(saturate(F.Spark + NoiseSparkColorMaskControl.z) * TM.y);
+	col = WuwaWSmoothStep(NoiseSparkColorMaskControl.x, NoiseSparkColorMaskControl_End, t3) * (B2 * spk) + col;
+	float lum = dot(col, float3(0.3, 0.59, 0.11));
+	// H190-202: mask shadow offset
+	float so = WuwaWSmoothStep(SolidShadowProcess, 1.0, SolidShadowProcess_Eps) * ShadowOffsetAdjustFactor;
+	so = (asfloat(0x33000002u) >= so) ? 0.0 : exp2(log2(so) * ShadowOffsetPower) * MaskShadowOffsetStrength;
+	// H203-262: lighting normal, light direction, toon step
+	float3 NL = N;
+	if (bTwoSided)
+		NL = TwoSidedSign * N;
+	NL = RaytracingReflectionFix * (WorldNormal - NL) + NL;
+	float3 L = WuwaBPMainLightDir(LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+	float hl = dot(NL, L) * 0.5 + so;
+	hl = hl + 0.5;
+	float lit = WuwaWSmoothStep(ShadowProcess_Lo, ShadowProcess_Hi, hl);
+	float aniOn = (AniSwitch_FaceShadow >= 0.1) ? 1.0 : 0.0;
+	float sh = lit * (aniOn * (SolidShadow_B - SolidShadow_A) + SolidShadow_A);
+	sh = (sh * 0.5 + 0.5) * SolidShadow_Mul;
+	// H263-283: desaturation, day / night, brightness
+	col = (sh * (FinalColorControl.w - FinalColorControl.z) + FinalColorControl.z) * (lum - col) + col;
+	float2 dn2 = saturate((MPC_GlobalTimeHour * asfloat(0x3D2AAAABu) + float2(asfloat(0xBE75C28Fu), asfloat(0xBF428F5Cu)))
+		* float2(asfloat(0x42480003u), asfloat(0xC248000Du)));
+	dn2 = (dn2 * dn2) * (dn2 * -2.0 + 3.0);
+	float night = (dn2.y * dn2.x) * (1.0 - FinalColorMul_Night) + FinalColorMul_Night;
+	float br = (sh * (FinalColorControl.y - FinalColorControl.x) + FinalColorControl.x) * night;
+	float3 dk = br * col;
+	dk = dk + dk;
+	// H284-330: dark edge + black mask
+	float bt = saturate((1.0 / F.BCR) * UV2.y);
+	bt = (bt * bt) * (bt * -2.0 + 3.0);
+	dk = dk * (bt * (BlackEdgeColor_Button.rgb - BlackEdgeColor_UP.rgb) + BlackEdgeColor_UP.rgb);
+	// H'329-353 (bFireCore): range mask, fire-core fresnel
+	float rm = 0.0, fp = 0.0, bf = 0.0, NoV = dot(CameraVector, FN);
+	if (bFireCore)
+	{
+		rm = saturate(RangeMaskType * (UV2.y - UV3.y) + UV3.y);
+		float brk = 1.0 - min(WuwaWSmoothStep(BlackRangePos, BlackRangeEnd, rm), 1.0);
+		float3 mc = (CPD_FireCoreA + CPD_FireCoreB) * 0.5 - WorldCameraOrigin;
+		mc = mc / sqrt(dot(mc, mc));
+		float3 ax = CPD_FireCoreA - CPD_FireCoreB;
+		ax = ax / sqrt(dot(ax, ax));
+		fp = abs(dot(mc, ax)) * (FireCore_FresnelPos2 - FireCore_FresnelPos) + FireCore_FresnelPos;
+		bf = saturate((NoV - fp) * (1.0 / BlackFresnelWidth));
+		bf = ((bf * bf) * (bf * -2.0 + 3.0)) * brk;
+	}
+	float blo = F.Tail * (Tail_DissolveTexSWAndBlackContril.z - BlackMaskControl.x) + BlackMaskControl.x;
+	float bw  = F.Tail * (Tail_DissolveTexSWAndBlackContril.w - BlackMaskControl.y) + BlackMaskControl.y;
+	float dbm = F.Dissolve + BlackMaskControl.z;
+	float bmv = F.BM0 * dbm;
+	float mx = max(F.OSF + F.TailAlpha, bmv);
+	float bmix = saturate(F.Tail * (mx - F.BM0 * dbm) + bmv);
+	bmix = saturate((bmix - blo) * (1.0 / bw));
+	if (bFireCore)
+	{
+		// H'429-456: max with the fire-core fresnel, then * (noise band of the core mask)
+		bmix = max(F.TM2.z, max((bmix * bmix) * (bmix * -2.0 + 3.0), bf));
+		float fc = saturate(F.Dissolve + FireCoreDissolveMaskStrength);
+		float rr = WuwaWSmoothStep(RangePos, RangeEnd, rm);
+		float t = saturate((NoV - fp) * (1.0 / FireCore_FresnelWidth));
+		float q = -(t * -2.0 + 3.0) * (t * t) + 1.0;
+		q = 1.0 - saturate(q * rr);
+		q = -fc * q + 1.0;
+		float u = saturate((q - NoisePos) * (1.0 / (NoiseEnd - NoisePos)));
+		float pu = u * -2.0 + 3.0;
+		float sn = (u * u) * pu;
+		bmix = saturate(bmix * (rr * (-pu * (u * u) + 1.0) + sn));
+	}
+	else
+		bmix = min(max(F.TM2.z, (bmix * bmix) * (bmix * -2.0 + 3.0)), 1.0);
+	float3 fin = bmix * (col * br - dk) + dk;
+	// H331-335: dark-scene tint
+	float2 ti = lv * (1.0 - ColorTintStrengthInDark.xy) + ColorTintStrengthInDark.xy;
+	float tint = (ti.y - ti.x) * 0.5 + ti.x;
+	float3 litc = tint * fin;
+	// H336-360: emission (skin tint, MainTex at UV0, motion emissive), selection colour
+	float bandMask;
+	float skin = WuwaBPSkinFactor(WuwaBPBandClassify(VertexColor.x, bandMask), UseSkinMask_DYN, DefaultSkinFactor, UseFaceAni_SkinMask);
+	float3 sk = skin * (SkinColor.rgb - 1.0) + 1.0;
+	float4 M0 = MainTex.SampleBias(MainTexSampler, UV0, MaterialTextureMipBias);
+	float3 em = (sk * (M0.rgb * BaseColorTint.rgb)) * EmissionIntensity;
+	if (bEffect)
+	{
+		// G552-555 (PS 72c723cd): effect emissive (WuwaZaniFireEffectEmissive) + motion emissive, then the emission colour
+		float3 X = MotionEmissiveMask * E_Motion_Emissive.rgb + EffectEmissive;
+		em = EmissionColor.rgb * em + X;
+	}
+	else
+		em = EmissionColor.rgb * em + MotionEmissiveMask * E_Motion_Emissive.rgb;
+	float3 E = FinalEmissionStrength * litc + em;
+	E = SelectionColor.a * (SelectionColor.rgb - E) + E;
+	float3 Cc = fin;
+	if (bShadowLord)
+	{
+		float2 suv = (GameTime * ShadowLord_ColorTiling.zw + UV3) * ShadowLord_ColorTiling.xy;
+		float3 SL = ShadowLordTex.SampleBias(ShadowLordTexSampler, suv, MaterialTextureMipBias).rgb;
+		SL = (SL * ShadowLord_ColorMulti.rgb + asfloat(0x3DCCCCCDu)) * ShadowLord_ColorOpacity;
+		Cc = UseShadowLordMaterialDynamic * SL + fin;
+	}
+	// H361-442: opacity (core), dither, primitive dither
+	OpacityMask = WuwaZaniFireOpacityMask(DitherTex, DitherTexSampler, F.Op, SvPositionXY, ViewRectMin, TemporalAAParamsX,
+		MaterialTextureMipBias, VertexColor.w, HETA_OpacityMulti);
+	clip(WuwaPrimDitherClip(KuroPrimDitherEnable, KuroPrimDitherFade, SvPositionXY));
+	// H474-544: outputs
+	G.Emissive = WuwaBPFinalEmissive(E, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask, WorldPosition, ObjectWorldPosition, ObjectBounds);
+	uint id = (0.0 >= VertexColor.y) ? 12u : 15u;
+	G.B = float4(sqrt(saturate(FireRimColor.rgb)), WuwaBPShadingModelByte(LightingChannelMask, id));
+	if (KuroGBufferMode == 1.0)
+	{
+		G.A = float4(WuwaBPOctEncode(N), asfloat(0x3F733333u), 1.0);
+		float rim = WuwaBPRimByteEven(ToonRimWidth);
+		if (bHETA)
+			rim = (float)((uint)floor(saturate(VertexColor.a) * 255.0 + 0.5) | 1u) * WUWA_INV255;   // odd byte
+		G.C = float4(Cc, rim);
+		G.D = float4(0.0, 0.0, 0.0, 0.0);
+	}
+	else
+	{
+		G.A = float4(WuwaBPOctEncode(N), asfloat(0x3F733333u), (skin >= 0.5) ? asfloat(0x3F2A7EFAu) : 0.0);
+		G.C = float4(Cc, bHETA ? VertexColor.a : M0.a * OpacityIntensity);
+		G.D = float4(ToonRimWidth, 0.0, 0.0, 0.0);
+	}
+	return G;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Fire-hair vertex World Position Offset (base-pass VS of every M_Char_ZanNi_FireHair map: #163622, #56022, #27986, #201753,
+// V255-394 of #163622; and of M_FaceShadowMesh_ZanniFireHair #299867, V186-262). Same structure as the shell WPO
+// (WuwaFXZaniFireWPO) but on UV2 with per-group amplitudes (VertexColor.x bands), a random phase (VertexColor.z *
+// RandomAmount), the tail sine amplitude (VertexColor.y <= 0) and a tangent sine term:
+//   q = saturate(UV2.y)^2;  T = GameTime + TimeBiasAmount;  r = VertexColor.z * RandomAmount
+//   n = (FlowTex(UV2 * (0.07, 1) * WPOTexSW.xy + (WPOTexSW.z, 0) + r + T * (0, WPOTexSW.w) * SpeedControl).r - 0.5) * 2 * NDA * q
+//   s = sin((2 UV2.y - 0.819 T SpeedControl + r) * 2pi) * q * lerp(SWA, Tail_SineWaveAmount, tail);  w = s + n
+//   o = TangentToWorld * (s * SineTangentWaveAmount + UV2.x - 0.5, 0, 0) * (q * EA + w);  WPO = lerp(o, WorldNormal * w, 0.5)
+// (NDA / SWA / EA = Group_NoiseDisplaceAmount / Group_SineWaveAmount / Group_ExpandAmount of the vertex group.)
+// Hair maps: + the E_Hologram jitter / E_Motion offset block, which is 0 at every roster MI (USE Hologram = 0,
+// E_Motion_Offset.w = 0: gated) and is not ported (the "+ 0.0" keeps the sign of zero as the VS adds it).
+// bFaceShadow: + TransformLocalVector(PositionOffset) + WorldNormal * VertexNormalExpand (the face-shadow mesh push-out).
+// All arithmetic is `precise` like the original; the FlowTex fetch is a SampleLevel at LOD -1 (vertex texture fetch as compiled).
+// UE contract: connect to World Position Offset; VertexColor is the material VertexColor (Kuro COLOR0 = fetched colour .zyxw).
+// ---------------------------------------------------------------------------------------------------------------------
+float3 WuwaToonZaniFireWPO_Impl(const bool bFaceShadow, Texture2D FlowTex, SamplerState FlowTexSampler, float2 UV2, float4 VertexColor,
+	float3 WorldTangent, float3 WorldBitangent, float3 WorldNormal, float GameTime, float TimeBiasAmount, float SpeedControl,
+	float RandomAmount, float4 WPOTexSW, float4 Group_NoiseDisplaceAmount, float4 Group_SineWaveAmount, float4 Group_ExpandAmount,
+	float Tail_SineWaveAmount, float SineTangentWaveAmount, float3 LocalToWorldRow0, float3 LocalToWorldRow1,
+	float3 LocalToWorldRow2, float4 PositionOffset, float VertexNormalExpand)
+{
+	precise float q = saturate(UV2.y);
+	q = q * q;
+	precise float T = GameTime + TimeBiasAmount;
+	precise float2 tw = float2(0.0, WPOTexSW.w) * SpeedControl;     // preshader (float5(0, WPOTexSW.w) * SpeedControl)
+	precise float2 tt = T * tw;
+	precise float3 u = UV2.xyy * float3(asfloat(0x3D8F5C29u), 1.0, 2.0);
+	precise float2 su = u.xy * WPOTexSW.xy;
+	su = su + float2(WPOTexSW.z, 0.0);
+	precise float rnd = VertexColor.z * RandomAmount;
+	su = rnd + su;
+	precise float2 fuv = su + tt;
+	precise float n = FlowTex.SampleLevel(FlowTexSampler, fuv, -1.0).r;
+	n = n + -0.5;
+	n = n * 2.0;
+	// vertex group bands on VertexColor.x
+	float c = VertexColor.x;
+	bool4 b = bool4(c >= 0.0 && c < asfloat(0x3DCCCCCDu), c >= asfloat(0x3DCCCCCDu) && c < asfloat(0x3E4CCCCDu),
+	                c >= asfloat(0x3E4CCCCDu) && c < asfloat(0x3E99999Au), c >= asfloat(0x3E99999Au) && c < asfloat(0x3ECCCCCDu));
+	float nda = WuwaZaniBandSel(Group_NoiseDisplaceAmount, b, false);
+	float swa = WuwaZaniBandSel(Group_SineWaveAmount, b, false);
+	float ea  = WuwaZaniBandSel(Group_ExpandAmount, b, false);
+	n = n * nda;
+	n = q * n;
+	precise float s = T * SpeedControl;
+	s = s * asfloat(0xBF51AD10u);
+	s = u.z + s;
+	s = rnd + s;
+	s = s * asfloat(0x40C90FDBu);
+	s = sin(s);
+	s = q * s;
+	precise float tail = (0.0 >= VertexColor.y) ? 1.0 : 0.0;
+	precise float amp = Tail_SineWaveAmount - swa;
+	amp = tail * amp;
+	amp = amp + swa;
+	s = s * amp;
+	precise float w = s + n;
+	precise float e = q * ea;
+	e = e + w;
+	precise float t = UV2.x + -0.5;
+	precise float ts = s * SineTangentWaveAmount;
+	ts = ts + t;
+	precise float3 v = WorldBitangent * 0.0;
+	v = v + WorldTangent * ts;
+	v = v + WorldNormal * 0.0;
+	precise float3 o = v * e;
+	precise float3 m = WorldNormal * w;
+	m = m - o;
+	m = m * 0.5;
+	o = o + m;
+	if (bFaceShadow)
+	{
+		precise float3 po = LocalToWorldRow0 * PositionOffset.x;
+		po = po + LocalToWorldRow1 * PositionOffset.y;
+		po = po + LocalToWorldRow2 * PositionOffset.z;
+		o = o + po;
+		o = o + WorldNormal * VertexNormalExpand;
+	}
+	else
+	{
+		o = o + 0.0;                     // + E_Hologram / E_Motion block (gated off at every roster MI)
+	}
+	return o;
+}
+
+float3 WuwaToonZaniFireHairWPO(Texture2D FlowTex, SamplerState FlowTexSampler, float2 UV2, float4 VertexColor,
+	float3 WorldTangent, float3 WorldBitangent, float3 WorldNormal, float GameTime, float TimeBiasAmount, float SpeedControl,
+	float RandomAmount, float4 WPOTexSW, float4 Group_NoiseDisplaceAmount, float4 Group_SineWaveAmount, float4 Group_ExpandAmount,
+	float Tail_SineWaveAmount, float SineTangentWaveAmount)
+{
+	return WuwaToonZaniFireWPO_Impl(false, FlowTex, FlowTexSampler, UV2, VertexColor, WorldTangent, WorldBitangent, WorldNormal,
+		GameTime, TimeBiasAmount, SpeedControl, RandomAmount, WPOTexSW, Group_NoiseDisplaceAmount, Group_SineWaveAmount,
+		Group_ExpandAmount, Tail_SineWaveAmount, SineTangentWaveAmount, (float3)0, (float3)0, (float3)0, (float4)0, 0.0);
+}
+
+float3 WuwaToonZaniFireFaceShadowWPO(Texture2D FlowTex, SamplerState FlowTexSampler, float2 UV2, float4 VertexColor,
+	float3 WorldTangent, float3 WorldBitangent, float3 WorldNormal, float GameTime, float TimeBiasAmount, float SpeedControl,
+	float RandomAmount, float4 WPOTexSW, float4 Group_NoiseDisplaceAmount, float4 Group_SineWaveAmount, float4 Group_ExpandAmount,
+	float Tail_SineWaveAmount, float SineTangentWaveAmount, float3 LocalToWorldRow0, float3 LocalToWorldRow1,
+	float3 LocalToWorldRow2, float4 PositionOffset, float VertexNormalExpand)
+{
+	return WuwaToonZaniFireWPO_Impl(true, FlowTex, FlowTexSampler, UV2, VertexColor, WorldTangent, WorldBitangent, WorldNormal,
+		GameTime, TimeBiasAmount, SpeedControl, RandomAmount, WPOTexSW, Group_NoiseDisplaceAmount, Group_SineWaveAmount,
+		Group_ExpandAmount, Tail_SineWaveAmount, SineTangentWaveAmount, LocalToWorldRow0, LocalToWorldRow1, LocalToWorldRow2,
+		PositionOffset, VertexNormalExpand);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Round 7 (research/roster/round7/singletons.md): effect layer of the Galbrena chimera head (PS 72c723cd #201781,
+// MI_ECalbrenaChimeraMd10011Head: UseFireHair + UseFresnelFireCoreMask + UseShadowLordMaterial + UseSecond / UseEffectMaterial /
+// UseRim / UseNoise). G### = asm_hex line of #201781. Passed to WuwaToonZaniFireHair_Impl as EffectEmissive (bEffect):
+//   Second layer (G494-531): UV = dot(SecondTex_UVSwitch, (UV0, UV1, UV2, UV3)) per axis, lerp to the screen UV by
+//     Second_UseScreenUV, rotated about 0.5 (CPU cos / sin), * Second_UV.xy + fmod(GameTime, 600) * Second_UV.zw + offset,
+//     displaced by Second_NoiseStrength x R_Noise_A_Mask.r (noise UV: switch / screen lerp, * NoiseUV.xy + GameTime * NoiseUV.zw);
+//     Second_RGB refined: lerp(pow(s, Refine.x) * Refine.y, s * Refine.z, Refine.w) (pow guard 2.98e-8)
+//   Fresnel rim (G532-543): f = pow(max(|1 - max(N.V, 0)|, 1e-4), FresnelRim_RimRange), lerp(f, 1, Smooth), Reverse flip;
+//     X = f * FresnelRim_RimColor + Second * Second_ColorTint (N = the shading normal of the Impl, V = CameraVector)
+//   Effect mask (G544-552): X *= pow(R_Noise_A_Mask.r at lerp(UV0, UV2, EffectMaskTexUV2Switch), 1 - Effect_Progress) (guarded)
+// ---------------------------------------------------------------------------------------------------------------------
+float3 WuwaZaniFireEffectEmissive(Texture2D R_Noise_A_Mask, SamplerState R_Noise_A_MaskSampler, Texture2D Second_RGB,
+	SamplerState Second_RGBSampler, float2 UV0, float2 UV1, float2 UV2, float2 UV3, float3 WorldNormal, float TwoSidedSign,
+	float3 CameraVector, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime, float MaterialTextureMipBias,
+	float4 NormalOverrideParameter, float4 SecondTex_UVSwitch, float Second_UseScreenUV, float Second_RotCos, float Second_RotSin,
+	float4 Second_UV, float2 Second_UV_Offset, float4 Noise_UVSwitch, float Noise_UseScreenUV, float4 NoiseUV, float NoiseStrength,
+	float Second_NoiseStrength, float4 Second_Refine, float3 Second_ColorTint, float FresnelRim_RimRange, float FresnelRim_Smooth,
+	float FresnelRim_Reverse, float3 FresnelRim_RimColor, float EffectMaskTexUV2Switch, float Effect_Progress)
+{
+	// G82-91: the Impl's shading normal (two-sided, NormalOverrideParameter.w), same statements
+	float3 FN = TwoSidedSign * (WorldNormal + WorldNormal) - WorldNormal;
+	float3 Nu = (1.0 - NormalOverrideParameter.w) * WorldNormal;
+	Nu = FN * NormalOverrideParameter.w + Nu;
+	float3 N = Nu * rsqrt(dot(Nu, Nu));
+	// G494-531: Second layer
+	float2 scr = (SvPositionXY - ViewRectMin) * ViewSizeAndInvSize.zw;
+	float2 suv;
+	suv.x = dot(SecondTex_UVSwitch, float4(UV0.x, UV1.x, UV2.x, UV3.x));
+	suv.y = dot(SecondTex_UVSwitch, float4(UV0.y, UV1.y, UV2.y, UV3.y));
+	suv = Second_UseScreenUV * (scr - suv) + suv;
+	suv = suv + -0.5;
+	suv = float2(dot(suv, float2(Second_RotCos, -Second_RotSin)), dot(suv, float2(Second_RotSin, Second_RotCos))) + 0.5;
+	float st = fmod(GameTime, 600.0);
+	suv = suv * Second_UV.xy + st * Second_UV.zw;
+	suv = suv + Second_UV_Offset;
+	float2 nuv;
+	nuv.x = dot(Noise_UVSwitch, float4(UV0.x, UV1.x, UV2.x, UV3.x));
+	nuv.y = dot(Noise_UVSwitch, float4(UV0.y, UV1.y, UV2.y, UV3.y));
+	nuv = Noise_UseScreenUV * (scr - nuv) + nuv;
+	nuv = nuv * NoiseUV.xy;
+	nuv = GameTime * NoiseUV.zw + nuv;
+	float nz = R_Noise_A_Mask.SampleBias(R_Noise_A_MaskSampler, nuv, MaterialTextureMipBias).x * NoiseStrength;
+	suv = Second_NoiseStrength * nz + suv;
+	float3 S2 = Second_RGB.SampleBias(Second_RGBSampler, suv, MaterialTextureMipBias).rgb;
+	float3 S2p;
+	S2p.x = WuwaWPowGuard(S2.x, Second_Refine.x);
+	S2p.y = WuwaWPowGuard(S2.y, Second_Refine.x);
+	S2p.z = WuwaWPowGuard(S2.z, Second_Refine.x);
+	S2p = S2p * Second_Refine.y;
+	S2 = Second_Refine.w * (S2 * Second_Refine.z - S2p) + S2p;
+	// G532-543: fresnel rim
+	float fr = 1.0 - max(dot(N, CameraVector), 0.0);
+	fr = exp2(log2(max(abs(fr), asfloat(0x38D1B717u))) * FresnelRim_RimRange);
+	fr = fr * (1.0 - FresnelRim_Smooth) + FresnelRim_Smooth;
+	fr = FresnelRim_Reverse * (fr * -2.0 + 1.0) + fr;
+	float3 X = fr * FresnelRim_RimColor;
+	X = S2 * Second_ColorTint + X;
+	// G544-552: effect mask
+	float2 euv = EffectMaskTexUV2Switch * (UV2 - UV0) + UV0;
+	float em = R_Noise_A_Mask.SampleBias(R_Noise_A_MaskSampler, euv, MaterialTextureMipBias).x;
+	em = WuwaWPowGuard(em, 1.0 - Effect_Progress);
+	return X * em;
+}
+
+// ---- BEGIN GENERATED (tools/shaderdiff/weapons/r3/zani_gen_entries.py) ----
+// M_Char_ZanNi_FireHair PS 7fcacad8ab (#163643): MI_R2T1ZanniMd10011Hair1, MI_ECalbrenaChimeraMd10011Hair
+FWuwaToonGBuffer WuwaToonZaniFireHairBasePass_TwoSided(
+	Texture2D DissolveTex, SamplerState DissolveTexSampler, Texture2D TypeMask, SamplerState TypeMaskSampler,
+	Texture2D MainTex, SamplerState MainTexSampler, Texture2D FlowTex, SamplerState FlowTexSampler, Texture2D DitherTex,
+	SamplerState DitherTexSampler, float2 UV0, float2 UV2, float4 VertexColor, float3 WorldNormal, float TwoSidedSign,
+	float3 WorldPosition, float3 CameraVector, float2 SvPositionXY, float2 ViewRectMin, float TemporalAAParamsX,
+	float GameTime, float3 LightDirVS, float MotionEmissiveMask, float TimeBiasAmount, float SpeedControl, float RandomAmount,
+	float4 DissolveTexSW, float4 Tail_DissolveTexSWAndBlackContril, float4 Group_DissolveTexSpeed, float4 Group_DissolvePos,
+	float4 Group_ColorMaskExtra, float4 Group_DissolveUVStrength, float4 Group_IDNoiseUVStrength,
+	float4 Group_IDButtomNoiseStrength, float4 Group_BlackColorRange, float4 DiffuseNoiseUVControl, float4 BaseColorTint,
+	float Tail_ColorMaskExtra, float4 ColorTopTint, float4 ColorMidTint, float4 ColorTintStrengthInDark,
+	float4 NoiseSparkColorAdd, float4 NoiseSparkTexSW, float4 NoiseSparkColorMaskControl,
+	float NoiseSparkColorMaskControl_End, float SolidShadowProcess, float SolidShadowProcess_Eps,
+	float ShadowOffsetAdjustFactor, float ShadowOffsetPower, float MaskShadowOffsetStrength, float RaytracingReflectionFix,
+	float LightOffset_Pitch, float ShadowProcess_Lo, float ShadowProcess_Hi, float AniSwitch_FaceShadow, float SolidShadow_A,
+	float SolidShadow_B, float SolidShadow_Mul, float4 FinalColorControl, float FinalColorMul_Night, float4 BlackEdgeColor_UP,
+	float4 BlackEdgeColor_Button, float4 BlackMaskControl, float4 WPOTexSW, float4 IDNoiseUVControl,
+	float DissolveMaskStrength, float Tail_FresnelPos, float Tail_FresnelEnd, float Tail_DissolveInnerRange,
+	float Tail_DissolveInnerEnd, float Tail_DissolveOuterStart, float Tail_DissolveOuterEnd, float Tail_DissolveOpacityAdd,
+	float TailBlackMaskRange, float FinalEmissionStrength, float DefaultSkinFactor, float UseSkinMask_DYN,
+	float UseFaceAni_SkinMask, float4 SkinColor, float EmissionIntensity, float4 EmissionColor, float4 E_Motion_Emissive,
+	float4 SelectionColor, float DissolveWidth, float OverallOpacity, float HETA_OpacityMulti, float4 FireRimColor,
+	float OpacityIntensity, float ToonRimWidth, float CPD1, float CPD13, float3 KuroViewLightColorB, float MPC_GlobalTimeHour,
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection, float4 ToonLight0,
+	float4 ToonLight1, float4 ToonLight2, float4 ToonLight3, float KuroPrimDitherEnable, float KuroPrimDitherFade,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode, float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask, out float OpacityMask)
+{
+	return WuwaToonZaniFireHair_Impl(
+		true, false, false, false, DissolveTex, DissolveTexSampler, TypeMask, TypeMaskSampler, MainTex, MainTexSampler, FlowTex,
+		FlowTexSampler, DitherTex, DitherTexSampler, MainTex, MainTexSampler, UV0, UV2, (float2)0, VertexColor, WorldNormal,
+		TwoSidedSign, WorldPosition, CameraVector, SvPositionXY, ViewRectMin, TemporalAAParamsX, GameTime, LightDirVS,
+		MotionEmissiveMask, TimeBiasAmount, SpeedControl, RandomAmount, DissolveTexSW, Tail_DissolveTexSWAndBlackContril,
+		Group_DissolveTexSpeed, Group_DissolvePos, Group_ColorMaskExtra, Group_DissolveUVStrength, Group_IDNoiseUVStrength,
+		Group_IDButtomNoiseStrength, Group_BlackColorRange, DiffuseNoiseUVControl, BaseColorTint, Tail_ColorMaskExtra,
+		ColorTopTint, ColorMidTint, ColorTintStrengthInDark, NoiseSparkColorAdd, NoiseSparkTexSW, NoiseSparkColorMaskControl,
+		NoiseSparkColorMaskControl_End, SolidShadowProcess, SolidShadowProcess_Eps, ShadowOffsetAdjustFactor, ShadowOffsetPower,
+		MaskShadowOffsetStrength, RaytracingReflectionFix, LightOffset_Pitch, ShadowProcess_Lo, ShadowProcess_Hi,
+		AniSwitch_FaceShadow, SolidShadow_A, SolidShadow_B, SolidShadow_Mul, FinalColorControl, FinalColorMul_Night,
+		BlackEdgeColor_UP, BlackEdgeColor_Button, BlackMaskControl, WPOTexSW, IDNoiseUVControl, DissolveMaskStrength,
+		Tail_FresnelPos, Tail_FresnelEnd, Tail_DissolveInnerRange, Tail_DissolveInnerEnd, Tail_DissolveOuterStart,
+		Tail_DissolveOuterEnd, Tail_DissolveOpacityAdd, TailBlackMaskRange, FinalEmissionStrength, DefaultSkinFactor,
+		UseSkinMask_DYN, UseFaceAni_SkinMask, SkinColor, EmissionIntensity, EmissionColor, E_Motion_Emissive, SelectionColor,
+		DissolveWidth, OverallOpacity, HETA_OpacityMulti, FireRimColor, OpacityIntensity, ToonRimWidth, (float4)0, (float4)0,
+		0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float3(1.0, 0.0, 0.0), (float3)0, (float3)0, CPD1,
+		CPD13, KuroViewLightColorB, MPC_GlobalTimeHour, MPC_GlobalCharacterAmbientSkinColor,
+		MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, KuroPrimDitherEnable,
+		KuroPrimDitherFade, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale,
+		KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, OpacityMask);
+}
+
+// M_Char_ZanNi_FireHair PS bb9e952ef4 (#295906): MI_R2T1ZanniMd10011Bangs1
+FWuwaToonGBuffer WuwaToonZaniFireHairBasePass_OneSided(
+	Texture2D DissolveTex, SamplerState DissolveTexSampler, Texture2D TypeMask, SamplerState TypeMaskSampler,
+	Texture2D MainTex, SamplerState MainTexSampler, Texture2D FlowTex, SamplerState FlowTexSampler, Texture2D DitherTex,
+	SamplerState DitherTexSampler, float2 UV0, float2 UV2, float4 VertexColor, float3 WorldNormal, float3 WorldPosition,
+	float3 CameraVector, float2 SvPositionXY, float2 ViewRectMin, float TemporalAAParamsX, float GameTime, float3 LightDirVS,
+	float MotionEmissiveMask, float TimeBiasAmount, float SpeedControl, float RandomAmount, float4 DissolveTexSW,
+	float4 Tail_DissolveTexSWAndBlackContril, float4 Group_DissolveTexSpeed, float4 Group_DissolvePos,
+	float4 Group_ColorMaskExtra, float4 Group_DissolveUVStrength, float4 Group_IDNoiseUVStrength,
+	float4 Group_IDButtomNoiseStrength, float4 Group_BlackColorRange, float4 DiffuseNoiseUVControl, float4 BaseColorTint,
+	float Tail_ColorMaskExtra, float4 ColorTopTint, float4 ColorMidTint, float4 ColorTintStrengthInDark,
+	float4 NoiseSparkColorAdd, float4 NoiseSparkTexSW, float4 NoiseSparkColorMaskControl,
+	float NoiseSparkColorMaskControl_End, float SolidShadowProcess, float SolidShadowProcess_Eps,
+	float ShadowOffsetAdjustFactor, float ShadowOffsetPower, float MaskShadowOffsetStrength, float RaytracingReflectionFix,
+	float LightOffset_Pitch, float ShadowProcess_Lo, float ShadowProcess_Hi, float AniSwitch_FaceShadow, float SolidShadow_A,
+	float SolidShadow_B, float SolidShadow_Mul, float4 FinalColorControl, float FinalColorMul_Night, float4 BlackEdgeColor_UP,
+	float4 BlackEdgeColor_Button, float4 BlackMaskControl, float4 WPOTexSW, float4 IDNoiseUVControl,
+	float DissolveMaskStrength, float Tail_FresnelPos, float Tail_FresnelEnd, float Tail_DissolveInnerRange,
+	float Tail_DissolveInnerEnd, float Tail_DissolveOuterStart, float Tail_DissolveOuterEnd, float Tail_DissolveOpacityAdd,
+	float TailBlackMaskRange, float FinalEmissionStrength, float DefaultSkinFactor, float UseSkinMask_DYN,
+	float UseFaceAni_SkinMask, float4 SkinColor, float EmissionIntensity, float4 EmissionColor, float4 E_Motion_Emissive,
+	float4 SelectionColor, float DissolveWidth, float OverallOpacity, float HETA_OpacityMulti, float4 FireRimColor,
+	float OpacityIntensity, float ToonRimWidth, float CPD1, float CPD13, float3 KuroViewLightColorB, float MPC_GlobalTimeHour,
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection, float4 ToonLight0,
+	float4 ToonLight1, float4 ToonLight2, float4 ToonLight3, float KuroPrimDitherEnable, float KuroPrimDitherFade,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode, float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask, out float OpacityMask)
+{
+	return WuwaToonZaniFireHair_Impl(
+		false, false, false, false, DissolveTex, DissolveTexSampler, TypeMask, TypeMaskSampler, MainTex, MainTexSampler, FlowTex,
+		FlowTexSampler, DitherTex, DitherTexSampler, MainTex, MainTexSampler, UV0, UV2, (float2)0, VertexColor, WorldNormal, 0.0,
+		WorldPosition, CameraVector, SvPositionXY, ViewRectMin, TemporalAAParamsX, GameTime, LightDirVS, MotionEmissiveMask,
+		TimeBiasAmount, SpeedControl, RandomAmount, DissolveTexSW, Tail_DissolveTexSWAndBlackContril, Group_DissolveTexSpeed,
+		Group_DissolvePos, Group_ColorMaskExtra, Group_DissolveUVStrength, Group_IDNoiseUVStrength, Group_IDButtomNoiseStrength,
+		Group_BlackColorRange, DiffuseNoiseUVControl, BaseColorTint, Tail_ColorMaskExtra, ColorTopTint, ColorMidTint,
+		ColorTintStrengthInDark, NoiseSparkColorAdd, NoiseSparkTexSW, NoiseSparkColorMaskControl, NoiseSparkColorMaskControl_End,
+		SolidShadowProcess, SolidShadowProcess_Eps, ShadowOffsetAdjustFactor, ShadowOffsetPower, MaskShadowOffsetStrength,
+		RaytracingReflectionFix, LightOffset_Pitch, ShadowProcess_Lo, ShadowProcess_Hi, AniSwitch_FaceShadow, SolidShadow_A,
+		SolidShadow_B, SolidShadow_Mul, FinalColorControl, FinalColorMul_Night, BlackEdgeColor_UP, BlackEdgeColor_Button,
+		BlackMaskControl, WPOTexSW, IDNoiseUVControl, DissolveMaskStrength, Tail_FresnelPos, Tail_FresnelEnd,
+		Tail_DissolveInnerRange, Tail_DissolveInnerEnd, Tail_DissolveOuterStart, Tail_DissolveOuterEnd, Tail_DissolveOpacityAdd,
+		TailBlackMaskRange, FinalEmissionStrength, DefaultSkinFactor, UseSkinMask_DYN, UseFaceAni_SkinMask, SkinColor,
+		EmissionIntensity, EmissionColor, E_Motion_Emissive, SelectionColor, DissolveWidth, OverallOpacity, HETA_OpacityMulti,
+		FireRimColor, OpacityIntensity, ToonRimWidth, (float4)0, (float4)0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, 0.0, 0.0, 0.0, float3(1.0, 0.0, 0.0), (float3)0, (float3)0, CPD1, CPD13, KuroViewLightColorB, MPC_GlobalTimeHour,
+		MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2,
+		ToonLight3, KuroPrimDitherEnable, KuroPrimDitherFade, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode,
+		KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask,
+		OpacityMask);
+}
+
+// M_Char_ZanNi_FireHair PS 35ea3ef57f (#286798): MI_R2T1ZanniMd10011Bangs_HETA2 (ToonHair)
+FWuwaToonGBuffer WuwaToonZaniFireHairBasePass_OneSidedHETA(
+	Texture2D DissolveTex, SamplerState DissolveTexSampler, Texture2D TypeMask, SamplerState TypeMaskSampler,
+	Texture2D MainTex, SamplerState MainTexSampler, Texture2D FlowTex, SamplerState FlowTexSampler, Texture2D DitherTex,
+	SamplerState DitherTexSampler, float2 UV0, float2 UV2, float4 VertexColor, float3 WorldNormal, float3 WorldPosition,
+	float3 CameraVector, float2 SvPositionXY, float2 ViewRectMin, float TemporalAAParamsX, float GameTime, float3 LightDirVS,
+	float MotionEmissiveMask, float TimeBiasAmount, float SpeedControl, float RandomAmount, float4 DissolveTexSW,
+	float4 Tail_DissolveTexSWAndBlackContril, float4 Group_DissolveTexSpeed, float4 Group_DissolvePos,
+	float4 Group_ColorMaskExtra, float4 Group_DissolveUVStrength, float4 Group_IDNoiseUVStrength,
+	float4 Group_IDButtomNoiseStrength, float4 Group_BlackColorRange, float4 DiffuseNoiseUVControl, float4 BaseColorTint,
+	float Tail_ColorMaskExtra, float4 ColorTopTint, float4 ColorMidTint, float4 ColorTintStrengthInDark,
+	float4 NoiseSparkColorAdd, float4 NoiseSparkTexSW, float4 NoiseSparkColorMaskControl,
+	float NoiseSparkColorMaskControl_End, float SolidShadowProcess, float SolidShadowProcess_Eps,
+	float ShadowOffsetAdjustFactor, float ShadowOffsetPower, float MaskShadowOffsetStrength, float RaytracingReflectionFix,
+	float LightOffset_Pitch, float ShadowProcess_Lo, float ShadowProcess_Hi, float AniSwitch_FaceShadow, float SolidShadow_A,
+	float SolidShadow_B, float SolidShadow_Mul, float4 FinalColorControl, float FinalColorMul_Night, float4 BlackEdgeColor_UP,
+	float4 BlackEdgeColor_Button, float4 BlackMaskControl, float4 WPOTexSW, float4 IDNoiseUVControl,
+	float DissolveMaskStrength, float Tail_FresnelPos, float Tail_FresnelEnd, float Tail_DissolveInnerRange,
+	float Tail_DissolveInnerEnd, float Tail_DissolveOuterStart, float Tail_DissolveOuterEnd, float Tail_DissolveOpacityAdd,
+	float TailBlackMaskRange, float FinalEmissionStrength, float DefaultSkinFactor, float UseSkinMask_DYN,
+	float UseFaceAni_SkinMask, float4 SkinColor, float EmissionIntensity, float4 EmissionColor, float4 E_Motion_Emissive,
+	float4 SelectionColor, float DissolveWidth, float OverallOpacity, float HETA_OpacityMulti, float4 FireRimColor,
+	float ToonRimWidth, float CPD1, float CPD13, float3 KuroViewLightColorB, float MPC_GlobalTimeHour,
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection, float4 ToonLight0,
+	float4 ToonLight1, float4 ToonLight2, float4 ToonLight3, float KuroPrimDitherEnable, float KuroPrimDitherFade,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode, float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask, out float OpacityMask)
+{
+	return WuwaToonZaniFireHair_Impl(
+		false, true, false, false, DissolveTex, DissolveTexSampler, TypeMask, TypeMaskSampler, MainTex, MainTexSampler, FlowTex,
+		FlowTexSampler, DitherTex, DitherTexSampler, MainTex, MainTexSampler, UV0, UV2, (float2)0, VertexColor, WorldNormal, 0.0,
+		WorldPosition, CameraVector, SvPositionXY, ViewRectMin, TemporalAAParamsX, GameTime, LightDirVS, MotionEmissiveMask,
+		TimeBiasAmount, SpeedControl, RandomAmount, DissolveTexSW, Tail_DissolveTexSWAndBlackContril, Group_DissolveTexSpeed,
+		Group_DissolvePos, Group_ColorMaskExtra, Group_DissolveUVStrength, Group_IDNoiseUVStrength, Group_IDButtomNoiseStrength,
+		Group_BlackColorRange, DiffuseNoiseUVControl, BaseColorTint, Tail_ColorMaskExtra, ColorTopTint, ColorMidTint,
+		ColorTintStrengthInDark, NoiseSparkColorAdd, NoiseSparkTexSW, NoiseSparkColorMaskControl, NoiseSparkColorMaskControl_End,
+		SolidShadowProcess, SolidShadowProcess_Eps, ShadowOffsetAdjustFactor, ShadowOffsetPower, MaskShadowOffsetStrength,
+		RaytracingReflectionFix, LightOffset_Pitch, ShadowProcess_Lo, ShadowProcess_Hi, AniSwitch_FaceShadow, SolidShadow_A,
+		SolidShadow_B, SolidShadow_Mul, FinalColorControl, FinalColorMul_Night, BlackEdgeColor_UP, BlackEdgeColor_Button,
+		BlackMaskControl, WPOTexSW, IDNoiseUVControl, DissolveMaskStrength, Tail_FresnelPos, Tail_FresnelEnd,
+		Tail_DissolveInnerRange, Tail_DissolveInnerEnd, Tail_DissolveOuterStart, Tail_DissolveOuterEnd, Tail_DissolveOpacityAdd,
+		TailBlackMaskRange, FinalEmissionStrength, DefaultSkinFactor, UseSkinMask_DYN, UseFaceAni_SkinMask, SkinColor,
+		EmissionIntensity, EmissionColor, E_Motion_Emissive, SelectionColor, DissolveWidth, OverallOpacity, HETA_OpacityMulti,
+		FireRimColor, 0.0, ToonRimWidth, (float4)0, (float4)0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, float3(1.0, 0.0, 0.0), (float3)0, (float3)0, CPD1, CPD13, KuroViewLightColorB, MPC_GlobalTimeHour,
+		MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2,
+		ToonLight3, KuroPrimDitherEnable, KuroPrimDitherFade, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode,
+		KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask,
+		OpacityMask);
+}
+
+// M_Char_ZanNi_FireHair PS 9a8fcd0124 (#327529): MI_R2T1ZanniMd20011Hair1
+FWuwaToonGBuffer WuwaToonZaniFireHairBasePass_TwoSidedShadowLord(
+	Texture2D DissolveTex, SamplerState DissolveTexSampler, Texture2D TypeMask, SamplerState TypeMaskSampler,
+	Texture2D MainTex, SamplerState MainTexSampler, Texture2D FlowTex, SamplerState FlowTexSampler, Texture2D DitherTex,
+	SamplerState DitherTexSampler, Texture2D ShadowLordTex, SamplerState ShadowLordTexSampler, float2 UV0, float2 UV2,
+	float2 UV3, float4 VertexColor, float3 WorldNormal, float TwoSidedSign, float3 WorldPosition, float3 CameraVector,
+	float2 SvPositionXY, float2 ViewRectMin, float TemporalAAParamsX, float GameTime, float3 LightDirVS,
+	float MotionEmissiveMask, float TimeBiasAmount, float SpeedControl, float RandomAmount, float4 DissolveTexSW,
+	float4 Tail_DissolveTexSWAndBlackContril, float4 Group_DissolveTexSpeed, float4 Group_DissolvePos,
+	float4 Group_ColorMaskExtra, float4 Group_DissolveUVStrength, float4 Group_IDNoiseUVStrength,
+	float4 Group_IDButtomNoiseStrength, float4 Group_BlackColorRange, float4 DiffuseNoiseUVControl, float4 BaseColorTint,
+	float Tail_ColorMaskExtra, float4 ColorTopTint, float4 ColorMidTint, float4 ColorTintStrengthInDark,
+	float4 NoiseSparkColorAdd, float4 NoiseSparkTexSW, float4 NoiseSparkColorMaskControl,
+	float NoiseSparkColorMaskControl_End, float SolidShadowProcess, float SolidShadowProcess_Eps,
+	float ShadowOffsetAdjustFactor, float ShadowOffsetPower, float MaskShadowOffsetStrength, float RaytracingReflectionFix,
+	float LightOffset_Pitch, float ShadowProcess_Lo, float ShadowProcess_Hi, float AniSwitch_FaceShadow, float SolidShadow_A,
+	float SolidShadow_B, float SolidShadow_Mul, float4 FinalColorControl, float FinalColorMul_Night, float4 BlackEdgeColor_UP,
+	float4 BlackEdgeColor_Button, float4 BlackMaskControl, float4 WPOTexSW, float4 IDNoiseUVControl,
+	float DissolveMaskStrength, float Tail_FresnelPos, float Tail_FresnelEnd, float Tail_DissolveInnerRange,
+	float Tail_DissolveInnerEnd, float Tail_DissolveOuterStart, float Tail_DissolveOuterEnd, float Tail_DissolveOpacityAdd,
+	float TailBlackMaskRange, float FinalEmissionStrength, float DefaultSkinFactor, float UseSkinMask_DYN,
+	float UseFaceAni_SkinMask, float4 SkinColor, float EmissionIntensity, float4 EmissionColor, float4 E_Motion_Emissive,
+	float4 SelectionColor, float DissolveWidth, float OverallOpacity, float HETA_OpacityMulti, float4 FireRimColor,
+	float OpacityIntensity, float ToonRimWidth, float4 ShadowLord_ColorTiling, float4 ShadowLord_ColorMulti,
+	float ShadowLord_ColorOpacity, float UseShadowLordMaterialDynamic, float CPD1, float CPD13, float3 KuroViewLightColorB,
+	float MPC_GlobalTimeHour, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3, float KuroPrimDitherEnable,
+	float KuroPrimDitherFade, float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition,
+	float3 ObjectBounds, uint LightingChannelMask, out float OpacityMask)
+{
+	return WuwaToonZaniFireHair_Impl(
+		true, false, true, false, DissolveTex, DissolveTexSampler, TypeMask, TypeMaskSampler, MainTex, MainTexSampler, FlowTex,
+		FlowTexSampler, DitherTex, DitherTexSampler, ShadowLordTex, ShadowLordTexSampler, UV0, UV2, UV3, VertexColor,
+		WorldNormal, TwoSidedSign, WorldPosition, CameraVector, SvPositionXY, ViewRectMin, TemporalAAParamsX, GameTime,
+		LightDirVS, MotionEmissiveMask, TimeBiasAmount, SpeedControl, RandomAmount, DissolveTexSW,
+		Tail_DissolveTexSWAndBlackContril, Group_DissolveTexSpeed, Group_DissolvePos, Group_ColorMaskExtra,
+		Group_DissolveUVStrength, Group_IDNoiseUVStrength, Group_IDButtomNoiseStrength, Group_BlackColorRange,
+		DiffuseNoiseUVControl, BaseColorTint, Tail_ColorMaskExtra, ColorTopTint, ColorMidTint, ColorTintStrengthInDark,
+		NoiseSparkColorAdd, NoiseSparkTexSW, NoiseSparkColorMaskControl, NoiseSparkColorMaskControl_End, SolidShadowProcess,
+		SolidShadowProcess_Eps, ShadowOffsetAdjustFactor, ShadowOffsetPower, MaskShadowOffsetStrength, RaytracingReflectionFix,
+		LightOffset_Pitch, ShadowProcess_Lo, ShadowProcess_Hi, AniSwitch_FaceShadow, SolidShadow_A, SolidShadow_B,
+		SolidShadow_Mul, FinalColorControl, FinalColorMul_Night, BlackEdgeColor_UP, BlackEdgeColor_Button, BlackMaskControl,
+		WPOTexSW, IDNoiseUVControl, DissolveMaskStrength, Tail_FresnelPos, Tail_FresnelEnd, Tail_DissolveInnerRange,
+		Tail_DissolveInnerEnd, Tail_DissolveOuterStart, Tail_DissolveOuterEnd, Tail_DissolveOpacityAdd, TailBlackMaskRange,
+		FinalEmissionStrength, DefaultSkinFactor, UseSkinMask_DYN, UseFaceAni_SkinMask, SkinColor, EmissionIntensity,
+		EmissionColor, E_Motion_Emissive, SelectionColor, DissolveWidth, OverallOpacity, HETA_OpacityMulti, FireRimColor,
+		OpacityIntensity, ToonRimWidth, ShadowLord_ColorTiling, ShadowLord_ColorMulti, ShadowLord_ColorOpacity,
+		UseShadowLordMaterialDynamic, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float3(1.0, 0.0, 0.0),
+		(float3)0, (float3)0, CPD1, CPD13, KuroViewLightColorB, MPC_GlobalTimeHour, MPC_GlobalCharacterAmbientSkinColor,
+		MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, KuroPrimDitherEnable,
+		KuroPrimDitherFade, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale,
+		KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, OpacityMask);
+}
+
+// M_Char_ZanNi_FireHair PS 6d41a98a27 (#56050): MI_R2T1ZanniMd20011Bangs1
+FWuwaToonGBuffer WuwaToonZaniFireHairBasePass_OneSidedShadowLord(
+	Texture2D DissolveTex, SamplerState DissolveTexSampler, Texture2D TypeMask, SamplerState TypeMaskSampler,
+	Texture2D MainTex, SamplerState MainTexSampler, Texture2D FlowTex, SamplerState FlowTexSampler, Texture2D DitherTex,
+	SamplerState DitherTexSampler, Texture2D ShadowLordTex, SamplerState ShadowLordTexSampler, float2 UV0, float2 UV2,
+	float2 UV3, float4 VertexColor, float3 WorldNormal, float3 WorldPosition, float3 CameraVector, float2 SvPositionXY,
+	float2 ViewRectMin, float TemporalAAParamsX, float GameTime, float3 LightDirVS, float MotionEmissiveMask,
+	float TimeBiasAmount, float SpeedControl, float RandomAmount, float4 DissolveTexSW,
+	float4 Tail_DissolveTexSWAndBlackContril, float4 Group_DissolveTexSpeed, float4 Group_DissolvePos,
+	float4 Group_ColorMaskExtra, float4 Group_DissolveUVStrength, float4 Group_IDNoiseUVStrength,
+	float4 Group_IDButtomNoiseStrength, float4 Group_BlackColorRange, float4 DiffuseNoiseUVControl, float4 BaseColorTint,
+	float Tail_ColorMaskExtra, float4 ColorTopTint, float4 ColorMidTint, float4 ColorTintStrengthInDark,
+	float4 NoiseSparkColorAdd, float4 NoiseSparkTexSW, float4 NoiseSparkColorMaskControl,
+	float NoiseSparkColorMaskControl_End, float SolidShadowProcess, float SolidShadowProcess_Eps,
+	float ShadowOffsetAdjustFactor, float ShadowOffsetPower, float MaskShadowOffsetStrength, float RaytracingReflectionFix,
+	float LightOffset_Pitch, float ShadowProcess_Lo, float ShadowProcess_Hi, float AniSwitch_FaceShadow, float SolidShadow_A,
+	float SolidShadow_B, float SolidShadow_Mul, float4 FinalColorControl, float FinalColorMul_Night, float4 BlackEdgeColor_UP,
+	float4 BlackEdgeColor_Button, float4 BlackMaskControl, float4 WPOTexSW, float4 IDNoiseUVControl,
+	float DissolveMaskStrength, float Tail_FresnelPos, float Tail_FresnelEnd, float Tail_DissolveInnerRange,
+	float Tail_DissolveInnerEnd, float Tail_DissolveOuterStart, float Tail_DissolveOuterEnd, float Tail_DissolveOpacityAdd,
+	float TailBlackMaskRange, float FinalEmissionStrength, float DefaultSkinFactor, float UseSkinMask_DYN,
+	float UseFaceAni_SkinMask, float4 SkinColor, float EmissionIntensity, float4 EmissionColor, float4 E_Motion_Emissive,
+	float4 SelectionColor, float DissolveWidth, float OverallOpacity, float HETA_OpacityMulti, float4 FireRimColor,
+	float OpacityIntensity, float ToonRimWidth, float4 ShadowLord_ColorTiling, float4 ShadowLord_ColorMulti,
+	float ShadowLord_ColorOpacity, float UseShadowLordMaterialDynamic, float CPD1, float CPD13, float3 KuroViewLightColorB,
+	float MPC_GlobalTimeHour, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3, float KuroPrimDitherEnable,
+	float KuroPrimDitherFade, float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition,
+	float3 ObjectBounds, uint LightingChannelMask, out float OpacityMask)
+{
+	return WuwaToonZaniFireHair_Impl(
+		false, false, true, false, DissolveTex, DissolveTexSampler, TypeMask, TypeMaskSampler, MainTex, MainTexSampler, FlowTex,
+		FlowTexSampler, DitherTex, DitherTexSampler, ShadowLordTex, ShadowLordTexSampler, UV0, UV2, UV3, VertexColor,
+		WorldNormal, 0.0, WorldPosition, CameraVector, SvPositionXY, ViewRectMin, TemporalAAParamsX, GameTime, LightDirVS,
+		MotionEmissiveMask, TimeBiasAmount, SpeedControl, RandomAmount, DissolveTexSW, Tail_DissolveTexSWAndBlackContril,
+		Group_DissolveTexSpeed, Group_DissolvePos, Group_ColorMaskExtra, Group_DissolveUVStrength, Group_IDNoiseUVStrength,
+		Group_IDButtomNoiseStrength, Group_BlackColorRange, DiffuseNoiseUVControl, BaseColorTint, Tail_ColorMaskExtra,
+		ColorTopTint, ColorMidTint, ColorTintStrengthInDark, NoiseSparkColorAdd, NoiseSparkTexSW, NoiseSparkColorMaskControl,
+		NoiseSparkColorMaskControl_End, SolidShadowProcess, SolidShadowProcess_Eps, ShadowOffsetAdjustFactor, ShadowOffsetPower,
+		MaskShadowOffsetStrength, RaytracingReflectionFix, LightOffset_Pitch, ShadowProcess_Lo, ShadowProcess_Hi,
+		AniSwitch_FaceShadow, SolidShadow_A, SolidShadow_B, SolidShadow_Mul, FinalColorControl, FinalColorMul_Night,
+		BlackEdgeColor_UP, BlackEdgeColor_Button, BlackMaskControl, WPOTexSW, IDNoiseUVControl, DissolveMaskStrength,
+		Tail_FresnelPos, Tail_FresnelEnd, Tail_DissolveInnerRange, Tail_DissolveInnerEnd, Tail_DissolveOuterStart,
+		Tail_DissolveOuterEnd, Tail_DissolveOpacityAdd, TailBlackMaskRange, FinalEmissionStrength, DefaultSkinFactor,
+		UseSkinMask_DYN, UseFaceAni_SkinMask, SkinColor, EmissionIntensity, EmissionColor, E_Motion_Emissive, SelectionColor,
+		DissolveWidth, OverallOpacity, HETA_OpacityMulti, FireRimColor, OpacityIntensity, ToonRimWidth, ShadowLord_ColorTiling,
+		ShadowLord_ColorMulti, ShadowLord_ColorOpacity, UseShadowLordMaterialDynamic, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, 0.0, 0.0, 0.0, float3(1.0, 0.0, 0.0), (float3)0, (float3)0, CPD1, CPD13, KuroViewLightColorB, MPC_GlobalTimeHour,
+		MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2,
+		ToonLight3, KuroPrimDitherEnable, KuroPrimDitherFade, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode,
+		KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask,
+		OpacityMask);
+}
+
+// M_Char_ZanNi_FireHair PS faa84b7e77 (#94449): MI_R2T1ZanniMd20011Bangs_HETA2 (ToonHair)
+FWuwaToonGBuffer WuwaToonZaniFireHairBasePass_OneSidedHETAShadowLord(
+	Texture2D DissolveTex, SamplerState DissolveTexSampler, Texture2D TypeMask, SamplerState TypeMaskSampler,
+	Texture2D MainTex, SamplerState MainTexSampler, Texture2D FlowTex, SamplerState FlowTexSampler, Texture2D DitherTex,
+	SamplerState DitherTexSampler, Texture2D ShadowLordTex, SamplerState ShadowLordTexSampler, float2 UV0, float2 UV2,
+	float2 UV3, float4 VertexColor, float3 WorldNormal, float3 WorldPosition, float3 CameraVector, float2 SvPositionXY,
+	float2 ViewRectMin, float TemporalAAParamsX, float GameTime, float3 LightDirVS, float MotionEmissiveMask,
+	float TimeBiasAmount, float SpeedControl, float RandomAmount, float4 DissolveTexSW,
+	float4 Tail_DissolveTexSWAndBlackContril, float4 Group_DissolveTexSpeed, float4 Group_DissolvePos,
+	float4 Group_ColorMaskExtra, float4 Group_DissolveUVStrength, float4 Group_IDNoiseUVStrength,
+	float4 Group_IDButtomNoiseStrength, float4 Group_BlackColorRange, float4 DiffuseNoiseUVControl, float4 BaseColorTint,
+	float Tail_ColorMaskExtra, float4 ColorTopTint, float4 ColorMidTint, float4 ColorTintStrengthInDark,
+	float4 NoiseSparkColorAdd, float4 NoiseSparkTexSW, float4 NoiseSparkColorMaskControl,
+	float NoiseSparkColorMaskControl_End, float SolidShadowProcess, float SolidShadowProcess_Eps,
+	float ShadowOffsetAdjustFactor, float ShadowOffsetPower, float MaskShadowOffsetStrength, float RaytracingReflectionFix,
+	float LightOffset_Pitch, float ShadowProcess_Lo, float ShadowProcess_Hi, float AniSwitch_FaceShadow, float SolidShadow_A,
+	float SolidShadow_B, float SolidShadow_Mul, float4 FinalColorControl, float FinalColorMul_Night, float4 BlackEdgeColor_UP,
+	float4 BlackEdgeColor_Button, float4 BlackMaskControl, float4 WPOTexSW, float4 IDNoiseUVControl,
+	float DissolveMaskStrength, float Tail_FresnelPos, float Tail_FresnelEnd, float Tail_DissolveInnerRange,
+	float Tail_DissolveInnerEnd, float Tail_DissolveOuterStart, float Tail_DissolveOuterEnd, float Tail_DissolveOpacityAdd,
+	float TailBlackMaskRange, float FinalEmissionStrength, float DefaultSkinFactor, float UseSkinMask_DYN,
+	float UseFaceAni_SkinMask, float4 SkinColor, float EmissionIntensity, float4 EmissionColor, float4 E_Motion_Emissive,
+	float4 SelectionColor, float DissolveWidth, float OverallOpacity, float HETA_OpacityMulti, float4 FireRimColor,
+	float ToonRimWidth, float4 ShadowLord_ColorTiling, float4 ShadowLord_ColorMulti, float ShadowLord_ColorOpacity,
+	float UseShadowLordMaterialDynamic, float CPD1, float CPD13, float3 KuroViewLightColorB, float MPC_GlobalTimeHour,
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection, float4 ToonLight0,
+	float4 ToonLight1, float4 ToonLight2, float4 ToonLight3, float KuroPrimDitherEnable, float KuroPrimDitherFade,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode, float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask, out float OpacityMask)
+{
+	return WuwaToonZaniFireHair_Impl(
+		false, true, true, false, DissolveTex, DissolveTexSampler, TypeMask, TypeMaskSampler, MainTex, MainTexSampler, FlowTex,
+		FlowTexSampler, DitherTex, DitherTexSampler, ShadowLordTex, ShadowLordTexSampler, UV0, UV2, UV3, VertexColor,
+		WorldNormal, 0.0, WorldPosition, CameraVector, SvPositionXY, ViewRectMin, TemporalAAParamsX, GameTime, LightDirVS,
+		MotionEmissiveMask, TimeBiasAmount, SpeedControl, RandomAmount, DissolveTexSW, Tail_DissolveTexSWAndBlackContril,
+		Group_DissolveTexSpeed, Group_DissolvePos, Group_ColorMaskExtra, Group_DissolveUVStrength, Group_IDNoiseUVStrength,
+		Group_IDButtomNoiseStrength, Group_BlackColorRange, DiffuseNoiseUVControl, BaseColorTint, Tail_ColorMaskExtra,
+		ColorTopTint, ColorMidTint, ColorTintStrengthInDark, NoiseSparkColorAdd, NoiseSparkTexSW, NoiseSparkColorMaskControl,
+		NoiseSparkColorMaskControl_End, SolidShadowProcess, SolidShadowProcess_Eps, ShadowOffsetAdjustFactor, ShadowOffsetPower,
+		MaskShadowOffsetStrength, RaytracingReflectionFix, LightOffset_Pitch, ShadowProcess_Lo, ShadowProcess_Hi,
+		AniSwitch_FaceShadow, SolidShadow_A, SolidShadow_B, SolidShadow_Mul, FinalColorControl, FinalColorMul_Night,
+		BlackEdgeColor_UP, BlackEdgeColor_Button, BlackMaskControl, WPOTexSW, IDNoiseUVControl, DissolveMaskStrength,
+		Tail_FresnelPos, Tail_FresnelEnd, Tail_DissolveInnerRange, Tail_DissolveInnerEnd, Tail_DissolveOuterStart,
+		Tail_DissolveOuterEnd, Tail_DissolveOpacityAdd, TailBlackMaskRange, FinalEmissionStrength, DefaultSkinFactor,
+		UseSkinMask_DYN, UseFaceAni_SkinMask, SkinColor, EmissionIntensity, EmissionColor, E_Motion_Emissive, SelectionColor,
+		DissolveWidth, OverallOpacity, HETA_OpacityMulti, FireRimColor, 0.0, ToonRimWidth, ShadowLord_ColorTiling,
+		ShadowLord_ColorMulti, ShadowLord_ColorOpacity, UseShadowLordMaterialDynamic, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		0.0, 0.0, 0.0, 0.0, float3(1.0, 0.0, 0.0), (float3)0, (float3)0, CPD1, CPD13, KuroViewLightColorB, MPC_GlobalTimeHour,
+		MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2,
+		ToonLight3, KuroPrimDitherEnable, KuroPrimDitherFade, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode,
+		KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask,
+		OpacityMask);
+}
+
+// M_Char_ZanNi_FireHair PS 94ecc4f9c6 (#27953): MI_R2T1LupaMd10011Tail (Lupa)
+FWuwaToonGBuffer WuwaToonZaniFireHairBasePass_TwoSidedFireCore(
+	Texture2D DissolveTex, SamplerState DissolveTexSampler, Texture2D TypeMask, SamplerState TypeMaskSampler,
+	Texture2D MainTex, SamplerState MainTexSampler, Texture2D FlowTex, SamplerState FlowTexSampler, Texture2D DitherTex,
+	SamplerState DitherTexSampler, float2 UV0, float2 UV2, float2 UV3, float4 VertexColor, float3 WorldNormal,
+	float TwoSidedSign, float3 WorldPosition, float3 CameraVector, float2 SvPositionXY, float2 ViewRectMin,
+	float TemporalAAParamsX, float GameTime, float3 LightDirVS, float MotionEmissiveMask, float TimeBiasAmount,
+	float SpeedControl, float RandomAmount, float4 DissolveTexSW, float4 Tail_DissolveTexSWAndBlackContril,
+	float4 Group_DissolveTexSpeed, float4 Group_DissolvePos, float4 Group_ColorMaskExtra, float4 Group_DissolveUVStrength,
+	float4 Group_IDNoiseUVStrength, float4 Group_IDButtomNoiseStrength, float4 Group_BlackColorRange,
+	float4 DiffuseNoiseUVControl, float4 BaseColorTint, float Tail_ColorMaskExtra, float4 ColorTopTint, float4 ColorMidTint,
+	float4 ColorTintStrengthInDark, float4 NoiseSparkColorAdd, float4 NoiseSparkTexSW, float4 NoiseSparkColorMaskControl,
+	float NoiseSparkColorMaskControl_End, float SolidShadowProcess, float SolidShadowProcess_Eps,
+	float ShadowOffsetAdjustFactor, float ShadowOffsetPower, float MaskShadowOffsetStrength, float RaytracingReflectionFix,
+	float LightOffset_Pitch, float ShadowProcess_Lo, float ShadowProcess_Hi, float AniSwitch_FaceShadow, float SolidShadow_A,
+	float SolidShadow_B, float SolidShadow_Mul, float4 FinalColorControl, float FinalColorMul_Night, float4 BlackEdgeColor_UP,
+	float4 BlackEdgeColor_Button, float4 BlackMaskControl, float4 WPOTexSW, float4 IDNoiseUVControl,
+	float DissolveMaskStrength, float Tail_FresnelPos, float Tail_FresnelEnd, float Tail_DissolveInnerRange,
+	float Tail_DissolveInnerEnd, float Tail_DissolveOuterStart, float Tail_DissolveOuterEnd, float Tail_DissolveOpacityAdd,
+	float TailBlackMaskRange, float FinalEmissionStrength, float DefaultSkinFactor, float UseSkinMask_DYN,
+	float UseFaceAni_SkinMask, float4 SkinColor, float EmissionIntensity, float4 EmissionColor, float4 E_Motion_Emissive,
+	float4 SelectionColor, float DissolveWidth, float OverallOpacity, float HETA_OpacityMulti, float4 FireRimColor,
+	float OpacityIntensity, float ToonRimWidth, float RangeMaskType, float BlackRangePos, float BlackRangeEnd,
+	float FireCore_FresnelPos, float FireCore_FresnelPos2, float BlackFresnelWidth, float FireCoreDissolveMaskStrength,
+	float RangePos, float RangeEnd, float FireCore_FresnelWidth, float NoisePos, float NoiseEnd, float3 CPD_FireCoreA,
+	float3 CPD_FireCoreB, float3 WorldCameraOrigin, float CPD1, float CPD13, float3 KuroViewLightColorB,
+	float MPC_GlobalTimeHour, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3, float KuroPrimDitherEnable,
+	float KuroPrimDitherFade, float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition,
+	float3 ObjectBounds, uint LightingChannelMask, out float OpacityMask)
+{
+	return WuwaToonZaniFireHair_Impl(
+		true, false, false, true, DissolveTex, DissolveTexSampler, TypeMask, TypeMaskSampler, MainTex, MainTexSampler, FlowTex,
+		FlowTexSampler, DitherTex, DitherTexSampler, MainTex, MainTexSampler, UV0, UV2, UV3, VertexColor, WorldNormal,
+		TwoSidedSign, WorldPosition, CameraVector, SvPositionXY, ViewRectMin, TemporalAAParamsX, GameTime, LightDirVS,
+		MotionEmissiveMask, TimeBiasAmount, SpeedControl, RandomAmount, DissolveTexSW, Tail_DissolveTexSWAndBlackContril,
+		Group_DissolveTexSpeed, Group_DissolvePos, Group_ColorMaskExtra, Group_DissolveUVStrength, Group_IDNoiseUVStrength,
+		Group_IDButtomNoiseStrength, Group_BlackColorRange, DiffuseNoiseUVControl, BaseColorTint, Tail_ColorMaskExtra,
+		ColorTopTint, ColorMidTint, ColorTintStrengthInDark, NoiseSparkColorAdd, NoiseSparkTexSW, NoiseSparkColorMaskControl,
+		NoiseSparkColorMaskControl_End, SolidShadowProcess, SolidShadowProcess_Eps, ShadowOffsetAdjustFactor, ShadowOffsetPower,
+		MaskShadowOffsetStrength, RaytracingReflectionFix, LightOffset_Pitch, ShadowProcess_Lo, ShadowProcess_Hi,
+		AniSwitch_FaceShadow, SolidShadow_A, SolidShadow_B, SolidShadow_Mul, FinalColorControl, FinalColorMul_Night,
+		BlackEdgeColor_UP, BlackEdgeColor_Button, BlackMaskControl, WPOTexSW, IDNoiseUVControl, DissolveMaskStrength,
+		Tail_FresnelPos, Tail_FresnelEnd, Tail_DissolveInnerRange, Tail_DissolveInnerEnd, Tail_DissolveOuterStart,
+		Tail_DissolveOuterEnd, Tail_DissolveOpacityAdd, TailBlackMaskRange, FinalEmissionStrength, DefaultSkinFactor,
+		UseSkinMask_DYN, UseFaceAni_SkinMask, SkinColor, EmissionIntensity, EmissionColor, E_Motion_Emissive, SelectionColor,
+		DissolveWidth, OverallOpacity, HETA_OpacityMulti, FireRimColor, OpacityIntensity, ToonRimWidth, (float4)0, (float4)0,
+		0.0, 0.0, RangeMaskType, BlackRangePos, BlackRangeEnd, FireCore_FresnelPos, FireCore_FresnelPos2, BlackFresnelWidth,
+		FireCoreDissolveMaskStrength, RangePos, RangeEnd, FireCore_FresnelWidth, NoisePos, NoiseEnd, CPD_FireCoreA,
+		CPD_FireCoreB, WorldCameraOrigin, CPD1, CPD13, KuroViewLightColorB, MPC_GlobalTimeHour,
+		MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2,
+		ToonLight3, KuroPrimDitherEnable, KuroPrimDitherFade, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode,
+		KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask,
+		OpacityMask);
+}
+
+// ---- END GENERATED ----
+
+// ---- BEGIN ROUND 7 GENERATED (tools/shaderdiff/weapons/r7/zani_gen_entries_r7.py) ----
+// M_Char_ZanNi_FireHair PS 72c723cd73 (#201781): MI_ECalbrenaChimeraMd10011Head (Galbrena chimera head)
+FWuwaToonGBuffer WuwaToonZaniFireHairBasePass_TwoSidedShadowLordFireCoreEffect(
+	Texture2D DissolveTex, SamplerState DissolveTexSampler, Texture2D TypeMask, SamplerState TypeMaskSampler,
+	Texture2D MainTex, SamplerState MainTexSampler, Texture2D FlowTex, SamplerState FlowTexSampler, Texture2D DitherTex,
+	SamplerState DitherTexSampler, Texture2D ShadowLordTex, SamplerState ShadowLordTexSampler, float2 UV0, float2 UV2,
+	float2 UV3, float4 VertexColor, float3 WorldNormal, float TwoSidedSign, float3 WorldPosition, float3 CameraVector,
+	float2 SvPositionXY, float2 ViewRectMin, float TemporalAAParamsX, float GameTime, float3 LightDirVS,
+	float MotionEmissiveMask, float TimeBiasAmount, float SpeedControl, float RandomAmount, float4 DissolveTexSW,
+	float4 Tail_DissolveTexSWAndBlackContril, float4 Group_DissolveTexSpeed, float4 Group_DissolvePos,
+	float4 Group_ColorMaskExtra, float4 Group_DissolveUVStrength, float4 Group_IDNoiseUVStrength,
+	float4 Group_IDButtomNoiseStrength, float4 Group_BlackColorRange, float4 DiffuseNoiseUVControl, float4 BaseColorTint,
+	float Tail_ColorMaskExtra, float4 ColorTopTint, float4 ColorMidTint, float4 ColorTintStrengthInDark,
+	float4 NoiseSparkColorAdd, float4 NoiseSparkTexSW, float4 NoiseSparkColorMaskControl,
+	float NoiseSparkColorMaskControl_End, float SolidShadowProcess, float SolidShadowProcess_Eps,
+	float ShadowOffsetAdjustFactor, float ShadowOffsetPower, float MaskShadowOffsetStrength, float RaytracingReflectionFix,
+	float LightOffset_Pitch, float ShadowProcess_Lo, float ShadowProcess_Hi, float AniSwitch_FaceShadow, float SolidShadow_A,
+	float SolidShadow_B, float SolidShadow_Mul, float4 FinalColorControl, float FinalColorMul_Night, float4 BlackEdgeColor_UP,
+	float4 BlackEdgeColor_Button, float4 BlackMaskControl, float4 WPOTexSW, float4 IDNoiseUVControl,
+	float DissolveMaskStrength, float Tail_FresnelPos, float Tail_FresnelEnd, float Tail_DissolveInnerRange,
+	float Tail_DissolveInnerEnd, float Tail_DissolveOuterStart, float Tail_DissolveOuterEnd, float Tail_DissolveOpacityAdd,
+	float TailBlackMaskRange, float FinalEmissionStrength, float DefaultSkinFactor, float UseSkinMask_DYN,
+	float UseFaceAni_SkinMask, float4 SkinColor, float EmissionIntensity, float4 EmissionColor, float4 E_Motion_Emissive,
+	float4 SelectionColor, float DissolveWidth, float OverallOpacity, float HETA_OpacityMulti, float4 FireRimColor,
+	float OpacityIntensity, float ToonRimWidth, float4 ShadowLord_ColorTiling, float4 ShadowLord_ColorMulti,
+	float ShadowLord_ColorOpacity, float UseShadowLordMaterialDynamic, float RangeMaskType, float BlackRangePos,
+	float BlackRangeEnd, float FireCore_FresnelPos, float FireCore_FresnelPos2, float BlackFresnelWidth,
+	float FireCoreDissolveMaskStrength, float RangePos, float RangeEnd, float FireCore_FresnelWidth, float NoisePos,
+	float NoiseEnd, float3 CPD_FireCoreA, float3 CPD_FireCoreB, float3 WorldCameraOrigin, float CPD1, float CPD13,
+	float3 KuroViewLightColorB, float MPC_GlobalTimeHour, float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection, float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float KuroPrimDitherEnable, float KuroPrimDitherFade, float MaterialTextureMipBias, float4 NormalOverrideParameter,
+	float KuroGBufferMode, float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask,
+	float3 ObjectWorldPosition, float3 ObjectBounds, uint LightingChannelMask, Texture2D R_Noise_A_Mask,
+	SamplerState R_Noise_A_MaskSampler, Texture2D Second_RGB, SamplerState Second_RGBSampler, float2 UV1,
+	float4 ViewSizeAndInvSize, float4 SecondTex_UVSwitch, float Second_UseScreenUV, float Second_RotCos, float Second_RotSin,
+	float4 Second_UV, float2 Second_UV_Offset, float4 Noise_UVSwitch, float Noise_UseScreenUV, float4 NoiseUV,
+	float NoiseStrength, float Second_NoiseStrength, float4 Second_Refine, float3 Second_ColorTint, float FresnelRim_RimRange,
+	float FresnelRim_Smooth, float FresnelRim_Reverse, float3 FresnelRim_RimColor, float EffectMaskTexUV2Switch,
+	float Effect_Progress, out float OpacityMask)
+{
+	float3 EffE = WuwaZaniFireEffectEmissive(
+		R_Noise_A_Mask, R_Noise_A_MaskSampler, Second_RGB, Second_RGBSampler, UV0, UV1, UV2, UV3, WorldNormal, TwoSidedSign,
+		CameraVector, SvPositionXY, ViewRectMin, ViewSizeAndInvSize, GameTime, MaterialTextureMipBias, NormalOverrideParameter,
+		SecondTex_UVSwitch, Second_UseScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset, Noise_UVSwitch,
+		Noise_UseScreenUV, NoiseUV, NoiseStrength, Second_NoiseStrength, Second_Refine, Second_ColorTint, FresnelRim_RimRange,
+		FresnelRim_Smooth, FresnelRim_Reverse, FresnelRim_RimColor, EffectMaskTexUV2Switch, Effect_Progress);
+	return WuwaToonZaniFireHair_Impl(
+		true, false, true, true, DissolveTex, DissolveTexSampler, TypeMask, TypeMaskSampler, MainTex, MainTexSampler, FlowTex,
+		FlowTexSampler, DitherTex, DitherTexSampler, ShadowLordTex, ShadowLordTexSampler, UV0, UV2, UV3, VertexColor,
+		WorldNormal, TwoSidedSign, WorldPosition, CameraVector, SvPositionXY, ViewRectMin, TemporalAAParamsX, GameTime,
+		LightDirVS, MotionEmissiveMask, TimeBiasAmount, SpeedControl, RandomAmount, DissolveTexSW,
+		Tail_DissolveTexSWAndBlackContril, Group_DissolveTexSpeed, Group_DissolvePos, Group_ColorMaskExtra,
+		Group_DissolveUVStrength, Group_IDNoiseUVStrength, Group_IDButtomNoiseStrength, Group_BlackColorRange,
+		DiffuseNoiseUVControl, BaseColorTint, Tail_ColorMaskExtra, ColorTopTint, ColorMidTint, ColorTintStrengthInDark,
+		NoiseSparkColorAdd, NoiseSparkTexSW, NoiseSparkColorMaskControl, NoiseSparkColorMaskControl_End, SolidShadowProcess,
+		SolidShadowProcess_Eps, ShadowOffsetAdjustFactor, ShadowOffsetPower, MaskShadowOffsetStrength, RaytracingReflectionFix,
+		LightOffset_Pitch, ShadowProcess_Lo, ShadowProcess_Hi, AniSwitch_FaceShadow, SolidShadow_A, SolidShadow_B,
+		SolidShadow_Mul, FinalColorControl, FinalColorMul_Night, BlackEdgeColor_UP, BlackEdgeColor_Button, BlackMaskControl,
+		WPOTexSW, IDNoiseUVControl, DissolveMaskStrength, Tail_FresnelPos, Tail_FresnelEnd, Tail_DissolveInnerRange,
+		Tail_DissolveInnerEnd, Tail_DissolveOuterStart, Tail_DissolveOuterEnd, Tail_DissolveOpacityAdd, TailBlackMaskRange,
+		FinalEmissionStrength, DefaultSkinFactor, UseSkinMask_DYN, UseFaceAni_SkinMask, SkinColor, EmissionIntensity,
+		EmissionColor, E_Motion_Emissive, SelectionColor, DissolveWidth, OverallOpacity, HETA_OpacityMulti, FireRimColor,
+		OpacityIntensity, ToonRimWidth, ShadowLord_ColorTiling, ShadowLord_ColorMulti, ShadowLord_ColorOpacity,
+		UseShadowLordMaterialDynamic, RangeMaskType, BlackRangePos, BlackRangeEnd, FireCore_FresnelPos, FireCore_FresnelPos2,
+		BlackFresnelWidth, FireCoreDissolveMaskStrength, RangePos, RangeEnd, FireCore_FresnelWidth, NoisePos, NoiseEnd,
+		CPD_FireCoreA, CPD_FireCoreB, WorldCameraOrigin, CPD1, CPD13, KuroViewLightColorB, MPC_GlobalTimeHour,
+		MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2,
+		ToonLight3, KuroPrimDitherEnable, KuroPrimDitherFade, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode,
+		KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask,
+		OpacityMask, true, EffE);
+}
+
+// ---- END ROUND 7 GENERATED ----
+
+#endif // WUWA_ZANIFIRE_USH

@@ -1,0 +1,856 @@
+{
+ "name": "Char_Glass_1S",
+ "entry": "WuwaGlassCharGlass_1S",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_Glass.ush",
+ "kuro_shading_model": "MSM_ToonCommon (lit forward translucent; ported as unlit + ForwardLighting)",
+ "kuro_asm": "M_Char_Glass PS 474cc6dc0d (#215181, MI_R2T1YuanwuMd10011Glass) / VS 3be53aa34d (#2466); UseGradientOpacity + UseMatCap + UseVertexNormal + UseHeightLightTex, one-sided",
+ "kuro_root_material": "M_Char_Glass",
+ "blend_mode": "BLEND_Translucent",
+ "two_sided": false,
+ "resolve": false,
+ "resolve_note": "lit forward translucent (Kuro MSM_ToonCommon, BLEND_Translucent), not a toon GBuffer: UE translucent UNLIT material with Emissive Color = X.Emissive + ForwardLighting and Opacity = X.Opacity. ForwardLighting = (Kuro glass ambient on the albedo + Kuro local-light loop) / EyeAdaptation, computed in the entry from explicit engine inputs (spec kinds view / primitive / kuro_light_buffer / engine_texture_load). Kuro engine tail, not ported (UE applies its own fog/blending): opacity *= Kuro primitive fade (Primitive[43]); emissive = max(E, 0) * View[285] unless Primitive[42].w; OOB stripes; colour = ForwardLighting + emissive; vertex / volumetric fog (TEXCOORD7); o0 = (max(colour, 0), opacity), single render target, no effect grading. Verified with that tail reproduced in the harness (tools/shaderdiff/weapons/hlsl/kuro_tail_glass.hlsli).",
+ "vs_note": "VS #2466 (3be53aa34d): engine_only - reads no Material-CB value (cb declarations View / Primitive / GPU-skin only); stock GPU-skin passthrough translucent VS with vertex height fog (TEXCOORD7). See r3/glass_vs_status.py.",
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "material Emissive Color (before the engine translucent tail: fog, OOB, Kuro effect grading)"
+  },
+  "Opacity": {
+   "type": "float",
+   "kuro": "material Opacity (o0.a = o1.a after the tail)"
+  },
+  "ForwardLighting": {
+   "type": "float3",
+   "kuro": "lit term (lw * ambient-lit albedo + local-light sum) / EyeAdaptation, added to max(E,0)*View[285] before fog"
+  }
+ },
+ "inputs": [
+  {
+   "name": "MatCapTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "MatCapTex",
+   "default": "T_Reflection2_MC",
+   "note": "reference MI MI_R2T1YuanwuMd10011Glass: {'ObjectName': \"Texture2D'T_Reflection2_MC'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/CommonTexture/MatCap/T_Reflection2_MC.0'}"
+  },
+  {
+   "name": "MatCapTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "MatCapTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MatCapTexSampler"
+  },
+  {
+   "name": "E_Tex_NoiseTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "E_Tex_NoiseTex",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "E_Tex_NoiseTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "E_Tex_NoiseTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "E_Tex_NoiseTexSampler"
+  },
+  {
+   "name": "HeightLightTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "HeightLightTex",
+   "default": "T_GlassHeightLight_D",
+   "note": "reference MI MI_R2T1YuanwuMd10011Glass: {'ObjectName': \"Texture2D'T_GlassHeightLight_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/CommonTexture/Glass/T_GlassHeightLight_D.1'}"
+  },
+  {
+   "name": "HeightLightTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "HeightLightTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "HeightLightTexSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "UV1",
+   "type": "float2",
+   "kind": "uv",
+   "index": 1
+  },
+  {
+   "name": "UV2",
+   "type": "float2",
+   "kind": "uv",
+   "index": 2
+  },
+  {
+   "name": "UV3",
+   "type": "float2",
+   "kind": "uv",
+   "index": 3
+  },
+  {
+   "name": "WorldTangent",
+   "type": "float3",
+   "kind": "worldtangent",
+   "ue_expr": "Parameters.TangentToWorld[0]"
+  },
+  {
+   "name": "WorldNormal",
+   "type": "float3",
+   "kind": "worldnormal",
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "TangentSign",
+   "type": "float",
+   "kind": "worldtangent",
+   "channel": "sign",
+   "ue_expr": "Parameters.TangentToWorldSign"
+  },
+  {
+   "name": "NormalOverrideParameter",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.NormalOverrideParameter",
+   "kuro": "Kuro View[144] (stock member), default (0,0,0,1)",
+   "default": [
+    0,
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "name": "CameraVector",
+   "type": "float3",
+   "kind": "cameravector",
+   "ue_expr": "Parameters.CameraVector"
+  },
+  {
+   "name": "WorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "absolute",
+   "ue_expr": "WSHackToFloat(GetWorldPosition(Parameters))"
+  },
+  {
+   "name": "SvPosition",
+   "type": "float4",
+   "kind": "svposition",
+   "ue_expr": "Parameters.SvPosition"
+  },
+  {
+   "name": "ViewRectMin",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewRectMin.xy",
+   "kuro": "View[134].xy"
+  },
+  {
+   "name": "ViewSizeAndInvSize",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewSizeAndInvSize",
+   "kuro": "View[135]"
+  },
+  {
+   "name": "TranslatedWorldToView",
+   "type": "float4x4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.TranslatedWorldToView",
+   "kuro": "Kuro View[12..15]"
+  },
+  {
+   "name": "ViewForward",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewForward",
+   "kuro": "View[18].xyz (ViewToTranslatedWorld row 2); only .xy is read"
+  },
+  {
+   "name": "LocalToWorldRow0",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[0].xyz",
+   "kuro": "Primitive[0].xyz"
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  },
+  {
+   "name": "KuroViewLightColorA",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true,
+   "kuro": "View[193].xyz (Kuro view light colour; multiplies the glass ambient) [U]"
+  },
+  {
+   "name": "KuroAmbientBlend",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true,
+   "kuro": "View[269].x (weight of the second ambient triple: amb = avg(View[270..272]) + View[269].x * avg(View[273..275])) [U]"
+  },
+  {
+   "name": "KuroAmbientA0",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "unknown": true,
+   "kuro": "View[270].xyz (Kuro ambient triple A, averaged with k = 0x3EAAAAAD) [U]"
+  },
+  {
+   "name": "KuroAmbientA1",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "unknown": true,
+   "kuro": "View[271].xyz (Kuro ambient triple A, averaged with k = 0x3EAAAAAD) [U]"
+  },
+  {
+   "name": "KuroAmbientA2",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "unknown": true,
+   "kuro": "View[272].xyz (Kuro ambient triple A, averaged with k = 0x3EAAAAAD) [U]"
+  },
+  {
+   "name": "KuroAmbientB0",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "unknown": true,
+   "kuro": "View[273].xyz (Kuro ambient triple B, averaged with k = 0x3EAAAAAD) [U]"
+  },
+  {
+   "name": "KuroAmbientB1",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "unknown": true,
+   "kuro": "View[274].xyz (Kuro ambient triple B, averaged with k = 0x3EAAAAAD) [U]"
+  },
+  {
+   "name": "KuroAmbientB2",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "unknown": true,
+   "kuro": "View[275].xyz (Kuro ambient triple B, averaged with k = 0x3EAAAAAD) [U]"
+  },
+  {
+   "name": "KuroGlassAmbientFar",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true,
+   "kuro": "View[299].xyz (glass ambient colour at view depth >= View[304].x) [U]"
+  },
+  {
+   "name": "KuroGlassAmbientNear",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true,
+   "kuro": "View[306].xyz (glass ambient colour at view depth 0) [U]"
+  },
+  {
+   "name": "KuroGlassAmbientDistance",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    1000.0,
+    1.0
+   ],
+   "unknown": true,
+   "kuro": "View[304].xy: t = pow(saturate(SvPosition.w / max(x, 0.001)), y) lerps Near -> Far [U]"
+  },
+  {
+   "name": "EyeAdaptation",
+   "type": "float",
+   "kind": "engine_texture_load",
+   "ue_expr": "EyeAdaptationLookup() (UE material node \"EyeAdaptation\")",
+   "kuro": "t1 (1x1 eye-adaptation texture) .Load(int3(0, 0, 0)).x; the lit term is divided by it",
+   "harness": "synthetic value in texel (0, 0) of t1"
+  },
+  {
+   "name": "LightingChannelMask",
+   "type": "uint",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitive_LightingChannelMask_FromFlags(GetPrimitiveData(Parameters).Flags)"
+  },
+  {
+   "name": "KuroLocalLights",
+   "type": "FWuwaGlassLocalLightBuffer",
+   "kind": "kuro_light_buffer",
+   "ue_expr": null,
+   "unknown": true,
+   "kuro": "cbuffer 3 of the PS (float4[145], dynamically indexed): Kuro forward local-light list. light i = rows 9i..9i+8, row 144.x = light count (uint bits): +0 xyz world position, w 1/radius; +1 xyz spot direction, w uint flags (bits 16..17 == 2: spot); +2 x spot cos(outer), y 1/(cos(inner) - cos(outer)); +3 xyz transmission colour [U], w weight on the ambient-lit albedo [U]; +4 x enable (!= 0) and distance-falloff scale, y falloff bias, z falloff multiplier; +5 xyz lit colour, w wrap-light threshold [U]; +6 xyz shadow colour [U], w lerp(distance falloff, radius fade); +7 x intensity, y transmission occlusion [U], w uint lighting-channel mask (compared << 5 with (primitive LightingChannelMask & 7) << 5); +8 x wrap width [U], y > 0 selects the lerp light model [U]",
+   "note": "No UE material node provides this: the generator / plugin must bind a float4[145] buffer filled from the scene local lights (UE ForwardLightData is a different, culled format). With count 0 the glass is lit by the view ambient only."
+  },
+  {
+   "name": "MaCapColortInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MaCapColortInt",
+   "default": 1.0
+  },
+  {
+   "name": "EnvironmentColorInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EnvironmentColorInt",
+   "default": 1.0
+  },
+  {
+   "name": "BaseColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "BaseColor",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "E_Tex_UseTex",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_UseTex",
+   "default": 0.0
+  },
+  {
+   "name": "E_Tex_UVSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Tex_UVSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Tex_UseScreenUV",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_UseScreenUV",
+   "default": 0.0
+  },
+  {
+   "name": "E_Tex_RotCos",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Tex_Rotation"
+   ],
+   "expr": "cos(((E_Tex_Rotation * 0.002778) * 6.28319))",
+   "ue_nodes": "Cosine[Period 0](Multiply(Multiply(ScalarParameter \"E_Tex_Rotation\", 0.002778 = 0x3B360F1B), 6.28319 = 0x40C90FDB)) as a uniform expression (float32 CPU; GPU sincos is not bit-identical)",
+   "default": 1.0
+  },
+  {
+   "name": "E_Tex_RotSin",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Tex_Rotation"
+   ],
+   "expr": "sin(((E_Tex_Rotation * 0.002778) * 6.28319))",
+   "ue_nodes": "Sine[Period 0](Multiply(Multiply(ScalarParameter \"E_Tex_Rotation\", 0.002778 = 0x3B360F1B), 6.28319 = 0x40C90FDB)) as a uniform expression",
+   "default": 0.0
+  },
+  {
+   "name": "E_Tex_ScaleAndOffset",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Tex_ScaleAndOffset",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Tex_Speed",
+   "type": "float2",
+   "kind": "vector",
+   "param": "E_Tex_Speed",
+   "channels": "rg",
+   "default": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Tex_Color",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Tex_Color",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "E_Dissolve_UseDissolve",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dissolve_UseDissolve",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dissolve_Channel",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Dissolve_Channel",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Dissolve_Progress",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dissolve_Progress",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dissolve_Smooth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dissolve_Smooth",
+   "default": 5.0
+  },
+  {
+   "name": "E_Dissolve_Emission",
+   "type": "float3",
+   "kind": "vector",
+   "param": "E_Dissolve_Emission",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Dissolve_Multi",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dissolve_Multi",
+   "default": 100.0
+  },
+  {
+   "name": "HLScale",
+   "type": "float",
+   "kind": "scalar",
+   "param": "HLScale",
+   "default": 1.0
+  },
+  {
+   "name": "HLmoveSpeed",
+   "type": "float",
+   "kind": "scalar",
+   "param": "HLmoveSpeed",
+   "default": 0.0
+  },
+  {
+   "name": "HLpositionX",
+   "type": "float",
+   "kind": "scalar",
+   "param": "HLpositionX",
+   "default": 0.0
+  },
+  {
+   "name": "HLpositionY",
+   "type": "float",
+   "kind": "scalar",
+   "param": "HLpositionY",
+   "default": 0.0
+  },
+  {
+   "name": "HLOpacityInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "HLOpacityInt",
+   "default": 1.0
+  },
+  {
+   "name": "HLColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "HLColor",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "MatCapOpacityInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MatCapOpacityInt",
+   "default": 1.0
+  },
+  {
+   "name": "ReflectScale",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ReflectScale",
+   "default": 0.03999999910593033
+  },
+  {
+   "name": "ReflecOpacityInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ReflecOpacityInt",
+   "default": 1.0
+  },
+  {
+   "name": "OpacityScale",
+   "type": "float",
+   "kind": "scalar",
+   "param": "OpacityScale",
+   "default": 1.0
+  },
+  {
+   "name": "EdgeColorScale",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EdgeColorScale",
+   "default": 0.0
+  },
+  {
+   "name": "EdgeColorWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EdgeColorWidth",
+   "default": 1.0
+  },
+  {
+   "name": "EdgeOpacityInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EdgeOpacityInt",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dither_UseDither",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_UseDither",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dither_UseDither2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_UseDither2",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dither_DitherValue",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_DitherValue",
+   "default": 1.2000000476837158
+  },
+  {
+   "name": "E_Dither_DitherValue2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_DitherValue2",
+   "default": 1.2000000476837158
+  },
+  {
+   "name": "ForwardLighting",
+   "type": "float3",
+   "kind": "output"
+  }
+ ],
+ "generated_by": "tools/shaderdiff/weapons/r3/make_specs_glass.py (make_specs.py schema)",
+ "notes": {
+  "textures": "texture parameters in t-slot order of the cooked map (MatCapTex t2, E_Tex_NoiseTex t3, HeightLightTex t4) as listed by the map's texture table; t0 = volumetric-fog 3D texture and t1 = eye adaptation are engine textures. MatCapTex = vertex-normal matcap (UseMatCap + UseVertexNormal), E_Tex_NoiseTex = effect layer (alpha source of the dissolve), HeightLightTex = panned height-light streak (UseHeightLightTex). Not overridden: E_Tex_NoiseTex (root default)."
+ },
+ "ue_material": {
+  "contract": "entry returns FWuwaFXOutput {float3 Emissive; float Opacity;} + out float3 ForwardLighting - no toon GBuffer, no WuwaToonResolve",
+  "shading_model": "MSM_Unlit",
+  "blend_mode": "BLEND_Translucent",
+  "two_sided": false,
+  "connect": {
+   "EmissiveColor": "X.Emissive + ForwardLighting",
+   "Opacity": "X.Opacity"
+  },
+  "opacity_mask_clip_value": null,
+  "note": "standard translucent (SrcAlpha / InvSrcAlpha); Kuro lights the glass itself, so every light value is an explicit input: see engine_inputs. UE applies its own fog."
+ },
+ "engine_inputs": [
+  {
+   "name": "WorldTangent",
+   "kind": "worldtangent",
+   "kuro": null,
+   "ue_expr": "Parameters.TangentToWorld[0]"
+  },
+  {
+   "name": "WorldNormal",
+   "kind": "worldnormal",
+   "kuro": null,
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "TangentSign",
+   "kind": "worldtangent",
+   "kuro": null,
+   "ue_expr": "Parameters.TangentToWorldSign"
+  },
+  {
+   "name": "NormalOverrideParameter",
+   "kind": "view",
+   "kuro": "Kuro View[144] (stock member), default (0,0,0,1)",
+   "ue_expr": "ResolvedView.NormalOverrideParameter"
+  },
+  {
+   "name": "CameraVector",
+   "kind": "cameravector",
+   "kuro": null,
+   "ue_expr": "Parameters.CameraVector"
+  },
+  {
+   "name": "WorldPosition",
+   "kind": "worldposition",
+   "kuro": null,
+   "ue_expr": "WSHackToFloat(GetWorldPosition(Parameters))"
+  },
+  {
+   "name": "SvPosition",
+   "kind": "svposition",
+   "kuro": null,
+   "ue_expr": "Parameters.SvPosition"
+  },
+  {
+   "name": "ViewRectMin",
+   "kind": "view",
+   "kuro": "View[134].xy",
+   "ue_expr": "ResolvedView.ViewRectMin.xy"
+  },
+  {
+   "name": "ViewSizeAndInvSize",
+   "kind": "view",
+   "kuro": "View[135]",
+   "ue_expr": "ResolvedView.ViewSizeAndInvSize"
+  },
+  {
+   "name": "TranslatedWorldToView",
+   "kind": "view",
+   "kuro": "Kuro View[12..15]",
+   "ue_expr": "ResolvedView.TranslatedWorldToView"
+  },
+  {
+   "name": "ViewForward",
+   "kind": "view",
+   "kuro": "View[18].xyz (ViewToTranslatedWorld row 2); only .xy is read",
+   "ue_expr": "ResolvedView.ViewForward"
+  },
+  {
+   "name": "LocalToWorldRow0",
+   "kind": "primitive",
+   "kuro": "Primitive[0].xyz",
+   "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[0].xyz"
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "kind": "view",
+   "kuro": "Kuro View[149].y",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias"
+  },
+  {
+   "name": "GameTime",
+   "kind": "view",
+   "kuro": "Kuro View[148].z (UE material Time node)",
+   "ue_expr": "View.GameTime"
+  },
+  {
+   "name": "KuroViewLightColorA",
+   "kind": "view",
+   "kuro": "View[193].xyz (Kuro view light colour; multiplies the glass ambient) [U]",
+   "ue_expr": null
+  },
+  {
+   "name": "KuroAmbientBlend",
+   "kind": "view",
+   "kuro": "View[269].x (weight of the second ambient triple: amb = avg(View[270..272]) + View[269].x * avg(View[273..275])) [U]",
+   "ue_expr": null
+  },
+  {
+   "name": "KuroAmbientA0",
+   "kind": "view",
+   "kuro": "View[270].xyz (Kuro ambient triple A, averaged with k = 0x3EAAAAAD) [U]",
+   "ue_expr": null
+  },
+  {
+   "name": "KuroAmbientA1",
+   "kind": "view",
+   "kuro": "View[271].xyz (Kuro ambient triple A, averaged with k = 0x3EAAAAAD) [U]",
+   "ue_expr": null
+  },
+  {
+   "name": "KuroAmbientA2",
+   "kind": "view",
+   "kuro": "View[272].xyz (Kuro ambient triple A, averaged with k = 0x3EAAAAAD) [U]",
+   "ue_expr": null
+  },
+  {
+   "name": "KuroAmbientB0",
+   "kind": "view",
+   "kuro": "View[273].xyz (Kuro ambient triple B, averaged with k = 0x3EAAAAAD) [U]",
+   "ue_expr": null
+  },
+  {
+   "name": "KuroAmbientB1",
+   "kind": "view",
+   "kuro": "View[274].xyz (Kuro ambient triple B, averaged with k = 0x3EAAAAAD) [U]",
+   "ue_expr": null
+  },
+  {
+   "name": "KuroAmbientB2",
+   "kind": "view",
+   "kuro": "View[275].xyz (Kuro ambient triple B, averaged with k = 0x3EAAAAAD) [U]",
+   "ue_expr": null
+  },
+  {
+   "name": "KuroGlassAmbientFar",
+   "kind": "view",
+   "kuro": "View[299].xyz (glass ambient colour at view depth >= View[304].x) [U]",
+   "ue_expr": null
+  },
+  {
+   "name": "KuroGlassAmbientNear",
+   "kind": "view",
+   "kuro": "View[306].xyz (glass ambient colour at view depth 0) [U]",
+   "ue_expr": null
+  },
+  {
+   "name": "KuroGlassAmbientDistance",
+   "kind": "view",
+   "kuro": "View[304].xy: t = pow(saturate(SvPosition.w / max(x, 0.001)), y) lerps Near -> Far [U]",
+   "ue_expr": null
+  },
+  {
+   "name": "EyeAdaptation",
+   "kind": "engine_texture_load",
+   "kuro": "t1 (1x1 eye-adaptation texture) .Load(int3(0, 0, 0)).x; the lit term is divided by it",
+   "ue_expr": "EyeAdaptationLookup() (UE material node \"EyeAdaptation\")"
+  },
+  {
+   "name": "LightingChannelMask",
+   "kind": "primitive",
+   "kuro": null,
+   "ue_expr": "GetPrimitive_LightingChannelMask_FromFlags(GetPrimitiveData(Parameters).Flags)"
+  },
+  {
+   "name": "KuroLocalLights",
+   "kind": "kuro_light_buffer",
+   "kuro": "cbuffer 3 of the PS (float4[145], dynamically indexed): Kuro forward local-light list. light i = rows 9i..9i+8, row 144.x = light count (uint bits): +0 xyz world position, w 1/radius; +1 xyz spot direction, w uint flags (bits 16..17 == 2: spot); +2 x spot cos(outer), y 1/(cos(inner) - cos(outer)); +3 xyz transmission colour [U], w weight on the ambient-lit albedo [U]; +4 x enable (!= 0) and distance-falloff scale, y falloff bias, z falloff multiplier; +5 xyz lit colour, w wrap-light threshold [U]; +6 xyz shadow colour [U], w lerp(distance falloff, radius fade); +7 x intensity, y transmission occlusion [U], w uint lighting-channel mask (compared << 5 with (primitive LightingChannelMask & 7) << 5); +8 x wrap width [U], y > 0 selects the lerp light model [U]",
+   "ue_expr": null
+  }
+ ]
+}

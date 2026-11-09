@@ -1,0 +1,401 @@
+{
+  "_meta": {
+    "description": "Kuro (Wuthering Waves) toon character lighting inputs recovered offline from KuroWeatherDataAsset GISetting.CharacterSetting. Evidence and confidence: research/shaders/ToonLightingData.md.",
+    "view_slot_map": {
+      "AmbientParams": "View[298].xyz = (KuroCharacterSSSIntensity, KuroCharacterGlobalShadowIntensity, KuroUseNewCharacterRim)",
+      "AmbientA_Far": "View[299] KuroCharacterAmbientColor",
+      "AmbientB_Far": "View[300] KuroCharacterMainLightColor",
+      "MainLightColor": "View[301] KuroCharacterRimColor (rim colour; the plugin calls this slot MainLightColor)",
+      "MainLightDir": "View[302] KuroCharRimDir",
+      "AORemap": "View[303] KuroCharacterGlobalBossShadowIntensity (packing inferred: BossShadowRange.X, BossShadowRange.Y, GlobalBossShadowIntensity)",
+      "DepthGradient": "View[304].xy (NearCharDistance, NearCharDistanceSoft)",
+      "AmbientB_Near": "View[305] NearCharLightColor",
+      "AmbientA_Near": "View[306] NearCharShadowColor"
+    },
+    "cpu_formulas_observed": "BP_GlobalGI.UpdateCharacterGI (Kismet bytecode): c = CustomCharacterLightingIntensity; Ambient = lerp(BackSide, CharacterAmbientColor, c); MainLight = lerp(FrontSide, CharacterMainLightColor, c); Rim = lerp(MainLightTint*MainLightIntensity, CharacterRimColor, c); SSS = lerp(1, CharacterSSSIntensity, c); RimDir = (EulerToForward(pitch 30, yaw lerp(sceneLightYaw, LightHorizontalAngle, c)), 0). Every preset below has c = 1, so its DA values pass straight through.",
+    "AmbientParamsPartial": "Used instead of AmbientParams when the asset defines only some of the three components (keys x, y, z).",
+    "omitted": "AOStrength (View[286].z), DepthGradient, RimWidthScale (r.ToonRimWidthFactor), RimTint (cb0[1]): no value recoverable offline. Fields an asset does not override are omitted; their runtime value comes from lower TOD layers or native C++ defaults (Unknown).",
+    "scenarios": "Scenario names of the master prompt section 8 test environment -> recovered preset. Shared by AWuwaToonEnvironment::LightingPreset (C++) and wuwa_validation_presets.py; \"Custom\" (C++ only) keeps the current values."
+  },
+  "scenarios": {
+    "OutdoorDaylight": "OpenWorld_Suibo_Day_12h",
+    "Indoor": "Instance_Yanjiusuo_Indoor",
+    "Night": "Instance_WorldRouge_Night",
+    "StudioDay": "XuanJue_Day_12h",
+    "StudioNight": "XuanJue_Night_0h",
+    "NearFar": "Override_XYTG_ZL_D_NearFar"
+  },
+  "presets": {
+    "XuanJue_Day_12h": {
+      "source": "Client/Content/Aki/Render/DefaultGI/TOD/XuanJue/DA_TOD_12_zhongwu_XuanJue",
+      "note": "character-select stage, noon",
+      "AmbientA_Far": [
+        0.36,
+        0.52,
+        0.6
+      ],
+      "AmbientB_Far": [
+        2.0,
+        1.809333,
+        1.78
+      ],
+      "MainLightColor": [
+        1.767856,
+        1.827203,
+        2.0
+      ],
+      "AmbientParamsPartial": {
+        "x": 0.3
+      },
+      "related_inputs": {
+        "CustomCharacterLightingIntensity": 1.0,
+        "MainLightIntensity": 9.0,
+        "MainLightTint": [
+          1.0,
+          0.85,
+          0.7
+        ],
+        "SkyLightColor": [
+          0.7,
+          0.95,
+          1.0
+        ],
+        "SkyLightIntensity": 0.5
+      },
+      "overridden_but_value_equals_native_default": [
+        "LightHorizontalAngle"
+      ],
+      "confidence": {
+        "AmbientA_Far": "value Observed; slot Inferred (high)",
+        "AmbientB_Far": "value Observed; slot Inferred (high)",
+        "MainLightColor": "value Observed (CharacterRimColor); slot Inferred (high)",
+        "AmbientParamsPartial": "values Observed; x = SSS (BP setter, high), y = GlobalShadowIntensity and z = UseNewCharacterRim (native path, medium)"
+      }
+    },
+    "XuanJue_Night_0h": {
+      "source": "Client/Content/Aki/Render/DefaultGI/TOD/XuanJue/DA_TOD_0_yewan_XuanJue",
+      "note": "character-select stage, midnight",
+      "AmbientA_Far": [
+        0.4,
+        0.451929,
+        0.5
+      ],
+      "AmbientB_Far": [
+        1.322916,
+        1.616872,
+        2.0
+      ],
+      "MainLightColor": [
+        1.767856,
+        1.827203,
+        2.0
+      ],
+      "AmbientParamsPartial": {
+        "x": 0.3
+      },
+      "related_inputs": {
+        "CustomCharacterLightingIntensity": 1.0,
+        "MainLightIntensity": 5.0,
+        "MainLightTint": [
+          0.3,
+          0.4,
+          0.5
+        ],
+        "SkyLightColor": [
+          0.257639,
+          0.418663,
+          0.644097
+        ],
+        "SkyLightIntensity": 0.4
+      },
+      "overridden_but_value_equals_native_default": [
+        "LightHorizontalAngle"
+      ],
+      "confidence": {
+        "AmbientA_Far": "value Observed; slot Inferred (high)",
+        "AmbientB_Far": "value Observed; slot Inferred (high)",
+        "MainLightColor": "value Observed (CharacterRimColor); slot Inferred (high)",
+        "AmbientParamsPartial": "values Observed; x = SSS (BP setter, high), y = GlobalShadowIntensity and z = UseNewCharacterRim (native path, medium)"
+      }
+    },
+    "OpenWorld_Suibo_Day_12h": {
+      "source": "Client/Content/Aki/Render/DefaultGI/LevelGIData/Leve_TOD_Linaxita/2_8Suibo/TOD/DA_TOD_12_zhongwu_Suibo",
+      "note": "open-world region TOD key, noon, outdoor",
+      "AmbientA_Far": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "AmbientB_Far": [
+        0.9,
+        0.9,
+        0.9
+      ],
+      "related_inputs": {
+        "CustomCharacterLightingIntensity": 1.0,
+        "MainLightIntensity": 5.0,
+        "MainLightTint": [
+          0.8,
+          0.580032,
+          0.289971
+        ],
+        "SkyLightColor": [
+          0.66875,
+          0.933061,
+          1.2
+        ],
+        "SkyLightIntensity": 1.1
+      },
+      "overridden_but_value_equals_native_default": [],
+      "confidence": {
+        "AmbientA_Far": "value Observed; slot Inferred (high)",
+        "AmbientB_Far": "value Observed; slot Inferred (high)"
+      }
+    },
+    "OpenWorld_Common_Day_12h": {
+      "source": "Client/Content/Aki/Render/DefaultGI/TOD/Common/DA_TOD_12_zhongwu",
+      "note": "common TOD key used 10:00-12:00 (DA_TOD_Config_01 entry DataIndex 5), outdoor",
+      "AmbientA_Far": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "related_inputs": {
+        "CustomCharacterLightingIntensity": 1.0,
+        "MainLightIntensity": 4.9,
+        "MainLightTint": [
+          1.0,
+          0.96875,
+          0.875
+        ],
+        "SkyLightColor": [
+          0.573157,
+          0.800807,
+          1.0
+        ],
+        "SkyLightIntensity": 0.8
+      },
+      "overridden_but_value_equals_native_default": [],
+      "confidence": {
+        "AmbientA_Far": "value Observed; slot Inferred (high)"
+      }
+    },
+    "OpenWorld_Common_Night_0h": {
+      "source": "Client/Content/Aki/Render/DefaultGI/TOD/Common/DA_TOD_0_yewan",
+      "note": "common TOD key used 18:12-24:00 and 00:00-03:00 (DataIndex 0), outdoor",
+      "AmbientA_Far": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "related_inputs": {
+        "CustomCharacterLightingIntensity": 1.0,
+        "MainLightIntensity": 5.0,
+        "MainLightTint": [
+          0.45,
+          0.687758,
+          1.0
+        ],
+        "SkyLightColor": [
+          0.32,
+          0.614665,
+          1.0
+        ],
+        "SkyLightIntensity": 0.8
+      },
+      "overridden_but_value_equals_native_default": [],
+      "confidence": {
+        "AmbientA_Far": "value Observed; slot Inferred (high)"
+      }
+    },
+    "Instance_WorldRouge_Night": {
+      "source": "Client/Content/Aki/Render/DefaultGI/InstanceMapGI/HuangLong/Rogue/1_4WorldRouge/DA_IM_WorldRouge_night",
+      "note": "instanced map, night",
+      "AmbientA_Far": [
+        0.6,
+        0.753333,
+        1.0
+      ],
+      "AmbientB_Far": [
+        0.68,
+        0.745167,
+        0.85
+      ],
+      "MainLightColor": [
+        2.0,
+        1.098387,
+        0.4
+      ],
+      "MainLightDir": [
+        0.75,
+        0.433013,
+        0.5
+      ],
+      "related_inputs": {
+        "CustomCharacterLightingIntensity": 1.0,
+        "MainLightTint": [
+          0.382243,
+          0.470304,
+          0.741319
+        ],
+        "SkyLightColor": [
+          0.623264,
+          0.872811,
+          1.0
+        ],
+        "SkyLightIntensity": 0.5
+      },
+      "overridden_but_value_equals_native_default": [],
+      "confidence": {
+        "AmbientA_Far": "value Observed; slot Inferred (high)",
+        "AmbientB_Far": "value Observed; slot Inferred (high)",
+        "MainLightColor": "value Observed (CharacterRimColor); slot Inferred (high)",
+        "MainLightDir": "derived from LightHorizontalAngle=30.0 via the BP EulerToForward(pitch 30, yaw); UE world space, assumes no further native transform; Inferred (medium)"
+      }
+    },
+    "Instance_Yanjiusuo_Indoor": {
+      "source": "Client/Content/Aki/Render/DefaultGI/InstanceMapGI/HuangLong/DA_IM_yanjiusuo",
+      "note": "instanced map, indoor (research institute); MainLightIntensity 0.1",
+      "AmbientA_Far": [
+        0.230677,
+        0.294115,
+        0.456597
+      ],
+      "AmbientB_Far": [
+        0.77,
+        0.88,
+        1.1
+      ],
+      "MainLightColor": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "MainLightDir": [
+        0.616936,
+        0.607775,
+        0.5
+      ],
+      "AmbientParamsPartial": {
+        "x": 0.5
+      },
+      "related_inputs": {
+        "CustomCharacterLightingIntensity": 1.0,
+        "MainLightIntensity": 0.1,
+        "SkyLightColor": [
+          0.5,
+          0.666667,
+          1.0
+        ],
+        "SkyLightIntensity": 0.2
+      },
+      "overridden_but_value_equals_native_default": [],
+      "confidence": {
+        "AmbientA_Far": "value Observed; slot Inferred (high)",
+        "AmbientB_Far": "value Observed; slot Inferred (high)",
+        "MainLightColor": "value Observed (CharacterRimColor); slot Inferred (high)",
+        "MainLightDir": "derived from LightHorizontalAngle=44.57144 via the BP EulerToForward(pitch 30, yaw); UE world space, assumes no further native transform; Inferred (medium)",
+        "AmbientParamsPartial": "values Observed; x = SSS (BP setter, high), y = GlobalShadowIntensity and z = UseNewCharacterRim (native path, medium)"
+      }
+    },
+    "Override_XYTG_ZL_D_NearFar": {
+      "source": "Client/Content/Aki/Render/DefaultGI/LevelGIData/Leve_TOD_Linaxita/2_7XunYouTianGuo/DA_Override_XYTG_ZL_D",
+      "note": "area override that sets near/far character colours",
+      "AmbientA_Far": [
+        0.41733,
+        0.438378,
+        0.522569
+      ],
+      "AmbientB_Far": [
+        0.696208,
+        0.748864,
+        0.921875
+      ],
+      "MainLightDir": [
+        -0.55667,
+        0.663414,
+        0.5
+      ],
+      "AmbientParamsPartial": {
+        "x": 0.5
+      },
+      "AmbientB_Near": [
+        0.8,
+        0.846667,
+        1.0
+      ],
+      "AmbientA_Near": [
+        0.4,
+        0.42,
+        0.5
+      ],
+      "related_inputs": {
+        "CustomCharacterLightingIntensity": 1.0,
+        "MainLightTint": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "SkyLightColor": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "SkyLightIntensity": 0.5
+      },
+      "overridden_but_value_equals_native_default": [],
+      "confidence": {
+        "AmbientA_Far": "value Observed; slot Inferred (high)",
+        "AmbientB_Far": "value Observed; slot Inferred (high)",
+        "MainLightDir": "derived from LightHorizontalAngle=130.0 via the BP EulerToForward(pitch 30, yaw); UE world space, assumes no further native transform; Inferred (medium)",
+        "AmbientParamsPartial": "values Observed; x = SSS (BP setter, high), y = GlobalShadowIntensity and z = UseNewCharacterRim (native path, medium)",
+        "AmbientB_Near": "value Observed; slot Inferred (high)",
+        "AmbientA_Near": "value Observed; slot Inferred (high)"
+      }
+    },
+    "Instance_DaNiYa_BingFang_BossShadow": {
+      "source": "Client/Content/Aki/Render/DefaultGI/InstanceMapGI/LaHaiLuo/3_3_InstanceMapGI/DaNiYa/DA_IM_DaNiYA_BingFang",
+      "note": "instanced map; the only asset that applies GlobalBossShadowRange",
+      "AmbientA_Far": [
+        0.3,
+        0.261202,
+        0.18
+      ],
+      "AmbientB_Far": [
+        0.845053,
+        0.9,
+        0.71797
+      ],
+      "AmbientParamsPartial": {
+        "y": 0.0
+      },
+      "AORemap": [
+        0.0,
+        0.25,
+        0.5
+      ],
+      "related_inputs": {
+        "CustomCharacterLightingIntensity": 1.0,
+        "MainLightIntensity": 4.0,
+        "MainLightTint": [
+          0.938948,
+          1.0,
+          0.797745
+        ],
+        "SkyLightColor": [
+          1.0,
+          0.793,
+          0.359753
+        ],
+        "SkyLightIntensity": 0.3
+      },
+      "overridden_but_value_equals_native_default": [],
+      "confidence": {
+        "AmbientA_Far": "value Observed; slot Inferred (high)",
+        "AmbientB_Far": "value Observed; slot Inferred (high)",
+        "AmbientParamsPartial": "values Observed; x = SSS (BP setter, high), y = GlobalShadowIntensity and z = UseNewCharacterRim (native path, medium)",
+        "AORemap": "values Observed; packing into View[303] Inferred (low)"
+      }
+    }
+  }
+}

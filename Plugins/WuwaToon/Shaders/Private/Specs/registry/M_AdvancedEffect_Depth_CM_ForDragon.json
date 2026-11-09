@@ -1,0 +1,104 @@
+{
+ "root_material": "M_AdvancedEffect_Depth_CM_ForDragon",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "AdvancedEffect_Depth_CM_ForDragon_AdvScreenNoiseSecond.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a670c694d0ce2faead96b0f4ea63347fcc9a0315"
+    ],
+    "base_pass_vs_hash": [
+     "98ddcc5eb79440ab36d97df6fc205943b3913f87"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/depthfx/results_multi_final.json summary.depthfx_a670c6 (48 runs, o0 786432/786432 bit-exact); VS #2157 engine_only (no Material UB (CB0[260] CB1[309] CB2[45] CB3[1]); round 1 + round3/depthfx/vs_status_depthfx.json)",
+   "ps_archive_index": 229631,
+   "vs_archive_index": [
+    2157
+   ],
+   "vs_status": {
+    "98ddcc5eb79440ab36d97df6fc205943b3913f87": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 3,
+   "roster_slot_uses": 6,
+   "entities": [
+    "character:Galbrena",
+    "skin:Hunt Unending"
+   ],
+   "example_mis": [
+    "MI_Trans_Snake_80014_CM",
+    "MI_Trans_Snake_80016_CM",
+    "MI_Trans_Snake_80016_CM1"
+   ],
+   "notes": "\"Depth\" = DitherTemporalAA depth dither of the opacity (no scene-depth read); engine texture Good64x64TilingNoiseHighFreq; MPC GlobalDayNightFactor; UseAdvancedScreenPosition needs ActorPositionWS (Primitive[18]) + ClipToView[0][0]/[1][1]"
+  },
+  {
+   "spec": "AdvancedEffect_Depth_CM_ForDragon_NoiseMaskSecond_Additive.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f16e96af63f739ff829d5f7e5732578dd4170f8a"
+    ],
+    "base_pass_vs_hash": [
+     "f4940b72f2b6541d2eb69c0023a7af1611373791"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/depthfx/results_multi_final.json summary.depthfx_f16e96 (42 runs, o0 688128/688128 bit-exact); VS #2151 engine_only (no Material UB (CB0[260] CB1[309] CB2[45] CB3[1]); round3/depthfx/vs_status_depthfx.json)",
+   "ps_archive_index": 317497,
+   "vs_archive_index": [
+    2151
+   ],
+   "vs_status": {
+    "f4940b72f2b6541d2eb69c0023a7af1611373791": "engine_only"
+   },
+   "blend_mode": "BLEND_Additive",
+   "resolve": false,
+   "roster_mis": 2,
+   "roster_slot_uses": 4,
+   "entities": [
+    "character:Galbrena",
+    "skin:Hunt Unending"
+   ],
+   "example_mis": [
+    "MI_Add_Snake_80017_CM",
+    "MI_Add_Snake_80017_CM1"
+   ],
+   "notes": "\"Depth\" = DitherTemporalAA depth dither of the opacity (no scene-depth read); engine texture Good64x64TilingNoiseHighFreq; MPC GlobalDayNightFactor"
+  },
+  {
+   "spec": "AdvancedEffect_Depth_CM_ForDragon_NoiseSecond_Additive.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "df82eab41216f3c2b819d905accf6d03ce3821b9"
+    ],
+    "base_pass_vs_hash": [
+     "f4940b72f2b6541d2eb69c0023a7af1611373791"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/depthfx/results_multi_final.json summary.depthfx_df82ea (39 runs, o0 638976/638976 bit-exact); VS #2151 engine_only (no Material UB (CB0[260] CB1[309] CB2[45] CB3[1]); round3/depthfx/vs_status_depthfx.json)",
+   "ps_archive_index": 318295,
+   "vs_archive_index": [
+    2151
+   ],
+   "vs_status": {
+    "f4940b72f2b6541d2eb69c0023a7af1611373791": "engine_only"
+   },
+   "blend_mode": "BLEND_Additive",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Galbrena",
+    "skin:Hunt Unending"
+   ],
+   "example_mis": [
+    "MI_Add_Snake_80015_CM"
+   ],
+   "notes": "\"Depth\" = DitherTemporalAA depth dither of the opacity (no scene-depth read); engine texture Good64x64TilingNoiseHighFreq; MPC GlobalDayNightFactor"
+  }
+ ]
+}

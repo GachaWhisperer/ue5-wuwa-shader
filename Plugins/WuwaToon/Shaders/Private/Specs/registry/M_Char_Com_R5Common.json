@@ -1,0 +1,539 @@
+{
+ "root_material": "M_Char_Com",
+ "note": "Round 5 (group \"common\") M_Char_Com body variants; see research/roster/round5/common.md. Merged by the importer with M_Char_Com.json.",
+ "variants": [
+  {
+   "spec": "ToonCommon_BodyUpNoNormalMapNoPBRNoRampNoVDLBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "3533a105524ebcdd05e1f1b0c2593d25b80f218d"
+    ],
+    "base_pass_vs_hash": [
+     "2b1d44fd9f63a43eb793aa39eb57873aea9668a5"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_bodyup_nonm_nopbr_noramp_novdl_breath_67268 (458752/458752 px bit-exact); VS #67263 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 67268,
+   "vs_archive_index": [
+    67263
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_EBulanteJuziMd10011",
+    "MI_R2T1TaohuaMd10011Bag"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseNormalMap": false,
+    "UsePBR": false,
+    "UseRampColor": false,
+    "UsePBRMask": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true
+   },
+   "round": 5
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoNormalMapNoPBRNoRampNoVDLBreathTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a53554d7e29dae47cff638be8963c83a4bef122b"
+    ],
+    "base_pass_vs_hash": [
+     "2b1d44fd9f63a43eb793aa39eb57873aea9668a5"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_bodyup_nonm_nopbr_noramp_novdl_breath_twosided_298548 (458752/458752 px bit-exact); VS #67263 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 298548,
+   "vs_archive_index": [
+    67263
+   ],
+   "roster_mis": 3,
+   "example_mis": [
+    "MI_DahuojiMd10011",
+    "MI_ELingyangLionHeadMd10011",
+    "MI_R2T1SanhuaHuiyingMd10011"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseNormalMap": false,
+    "UsePBR": false,
+    "UseRampColor": false,
+    "UsePBRMask": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true,
+    "TwoSided": true
+   },
+   "round": 5
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoNormalMapNoPBRNoRampTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "e10078cdfe84d178b533f43fa229b5e2f479b7e4"
+    ],
+    "base_pass_vs_hash": [
+     "7d040ebf550d589253947010bd10e6b01fde23e8"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_bodyup_nonm_nopbr_noramp_twosided_296223 (393216/393216 px bit-exact); VS #141911 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 296223,
+   "vs_archive_index": [
+    141911
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1LinnaeaMd10011BKM"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseNormalMap": false,
+    "UsePBR": false,
+    "UseRampColor": false,
+    "UsePBRMask": false,
+    "TwoSided": true,
+    "UseSkinAllRampColor": false
+   },
+   "round": 5
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCBreathSecondFlow.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "181138a3d9dfe2fdf4c1ec13fb2abe9b0891d881"
+    ],
+    "base_pass_vs_hash": [
+     "5e28b4de5682bf26dd69a97a01f517a95a88db5b"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_bodyup_noskinrampc_breath_second_flow_11870 (589824/589824 px bit-exact); VS #11887 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 11870,
+   "vs_archive_index": [
+    11887
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1KatixiyaMd10011Item"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "UseBreathLight": true,
+    "UseFlowEffectEdge": true,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "EffectMaskChannel (compile-time, from the asm)": "R"
+   },
+   "round": 5
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCNoVDLBreathSecond.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b3119dac91024b61fb8af3cec83b1a7f5420db08"
+    ],
+    "base_pass_vs_hash": [
+     "5e28b4de5682bf26dd69a97a01f517a95a88db5b"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_bodyup_noskinrampc_novdl_breath_second_310998 (589824/589824 px bit-exact); VS #11887 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 310998,
+   "vs_archive_index": [
+    11887
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1JinxiDragonHornMd10011"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "UseBreathLight": true,
+    "UseVDLShadowoffset": false,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "EffectMaskChannel (compile-time, from the asm)": "G"
+   },
+   "round": 5
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCSecond.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "eabc13aa4e3721fc4d58c12ad362c661b2be70c1"
+    ],
+    "base_pass_vs_hash": [
+     "e2d4eda75558663082d5e3f152d161407c3d7b76"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_bodyup_noskinrampc_second_316310 (524288/524288 px bit-exact); VS #99981 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 316310,
+   "vs_archive_index": [
+    99981
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1XiangLiYaoMd10011Arm"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "EffectMaskChannel (compile-time, from the asm)": "B"
+   },
+   "round": 5
+  },
+  {
+   "spec": "ToonCommon_DownNoSkinRampCAniMaskTexToonSpec.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0b8934712ea48cd98d7fbaa6f563829a5ba2159d"
+    ],
+    "base_pass_vs_hash": [
+     "b566985d0f4b9a34c0aa50c6f23f503b4e42c094"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_down_noskinrampc_animasktex_toonspec_105818 (655360/655360 px bit-exact); VS #105861 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 105818,
+   "vs_archive_index": [
+    105861
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1SanhuaMd10011Down",
+    "MI_R2T1SanhuaMd10011Up"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": false,
+    "UseSkinAllRampColor": false,
+    "UseToonSpecular": true,
+    "UseDoubleSpecular": true
+   },
+   "round": 5
+  },
+  {
+   "spec": "ToonCommon_DownNoSkinRampCNoPBR.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0fa096f3985082c15c6753bd7d1895115b1cbcf1"
+    ],
+    "base_pass_vs_hash": [
+     "8b22cfdca1435c09948732014f28b84c31189785"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_down_noskinrampc_nopbr_264933 (393216/393216 px bit-exact); VS #140106 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 264933,
+   "vs_archive_index": [
+    140106
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1CalbrenaMd10011Cloth"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": false,
+    "UseSkinAllRampColor": false,
+    "UsePBR": false,
+    "UseSphereGradient": true
+   },
+   "round": 5
+  },
+  {
+   "spec": "ToonCommon_DownSecond.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "3ae4110d3d90a46ac1b8cde19fa80cd732b4d437"
+    ],
+    "base_pass_vs_hash": [
+     "bee3d0b51192952a8a947f45b05c91d278fa75d3"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_down_second_283424 (524288/524288 px bit-exact); VS #283458 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 283424,
+   "vs_archive_index": [
+    283458
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1ZanniMd10011Down"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": false,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "EffectMaskChannel (compile-time, from the asm)": "A"
+   },
+   "round": 5
+  },
+  {
+   "spec": "ToonCommon_DownRampMaskBreathSecondNoise.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "fe3af62903a15a2e923a55054ad705602d9cd36d"
+    ],
+    "base_pass_vs_hash": [
+     "a4f42098cb58764ab5ff95924d408f22aa3f300c"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_downrm_breath_secondnoise_312985 (589824/589824 px bit-exact); VS #131508 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 312985,
+   "vs_archive_index": [
+    131508
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1CalbrenaMd10011Down",
+    "MI_R2T1ChangLiMd10011Up"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": true,
+    "UseBreathLight": true,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "UseNoise": true,
+    "EffectMaskChannel (compile-time, from the asm)": "A"
+   },
+   "round": 5
+  },
+  {
+   "spec": "ToonCommon_DownRampMaskNoSkinRampCBreathNoDoubleSpecSecondFlow.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "9bbdb913548e2abee1e0c3bdae68d103a55af231"
+    ],
+    "base_pass_vs_hash": [
+     "35acfe25283133f8ce879abaaa3bdc988f5e026c"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_downrm_noskinrampc_breath_nods_second_flow_146055 (589824/589824 px bit-exact); VS #146031 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 146055,
+   "vs_archive_index": [
+    146031
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1FuludelisiMd10011Down"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": true,
+    "UseSkinAllRampColor": false,
+    "UseBreathLight": true,
+    "UseDoubleSpecular": false,
+    "UseFlowEffectEdge": true,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "EffectMaskChannel (compile-time, from the asm)": "R"
+   },
+   "round": 5
+  },
+  {
+   "spec": "ToonCommon_DownRampMaskXingHenBreathSecondNoise.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6830557160e51a4a281096205802a61ac56a0398"
+    ],
+    "base_pass_vs_hash": [
+     "739b56bff56c696899e4b0811dda04ea77adb7c9"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_downrm_xinghen_breath_secondnoise_61228 (720896/720896 px bit-exact); VS #61231 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 61228,
+   "vs_archive_index": [
+    61231
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1ZanniMd20011Up3"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": true,
+    "UseXingHen": true,
+    "UseBreathLight": true,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "UseNoise": true,
+    "EffectMaskChannel (compile-time, from the asm)": "A"
+   },
+   "round": 5
+  },
+  {
+   "spec": "ToonCommon_DownRampMaskXingHenNoSkinRampCSecondNoiseFlowBump.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f1e1e8d85f3febf8a1c113c6322db164d3288f1d"
+    ],
+    "base_pass_vs_hash": [
+     "739b56bff56c696899e4b0811dda04ea77adb7c9"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_downrm_xinghen_noskinrampc_secondnoise_flow_bump_318968 (655360/655360 px bit-exact); VS #61231 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 318968,
+   "vs_archive_index": [
+    61231
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1QianXiaMd10011Down"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": true,
+    "UseXingHen": true,
+    "UseSkinAllRampColor": false,
+    "UseFlowEffectEdge": true,
+    "UseBumpOffset": true,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "UseNoise": true,
+    "EffectMaskChannel (compile-time, from the asm)": "R"
+   },
+   "round": 5
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskNoSkinRampCBreathSecondNoise.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "4304e0da6c6707a7565e19d1eb3f3d8ae41025f8"
+    ],
+    "base_pass_vs_hash": [
+     "674cec9998afa7c30c1d674f4586ed0c4fc81037"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_tmrm_noskinrampc_breath_secondnoise_218373 (589824/589824 px bit-exact); VS #218381 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 218373,
+   "vs_archive_index": [
+    218381
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1AogusitaMd10011Down"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseSkinAllRampColor": false,
+    "UseBreathLight": true,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "UseNoise": true,
+    "EffectMaskChannel (compile-time, from the asm)": "A"
+   },
+   "round": 5
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskSecond.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "aff66e30a1225cbe1825cde85e19a5cd6e5fad0c"
+    ],
+    "base_pass_vs_hash": [
+     "e96e450aaac7f59b94d641ad11a6c7576795dba5"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_tmrm_second_240571 (524288/524288 px bit-exact); VS #240580 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 240571,
+   "vs_archive_index": [
+    240580
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1JiyanMd10011Up"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "EffectMaskChannel (compile-time, from the asm)": "A"
+   },
+   "round": 5
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskXingHenBreathNoDoubleSpecSecondNoise.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "aad0bcff1f90693fc45cb1896c4c8377bf0a8566"
+    ],
+    "base_pass_vs_hash": [
+     "5112765874cef3b31b9f21f948dd554864abc1f9"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_tmrm_xinghen_breath_nods_secondnoise_184556 (720896/720896 px bit-exact); VS #184538 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 184556,
+   "vs_archive_index": [
+    184538
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1CalbrenaMd10011Up"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseXingHen": true,
+    "UseBreathLight": true,
+    "UseDoubleSpecular": false,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "UseNoise": true,
+    "EffectMaskChannel (compile-time, from the asm)": "A"
+   },
+   "round": 5
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskXingHenNoRotateSecond.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "faeb0098e7c8b991f431de39351332838cac3e18"
+    ],
+    "base_pass_vs_hash": [
+     "dfae9a85af9a74e64fc52c82510718f2517a37de"
+    ]
+   },
+   "verified": "research/roster/round5/common.md; evidence/validation/shaderdiff/roster_charcom/round5/common/results_round5_common.json variants.r5c_tmrm_xinghen_norot_second_290202 (655360/655360 px bit-exact); VS #290197 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 290202,
+   "vs_archive_index": [
+    290197
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1YouHuMd10011Up"
+   ],
+   "unverified_vs_not_matched": [],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseXingHen": true,
+    "UseRotate180UV": false,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "EffectMaskChannel (compile-time, from the asm)": "A"
+   },
+   "round": 5
+  }
+ ]
+}

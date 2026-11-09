@@ -1,0 +1,193 @@
+{
+ "root_material": "M_Char_Com",
+ "generated_by": "tools/shaderdiff/roster_charcom/register_round5_masked.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 5 (common_masked): BLEND_Masked / UseTranslucent M_Char_Com variants (WuwaToonBasePass_CommonMasked.ush). One variant per verified (PS, VS set); research/roster/round5/common_masked.md",
+ "variants": [
+  {
+   "spec": "ToonCommon_BodyUpNoPBRNoSkinRampCTwoSidedMaskedDTAA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "80af9acba9e2eda45387e3040c896a9615bc8678"
+    ],
+    "base_pass_vs_hash": [
+     "1ec087007e90503e4120f519fea87343324229e0"
+    ]
+   },
+   "verified": "research/roster/round5/common_masked.md; evidence/validation/shaderdiff/roster_charcom/round5/common_masked/results_masked.json variants.r5m_nopbr_noskinrampc_2s_dtaa_195760 (433941/433941 px bit-exact, 0 discard mismatches), variants.r5m_nopbr_noskinrampc_2s_dtaa_195760_huaxin (234215/234215 px bit-exact, 0 discard mismatches), variants.r5m_nopbr_noskinrampc_2s_dtaa_195760_xiakong (294877/294877 px bit-exact, 0 discard mismatches); VS #195730 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 195760,
+   "vs_archive_index": [
+    195730
+   ],
+   "roster_mis": 4,
+   "example_mis": [
+    "MI_EKanteleilaShuimudaMd10011_Huaxin",
+    "MI_EKanteleilaShuimuxiaoMd10011_Huaxin",
+    "MI_R2T1ShouanrenMd10011Alpha",
+    "MI_R2T1XiakongMd10011Alpha"
+   ],
+   "static_switches_informational": {
+    "UsePBR": false,
+    "UseSkinAllRampColor": false,
+    "UseTranslucent": true
+   },
+   "round": "5 (common_masked)"
+  },
+  {
+   "spec": "ToonCommon_NoRampNoVDLBreathMasked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0c53f2fe813b85765f8663d4775f242bc75d24d1"
+    ],
+    "base_pass_vs_hash": [
+     "e50e881323f0bf03ac24a6834c4b4f63f17c8f4c"
+    ]
+   },
+   "verified": "research/roster/round5/common_masked.md; evidence/validation/shaderdiff/roster_charcom/round5/common_masked/results_masked.json variants.r5m_noramp_novdl_breath_masked_237694 (435865/435865 px bit-exact, 0 discard mismatches); VS #63087 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 237694,
+   "vs_archive_index": [
+    63087
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_ELinnaeaSprayMd10011"
+   ],
+   "static_switches_informational": {
+    "UseRampColor": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true
+   },
+   "round": "5 (common_masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCTwoSidedNoNormalMapMaskedDTAA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "57cc708cd694d294e06adea878d8ca2898cb4b9b"
+    ],
+    "base_pass_vs_hash": [
+     "e32e29118be22210b8d1695e8a201c713558e806"
+    ]
+   },
+   "verified": "research/roster/round5/common_masked.md; evidence/validation/shaderdiff/roster_charcom/round5/common_masked/results_masked.json variants.r5m_noskinrampc_2s_nonormalmap_dtaa_94963 (495808/495808 px bit-exact, 0 discard mismatches); VS #19236 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 94963,
+   "vs_archive_index": [
+    19236
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1FeiBiMd10011Leisi"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "UseNormalMap": false,
+    "UseTranslucent": true
+   },
+   "round": "5 (common_masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCBreathTwoSidedMaskedDTAA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "dffbaf8fd89dd077ebae871d164403b9f4b7e17d"
+    ],
+    "base_pass_vs_hash": [
+     "26184f692a6ec2773f9357a92823613611fe49c7"
+    ]
+   },
+   "verified": "research/roster/round5/common_masked.md; evidence/validation/shaderdiff/roster_charcom/round5/common_masked/results_masked.json variants.r5m_noskinrampc_breath_2s_dtaa_251898 (266212/266212 px bit-exact, 0 discard mismatches); VS #251848 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 251898,
+   "vs_archive_index": [
+    251848
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1AimisiGDMd10011Head1"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "UseBreathLight": true,
+    "UseTranslucent": true
+   },
+   "round": "5 (common_masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCMaskedDTAA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "9dff39848589be6f7ef290317272a10444275b2a"
+    ],
+    "base_pass_vs_hash": [
+     "e32e29118be22210b8d1695e8a201c713558e806"
+    ]
+   },
+   "verified": "research/roster/round5/common_masked.md; evidence/validation/shaderdiff/roster_charcom/round5/common_masked/results_masked.json variants.r5m_noskinrampc_dtaa_226137 (512290/512290 px bit-exact, 0 discard mismatches), variants.r5m_noskinrampc_dtaa_226137_katixiya (297805/297805 px bit-exact, 0 discard mismatches); VS #19236 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 226137,
+   "vs_archive_index": [
+    19236
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1JinxiMd20011Alpha",
+    "MI_R2T1KatixiyaMd10011Alpha"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "UseTranslucent": true
+   },
+   "round": "5 (common_masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCHETMaskedDTAA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "2a776a1ad96127d7d6484da0877fbfb9cc500d07"
+    ],
+    "base_pass_vs_hash": [
+     "e32e29118be22210b8d1695e8a201c713558e806"
+    ]
+   },
+   "verified": "research/roster/round5/common_masked.md; evidence/validation/shaderdiff/roster_charcom/round5/common_masked/results_masked.json variants.r5m_noskinrampc_het_dtaa_211738 (508918/508918 px bit-exact, 0 discard mismatches); VS #19236 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 211738,
+   "vs_archive_index": [
+    19236
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1ChangLiMd20011Alpha02"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "IsHairHET": true,
+    "UseTranslucent": true
+   },
+   "round": "5 (common_masked)"
+  },
+  {
+   "spec": "ToonCommon_NoSkinRampCNoVDLBreathMasked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "3b5e3fd54e4efd08db32b22b3d7400f652823f8c"
+    ],
+    "base_pass_vs_hash": [
+     "1e7e9dbcdc18654879f864b3020404b482cd33e4"
+    ]
+   },
+   "verified": "research/roster/round5/common_masked.md; evidence/validation/shaderdiff/roster_charcom/round5/common_masked/results_masked.json variants.r5m_noskinrampc_novdl_breath_masked_292716 (468868/468868 px bit-exact, 0 discard mismatches); VS #23355 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 292716,
+   "vs_archive_index": [
+    23355
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EAimisiWeaponMd10011_Benti"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true
+   },
+   "round": "5 (common_masked)"
+  }
+ ]
+}

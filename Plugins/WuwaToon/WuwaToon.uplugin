@@ -1,0 +1,12 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1",
+	"FriendlyName": "WuwaToon",
+	"Description": "Reconstructed Wuthering Waves (Kuro UE4.26 fork) toon rendering for launcher UE 5.8: shader library, toon light/ambient parameters, per-object toon shadows and screen-space passes.",
+	"Category": "Rendering",
+	"CanContainContent": true,
+	"Modules": [
+		{ "Name": "WuwaToon", "Type": "Runtime", "LoadingPhase": "PostConfigInit" }
+	]
+}

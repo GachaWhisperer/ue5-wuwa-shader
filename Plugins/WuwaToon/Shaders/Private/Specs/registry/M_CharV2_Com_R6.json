@@ -1,0 +1,263 @@
+{
+ "root_material": "M_CharV2_Com",
+ "_doc": "Round-6 M_CharV2_Com base-pass variants (research/roster/round6/v2.md); merged with M_CharV2_Com.json / M_CharV2_Com_HairFace.json / M_CharV2_Com_R5.json by root_material. Match by base_pass_ps_hash only (VS hash listed; verified per entry). Forward-translucent entries are \"resolve\": false specs whose material part is verified; the ShenXin Tail entry supersedes an M_CharV2_Com.json variant (see its supersedes field).",
+ "variants": [
+  {
+   "spec": "ToonFaceV2_PBRDSSparkleWet.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "52814e281397b20b90991758aa06e99f6590b7a1"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "8704193bebf1046db6405288928d85b80b6b3616"
+   ],
+   "shading_model": [
+    "MSM_ToonFace"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1LinnaeaMd20011Face",
+    "MI_R2T1SuomingMd10011Face"
+   ],
+   "slot_uses": 3,
+   "entities": 3,
+   "verified": "research/roster/round6/v2.md#facev2_52814e",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round6/v2/results_round6.json",
+    "runs": 60,
+    "discarding_runs": 0,
+    "discard_mismatches": 0,
+    "mrts": {
+     "o0": "983040/983040 bit-exact, max ULP 0",
+     "o1": "983040/983040 bit-exact, max ULP 0",
+     "o2": "983040/983040 bit-exact, max ULP 0",
+     "o3": "983040/983040 bit-exact, max ULP 0",
+     "o6": "983040/983040 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS: every compared MRT (o0/o1/o2/o3/o6) bit-exact. VS: 8704193b (#208986) = the verified V2 face VS c9e8451f graph with hair-style interpolator packing (symbolic equivalence after the packing remap, evidence/validation/shaderdiff/roster_charcom/round5/v2/vs_equiv_r5.json); WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2. Use_Char_Wet reads CustomPrimitiveData 26 (wet amount) / 27 (wet transition) (plugin MaskID is CPD 35)."
+  },
+  {
+   "spec": "ToonBodyV2_TransDSNoSkinRampOneRampHue2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "78f4974f5763b423c92b33f0446a7befb5e469d8"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "f32223e526d011bf3227a76f331e080a73e1db85"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Translucent"
+   ],
+   "mis": [
+    "MI_R2T1LinnaeaMd10011Alpha"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/roster/round6/v2.md#trans_78f4974f",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/recheck/r6_r6c_fix/results_trans_r6_twopass.json",
+    "kind": "material part, two-pass (port compiled in its own plain wrapper, values fed back per pixel into the transpiled original; tools/shaderdiff/roster_charcom/recheck_twopass_r7.py)",
+    "runs": 30,
+    "o0": "491520/491520 bit-exact",
+    "identity_control": "491520/491520 bit-exact",
+    "isolation_control": "491520/491520 bit-exact",
+    "negative_controls_file": "evidence/validation/shaderdiff/roster_charcom/round6/v2/trans/results_trans_r6.json",
+    "negative_controls_kind": "single-pass (round 6; port unchanged since)",
+    "negative_controls": {
+     "neg_78f4974f_hueoffset": "357277/491520 bit-exact (detected)",
+     "neg_78f4974f_linkrow": "490515/491520 bit-exact (detected)",
+     "neg_78f4974f_opacityint": "255006/491520 bit-exact (detected)",
+     "neg_78f4974f_sss_1ulp": "489319/491520 bit-exact (detected)",
+     "neg_78f4974f_swap_ao_shadow": "88387/491520 bit-exact (detected)",
+     "neg_78f4974f_vertex_normal": "264291/491520 bit-exact (detected)"
+    },
+    "single_pass_file": "evidence/validation/shaderdiff/roster_charcom/round6/v2/trans/results_trans_r6.json (round 6, superseded by the two-pass file)"
+   },
+   "notes": "VERIFICATION: material part bit-exact; engine tail replaced by UE translucency lighting (approximation). The port returns the material values (Emissive, Opacity, toon lit colour, and the Kuro toon-lighting inputs shadow colour / shadow / AO / normal); bit-exact through the whole original o0 with those registers overwritten (identity control and negative controls above). Not ported (engine tail): primitive fade, vertex / volumetric height fog, emissive scale and OOB stripes, Kuro forward toon lighting (screen shadow mask / CSM, local-light list, translucency volume), pre-exposure. In UE the spec is \"resolve\": false with the lit-translucent template (DefaultLit, BLEND_Translucent, TwoSided): Emissive -> Emissive Color, Opacity -> Opacity, OutBaseColor -> Base Color, lit by UE translucency lighting. VS: f32223e5 (#106102) = the verified V2 hair VS 36679c04 on TEXCOORD0 / TEXCOORD2 / SV_POSITION (symbolic equivalence after slot renaming and removal of its vertex height-fog block, which no compared output depends on; evidence/validation/shaderdiff/roster_charcom/round6/v2/vs_equiv_r6.json); WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2."
+  },
+  {
+   "spec": "ToonBodyV2_TransGlassDSNoFresnelNoSkinRampOneRampSecond2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f1919d2bc0cbbe444cf9f9d2085f214585cae2ec"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "1152d09edc3750f96bbebab5271755df8a3fe4b1"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Translucent"
+   ],
+   "mis": [
+    "MI_R2T1MoneMd10011Alpha"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/roster/round6/v2.md#trans_f1919d2b",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/recheck/r6_r6c_fix/results_trans_r6_twopass.json",
+    "kind": "material part, two-pass (port compiled in its own plain wrapper, values fed back per pixel into the transpiled original; tools/shaderdiff/roster_charcom/recheck_twopass_r7.py)",
+    "runs": 39,
+    "o0": "638976/638976 bit-exact",
+    "identity_control": "638976/638976 bit-exact",
+    "isolation_control": "638976/638976 bit-exact",
+    "negative_controls_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/recheck/r6_r6c_fix_neg/results_trans_r6_twopass.json",
+    "negative_controls_kind": "two-pass",
+    "negative_controls": {
+     "neg_f1919d2b_blurint": "636354/638976 bit-exact (detected)",
+     "neg_f1919d2b_depthmin": "631095/638976 bit-exact (detected)",
+     "neg_f1919d2b_camoffset": "638729/638976 bit-exact (detected)",
+     "neg_f1919d2b_glassop": "619331/638976 bit-exact (detected)"
+    },
+    "single_pass_file": "evidence/validation/shaderdiff/roster_charcom/round6/v2/trans/results_trans_r6.json (round 6b, pre-correction port: superseded)",
+    "uniform_expression_bit_check": {
+     "GlassOpacityPlus02": "351/351 runs bit-identical to the original Material-UB slot"
+    }
+   },
+   "notes": "VERIFICATION: material part bit-exact; engine tail replaced by UE translucency lighting (approximation). The port returns the material values (Emissive, Opacity, toon lit colour, and the Kuro toon-lighting inputs shadow colour / shadow / AO / normal); bit-exact through the whole original o0 with those registers overwritten (identity control and negative controls above). Not ported (engine tail): primitive fade, vertex / volumetric height fog, emissive scale and OOB stripes, Kuro forward toon lighting (screen shadow mask / CSM, local-light list, translucency volume), pre-exposure. In UE the spec is \"resolve\": false with the lit-translucent template (DefaultLit, BLEND_Translucent, TwoSided): Emissive -> Emissive Color, Opacity -> Opacity, OutBaseColor -> Base Color, lit by UE translucency lighting. VS: 1152d09e (#267962) = the verified V2 hair + COLOR0 VS 5909e2fb on COLOR0 / TEXCOORD0 / TEXCOORD2 / SV_POSITION (symbolic equivalence after slot renaming and removal of its vertex height-fog block, which no compared output depends on; evidence/validation/shaderdiff/roster_charcom/round6/v2/vs_equiv_r6.json); WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2. SCENE TEXTURES (UseBlurTranslucentGlass, as M_Char_BlurTransLucentGlass): Kuro t4 (scene colour) -> engine_texture SceneColor (UE SceneColorCopyTexture: the opaque scene before translucency, pre-exposed) and Kuro t2 (device Z) -> engine_texture SceneDepth (SceneTexturesStruct.SceneDepthTexture, linearised with View.InvDeviceZToWorldZTransform), both with engine_sampler (SCENE_TEXTURES); the four blur taps (UVs offset by the light refraction, through the BlurGlass helper WuwaBGSceneUV) read SceneColor and the depth mask reads SceneDepth at the same four UVs (UE ConvertFromDeviceZ form). Verified with both textures randomised per pixel (and the blur taps live: the BlurIntensity / DepthMaskMin negatives are detected); the UE result equals Kuro only insofar as SceneColorCopyTexture / SceneDepthTexture hold the same content as Kuro t4 / t2 (engine-input approximation). CORRECTION 2026-11-02: the round-6b registration was verified single-pass, where fxc propagated `precise` from the transpiled original into the port; compiled plainly, the glass opacity min(GO + 0.2, FLT_MAX) - GO folded to 0.2 (o0.rgb off on 1007-1796 of 638976 px, max 36 ULP). GlassOpacity + 0.2 is now the uniform_expression input GlassOpacityPlus02 (float32 CPU, = the original Material-UB preshader slot, bit-checked every run) and the entries are re-verified two-pass."
+  },
+  {
+   "spec": "ToonBodyV2_TransGlassDSNoSkinRampXingHenNoRID.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ba4350d6ae0fa6473c623b9387d10382481ade14"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "9738b9336d17faf89efbe603bb938ea4fd662d84"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Translucent"
+   ],
+   "mis": [
+    "MI_R2T1MoneMd10011Down"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/roster/round6/v2.md#trans_ba4350d6",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/recheck/r6_r6c_fix/results_trans_r6_twopass.json",
+    "kind": "material part, two-pass (port compiled in its own plain wrapper, values fed back per pixel into the transpiled original; tools/shaderdiff/roster_charcom/recheck_twopass_r7.py)",
+    "runs": 39,
+    "o0": "638976/638976 bit-exact",
+    "identity_control": "638976/638976 bit-exact",
+    "isolation_control": "638976/638976 bit-exact",
+    "negative_controls_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/recheck/r6_r6c_fix_neg/results_trans_r6_twopass.json",
+    "negative_controls_kind": "two-pass",
+    "negative_controls": {
+     "neg_ba4350d6_xhcontrol": "636815/638976 bit-exact (detected)",
+     "neg_ba4350d6_dispstr": "638510/638976 bit-exact (detected)"
+    },
+    "single_pass_file": "evidence/validation/shaderdiff/roster_charcom/round6/v2/trans/results_trans_r6.json (round 6b, pre-correction port: superseded)",
+    "uniform_expression_bit_check": {
+     "GlassOpacityPlus02": "351/351 runs bit-identical to the original Material-UB slot"
+    }
+   },
+   "notes": "VERIFICATION: material part bit-exact; engine tail replaced by UE translucency lighting (approximation). The port returns the material values (Emissive, Opacity, toon lit colour, and the Kuro toon-lighting inputs shadow colour / shadow / AO / normal); bit-exact through the whole original o0 with those registers overwritten (identity control and negative controls above). Not ported (engine tail): primitive fade, vertex / volumetric height fog, emissive scale and OOB stripes, Kuro forward toon lighting (screen shadow mask / CSM, local-light list, translucency volume), pre-exposure. In UE the spec is \"resolve\": false with the lit-translucent template (DefaultLit, BLEND_Translucent): Emissive -> Emissive Color, Opacity -> Opacity, OutBaseColor -> Base Color, lit by UE translucency lighting. VS: 9738b933 (#118586) = the verified V2 hair + COLOR0 VS 5909e2fb on COLOR0 / TEXCOORD0 / TEXCOORD2 / SV_POSITION (symbolic equivalence after slot renaming and removal of its vertex height-fog block, which no compared output depends on; evidence/validation/shaderdiff/roster_charcom/round6/v2/vs_equiv_r6.json); WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2. SCENE TEXTURES (UseBlurTranslucentGlass, as M_Char_BlurTransLucentGlass): Kuro t4 (scene colour) -> engine_texture SceneColor (UE SceneColorCopyTexture: the opaque scene before translucency, pre-exposed) and Kuro t2 (device Z) -> engine_texture SceneDepth (SceneTexturesStruct.SceneDepthTexture, linearised with View.InvDeviceZToWorldZTransform), both with engine_sampler (SCENE_TEXTURES); the four blur taps (UVs offset by the light refraction, through the BlurGlass helper WuwaBGSceneUV) read SceneColor and the depth mask reads SceneDepth at the same four UVs (UE ConvertFromDeviceZ form). Verified with both textures randomised per pixel (and the blur taps live: the BlurIntensity / DepthMaskMin negatives are detected); the UE result equals Kuro only insofar as SceneColorCopyTexture / SceneDepthTexture hold the same content as Kuro t4 / t2 (engine-input approximation). CORRECTION 2026-11-02: the round-6b registration was verified single-pass, where fxc propagated `precise` from the transpiled original into the port; compiled plainly, the glass opacity min(GO + 0.2, FLT_MAX) - GO folded to 0.2 (o0.rgb off on 1007-1796 of 638976 px, max 36 ULP). GlassOpacity + 0.2 is now the uniform_expression input GlassOpacityPlus02 (float32 CPU, = the original Material-UB preshader slot, bit-checked every run) and the entries are re-verified two-pass."
+  },
+  {
+   "spec": "ToonBodyV2_TransGlassDSNoSkinRampXingHenNoRID2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "81b646b871a94b467a7c8ea91d17ce91b436a315"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "9738b9336d17faf89efbe603bb938ea4fd662d84"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Translucent"
+   ],
+   "mis": [
+    "MI_R2T1MoneMd20011Glass"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/roster/round6/v2.md#trans_81b646b8",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/recheck/r6_r6c_fix/results_trans_r6_twopass.json",
+    "kind": "material part, two-pass (port compiled in its own plain wrapper, values fed back per pixel into the transpiled original; tools/shaderdiff/roster_charcom/recheck_twopass_r7.py)",
+    "runs": 39,
+    "o0": "638976/638976 bit-exact",
+    "identity_control": "638976/638976 bit-exact",
+    "isolation_control": "638976/638976 bit-exact",
+    "negative_controls_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/recheck/r6_r6c_fix_neg/results_trans_r6_twopass.json",
+    "negative_controls_kind": "two-pass",
+    "negative_controls": {
+     "neg_81b646b8_thickness": "618769/638976 bit-exact (detected)",
+     "neg_81b646b8_depmaskop": "613885/638976 bit-exact (detected)"
+    },
+    "single_pass_file": "evidence/validation/shaderdiff/roster_charcom/round6/v2/trans/results_trans_r6.json (round 6b, pre-correction port: superseded)",
+    "uniform_expression_bit_check": {
+     "GlassOpacityPlus02": "351/351 runs bit-identical to the original Material-UB slot"
+    }
+   },
+   "notes": "VERIFICATION: material part bit-exact; engine tail replaced by UE translucency lighting (approximation). The port returns the material values (Emissive, Opacity, toon lit colour, and the Kuro toon-lighting inputs shadow colour / shadow / AO / normal); bit-exact through the whole original o0 with those registers overwritten (identity control and negative controls above). Not ported (engine tail): primitive fade, vertex / volumetric height fog, emissive scale and OOB stripes, Kuro forward toon lighting (screen shadow mask / CSM, local-light list, translucency volume), pre-exposure. In UE the spec is \"resolve\": false with the lit-translucent template (DefaultLit, BLEND_Translucent, TwoSided): Emissive -> Emissive Color, Opacity -> Opacity, OutBaseColor -> Base Color, lit by UE translucency lighting. VS: 9738b933 (#118586) = the verified V2 hair + COLOR0 VS 5909e2fb on COLOR0 / TEXCOORD0 / TEXCOORD2 / SV_POSITION (symbolic equivalence after slot renaming and removal of its vertex height-fog block, which no compared output depends on; evidence/validation/shaderdiff/roster_charcom/round6/v2/vs_equiv_r6.json); WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2. SCENE TEXTURES (UseBlurTranslucentGlass, as M_Char_BlurTransLucentGlass): Kuro t4 (scene colour) -> engine_texture SceneColor (UE SceneColorCopyTexture: the opaque scene before translucency, pre-exposed) and Kuro t2 (device Z) -> engine_texture SceneDepth (SceneTexturesStruct.SceneDepthTexture, linearised with View.InvDeviceZToWorldZTransform), both with engine_sampler (SCENE_TEXTURES); the four blur taps (UVs offset by the light refraction, through the BlurGlass helper WuwaBGSceneUV) read SceneColor and the depth mask reads SceneDepth at the same four UVs (UE ConvertFromDeviceZ form). Verified with both textures randomised per pixel (and the blur taps live: the BlurIntensity / DepthMaskMin negatives are detected); the UE result equals Kuro only insofar as SceneColorCopyTexture / SceneDepthTexture hold the same content as Kuro t4 / t2 (engine-input approximation). CORRECTION 2026-11-02: the round-6b registration was verified single-pass, where fxc propagated `precise` from the transpiled original into the port; compiled plainly, the glass opacity min(GO + 0.2, FLT_MAX) - GO folded to 0.2 (o0.rgb off on 1007-1796 of 638976 px, max 36 ULP). GlassOpacity + 0.2 is now the uniform_expression input GlassOpacityPlus02 (float32 CPU, = the original Material-UB preshader slot, bit-checked every run) and the entries are re-verified two-pass."
+  },
+  {
+   "spec": "ToonBodyV2_DSNoFresnelOneRampNoRIDWetParallaxFurTangentVA_FurVS.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "e9ec27047e1a885810e8bc0e87f44cce49dc329e"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "f57d749aa382339b15d9d7e43dc7862db12ae761"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1ShenXinMd10011Tail"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/roster/round6/v2.md#shenxin_tail_vs",
+   "verification": {
+    "ps_file": null,
+    "ps_rerun_file": "evidence/validation/shaderdiff/roster_charcom/round6/v2/results_r6_prior.json",
+    "ps_rerun_mrts": {
+     "o0": "262144/262144 bit-exact, max ULP 0",
+     "o1": "262144/262144 bit-exact, max ULP 0",
+     "o2": "262144/262144 bit-exact, max ULP 0",
+     "o3": "262144/262144 bit-exact, max ULP 0",
+     "o6": "262144/262144 bit-exact, max ULP 0",
+     "depth": "262144/262144 bit-exact, max ULP 0"
+    },
+    "vs_file": "evidence/validation/shaderdiff/roster_charcom/round6/v2/vs/results_fur_r6.json",
+    "vs_pvt0": "light dir, mask, SV_POSITION 100% in every PreViewTranslation=0 set",
+    "vs_realistic_max_px": 0.00028122193,
+    "vs_control": "WuwaToonBaseVS_WPO_V2 (the M_CharV2_Com.json binding) fails SV_POSITION in every fur set (up to ~30 px)"
+   },
+   "notes": "PS unchanged (same entry as the M_CharV2_Com.json variant; bit-exact incl. SV_DepthLessEqual, re-run in round 6). VS f57d749a (#241998) has the UseFurry vertex-normal shell offset: ported WuwaToonBaseVS_WPO_V2Fur verified bit-exact with PreViewTranslation 0 (realistic sets <= 2.8e-04 px, the documented V2 VS contract residual class); the earlier binding WuwaToonBaseVS_WPO_V2 is wrong once FurOffset / Length != 0. SUPERSEDES the M_CharV2_Com.json variant in `supersedes`, which its owner must remove (two registry entries match this PS hash until then).",
+   "supersedes": {
+    "registry": "Specs/registry/M_CharV2_Com.json",
+    "spec": "ToonBodyV2_DSNoFresnelOneRampNoRIDWetParallaxFurTangentVA.json",
+    "base_pass_ps_hash": "e9ec27047e1a885810e8bc0e87f44cce49dc329e",
+    "base_pass_vs_hash": [
+     "f57d749aa382339b15d9d7e43dc7862db12ae761"
+    ]
+   }
+  }
+ ]
+}

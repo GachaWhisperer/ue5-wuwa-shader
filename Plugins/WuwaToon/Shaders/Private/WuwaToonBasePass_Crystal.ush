@@ -1,0 +1,365 @@
+// WuwaToonBasePass_Crystal.ush — Kuro M_TransmittingCrystal_SM (lit crystal shell, forward translucent unlit) on weapon /
+// prop meshes: PS c3338a60e7 (#137263, MI_R5Device510Md20001_Effect = Blooming Jadehaven) and PS 6525ac23af (#11113,
+// MI_EQingxiaoDajianMd10011_Effect = Qingxiao / Rover props). research/roster/Port_Weapons_Specials.md (round 3).
+//
+// One graph, compile-time options = the root's static switches compiled into each hash:
+//   bEffectSecond    UseEffectMaterial + UseSecond: Second_RGB layer (UV4 select / screen UV / rotator / 600 s clock, refine,
+//                    tint) masked by R_Noise_A_Mask.g ^ (1 - Effect_Progress) (c3338a60)
+//   bParallaxDiamond Use_ParallaxCrystal + Use_CrystalDimond: bump-offset parallax emissive (DepthWeight_Tex / BumpOffset_BaseTex)
+//                    lerped with the lit base colour by the alpha term, and a refracted-view diamond layer (Diamond_MainTex)
+//                    with a sharp normal.RefractDir glint (6525ac23)
+// Common: normal map, Blinn specular toward the directional light (View[153]), smoothstep shadow ramp between ShadowCol_Tint
+// and BaseCol_Tint, back-light SSS (View[296]), fresnel alpha, screen-space refraction that SAMPLES THE SCENE COLOUR (t1,
+// plain Sample, no mip bias) at a fragment-normal-offset viewport UV, flow-light wave (Use_FlowLight), selection colour,
+// opacity = (max(SSS, fresnel) + BaseOpacity) * FinalOpacity, Kuro 3x3 pattern dither (E_Dither2 / MainPass, immediate CB).
+//
+// Engine inputs that are not material parameters (the generator must provide them; see the specs):
+//   SceneColor / SceneColorSampler      t1 / s0: the opaque scene colour (Kuro samples its scene-colour copy directly; UE:
+//                                       SceneTexture:SceneColor in a translucent material = SceneColorLookup; UE refraction is
+//                                       NOT equivalent). Sampled with Sample() at the clamped buffer UV computed here.
+//   SceneColorBufferSizeAndInvSize      View[138] (UE View.BufferSizeAndInvSize), .zw used
+//   SceneColorBufferUVMinMax            View[139] (UE View.BufferBilinearUVMinMax)
+//   KuroDirectionalLightDirection       View[153].xyz (UE View.DirectionalLightDirection [I])
+//   KuroSSSDirection                    View[296].xyz (Kuro view row, normalised here; no UE equivalent [U])
+// Output: FWuwaFXOutput (Emissive, Opacity) -> unlit translucent material; the Kuro forward tail (primitive fade, fog, OOB,
+// emissive scale, effect grading) is engine side and reproduced only in the harness.
+// Line refs C### = asm_hex/137263_c3338a60e7....asm.txt, Q### = asm_hex/011113_6525ac23af....asm.txt (instruction lines).
+#ifndef WUWA_CRYSTAL_USH
+#define WUWA_CRYSTAL_USH
+
+#include "WuwaToonBasePass_WeaponFX.ush"   // read-only: WuwaFXUV4, WuwaFXRotate (+ WeaponShared: FWuwaFXOutput, WuwaWPowGuard, ...)
+
+#define WUWA_CRY_LUM3 float3(asfloat(0x3E99999Au), asfloat(0x3F170A3Du), asfloat(0x3DE147AEu))   // (0.3, 0.59, 0.11)
+
+// Kuro E_Dither2 / MainPass pattern dither (3x3 ordered pattern in an immediate CB): returns 1 (keep) or 0.
+// v = saturate(min(DitherValue2, min(DitherValue_MainPass, DitherValue)) * 2 - Pattern[(px % 3) * 3 + (py % 3)]);
+// keep = (v - 1/255 >= 1e-4) || (0.3 >= max(UseDither, UseDither2)). px/py = (int)(SvPosition.xy - ViewRectMin).
+static const float WuwaCrystalDitherPattern[9] = {
+	asfloat(0x00000000u), asfloat(0x3F471C72u), asfloat(0x3EAAAAABu), asfloat(0x3F2AAAABu), asfloat(0x3F0E38E4u),
+	asfloat(0x3E638E39u), asfloat(0x3EE38E39u), asfloat(0x3DE38E39u), asfloat(0x3F638E39u) };
+
+// HLSL signed int % (truncated: the result takes the sign of x), written with uint % as fxc expands it (and/imax/udiv/ineg/movc)
+// so the compile check's warnings-as-errors (X3556) stays clean.
+int WuwaCrystalSMod3(int x)
+{
+	uint r = ((uint)abs(x)) % 3u;
+	return (x < 0) ? -(int)r : (int)r;
+}
+
+float WuwaCrystalPatternDither(float2 Pix, float E_Dither_DitherValue, float E_Dither_DitherValue_MainPass, float E_Dither_DitherValue2,
+	float E_Dither_UseDither, float E_Dither_UseDither2)
+{
+	float dv = min(E_Dither_DitherValue2, min(E_Dither_DitherValue_MainPass, E_Dither_DitherValue));
+	int2 ip = (int2)Pix;
+	int idx = max(WuwaCrystalSMod3(ip.x) * 3 + WuwaCrystalSMod3(ip.y), 0);
+	float v = saturate(dv * 2.0 - WuwaCrystalDitherPattern[idx]);
+	bool off = asfloat(0x3E99999Au) >= max(E_Dither_UseDither, E_Dither_UseDither2);
+	bool keep = (v + asfloat(0xBB808081u)) >= asfloat(0x38D1B717u);
+	return (keep || off) ? 1.0 : 0.0;
+}
+
+FWuwaFXOutput WuwaCrystalTransmitting_Impl(const bool bEffectSecond, const bool bParallaxDiamond,
+	Texture2D SceneColor, SamplerState SceneColorSampler,
+	Texture2D NormalMap, SamplerState NormalMapSampler, Texture2D BaseColTex, SamplerState BaseColTexSampler,
+	Texture2D DepthWeight_Tex, SamplerState DepthWeight_TexSampler, Texture2D BumpOffset_BaseTex, SamplerState BumpOffset_BaseTexSampler,
+	Texture2D FragmentNormal_Tex, SamplerState FragmentNormal_TexSampler, Texture2D Diamond_MainTex, SamplerState Diamond_MainTexSampler,
+	Texture2D FlowLight_NoiseTex, SamplerState FlowLight_NoiseTexSampler, Texture2D Second_RGB, SamplerState Second_RGBSampler,
+	Texture2D R_Noise_A_Mask, SamplerState R_Noise_A_MaskSampler,
+	float2 UV0, float2 UV1, float2 UV2, float2 UV3, float3 WorldTangent, float3 WorldNormal, float TangentSign, float TwoSidedSign,
+	float3 TranslatedWorldPosition, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime,
+	float4x4 TranslatedWorldToView, float3 KuroDirectionalLightDirection, float3 KuroSSSDirection,
+	float4 SceneColorBufferSizeAndInvSize, float4 SceneColorBufferUVMinMax,
+	float NormalStrength, float Specular_Offset, float Specular_Intensity,
+	float4 ShadowCol_Tint, float4 BaseCol_Tint, float BaseCol_Desaturate, float ShadowColor_Intensity, float ShadowProcess, float ShadowWidth,
+	float FinalBaseCol_Intensity,
+	float BumpOffsetTilling, float Ice_Depth_Weight, float DepthHeightTexNoise, float4 ParallaxEmissiveColor, float ParallaxEmissive_Desaturate,
+	float SSSValue, float BLPower, float BLScale, float FresnelAlpha_Power,
+	float FragmentNormal_Tilling, float FragmentNormal_Height, float FragmentNormal_Intensity, float FragmentNormal_Offset,
+	float Refraction_IOR, float Refraction_Intensity, float RefractionRange_Offset, float RefractionRange_Intensity,
+	float Diamond_Tiling, float Diamond_PannerSpeed_X, float Diamond_PannerSpeed_Y, float UseDiamond_UV_Switch, float3 Diamond_RefractDir,
+	float Diamond_Intensity,
+	float4 FlowLight_UV_Switch, float WaveTiling, float WaveSpeed, float Normal_ViewBlend, float WaveNormalAmount, float WaveAmount,
+	float4 TintColorFlow02, float4 TintColorFlow,
+	float4 SecondTex_UVSwitch, float Second_UseScreenUV, float Second_RotCos, float Second_RotSin, float4 Second_UV, float4 Second_UV_Offset,
+	float4 Second_Refine, float4 Second_ColorTint, float EffectMaskTexUV2Switch, float Effect_Progress,
+	float4 SelectionColor, float BaseOpacity, float FinalOpacity,
+	float E_Dither_DitherValue, float E_Dither_DitherValue_MainPass, float E_Dither_DitherValue2, float E_Dither_UseDither, float E_Dither_UseDither2,
+	float4 NormalOverrideParameter, float MaterialTextureMipBias)
+{
+	FWuwaFXOutput X;
+	// ---- C1-26: TBN, view vector, two-sided shading normal ----------------------------------------------------------------
+	float3 Bt = cross(WorldNormal, WorldTangent) * TangentSign;
+	float rs = rsqrt(dot(-TranslatedWorldPosition, -TranslatedWorldPosition));
+	float3 V = rs * -TranslatedWorldPosition;
+	float3 N2 = TwoSidedSign * WuwaWShadingNormal(WorldTangent, Bt, WorldNormal, NormalOverrideParameter);
+	float4 Ux = float4(UV0.x, UV1.x, UV2.x, UV3.x);
+	float4 Uy = float4(UV0.y, UV1.y, UV2.y, UV3.y);
+
+	// ---- C27-31: normal map (not normalised) ----------------------------------------------------------------------------------
+	float2 nm = NormalMap.SampleBias(NormalMapSampler, UV0, MaterialTextureMipBias).xy * 2.0 + -1.0;
+	nm = nm * NormalStrength;
+	float3 Nn = nm.x * WorldTangent + Bt * nm.y;
+	Nn = Nn + WorldNormal;
+
+	// ---- C32-38: Blinn specular toward View[153] (normalise = x / sqrt(dot)) ------------------------------------------------
+	float3 H = -TranslatedWorldPosition * rs + KuroDirectionalLightDirection;
+	H = H / sqrt(dot(H, H));
+	float spec = saturate(dot(Nn, H));
+	spec = saturate(spec + Specular_Offset) * Specular_Intensity;
+
+	// ---- C39-61: base colour: desaturated shadow / base tints, smoothstep ramp on N.L --------------------------------------
+	float3 Bc = BaseColTex.SampleBias(BaseColTexSampler, UV0, MaterialTextureMipBias).rgb;
+	float3 Sh = Bc * ShadowCol_Tint.rgb;
+	float ls = dot(Sh, WUWA_CRY_LUM3);
+	Sh = BaseCol_Desaturate * (-Bc * ShadowCol_Tint.rgb + ls) + Sh;
+	float3 Shk = Sh * ShadowColor_Intensity;
+	float3 Bs = Bc * BaseCol_Tint.rgb;
+	float lb = dot(Bs, WUWA_CRY_LUM3);
+	Bs = BaseCol_Desaturate * (-Bc * BaseCol_Tint.rgb + lb) + Bs;
+	float nl = dot(Nn, KuroDirectionalLightDirection) * 0.5 + 0.5;
+	float sm = WuwaWSmoothStep(ShadowProcess - ShadowWidth, ShadowProcess + ShadowWidth, nl);
+	float3 D = sm * (-Sh * ShadowColor_Intensity + Bs) + Shk;
+	float3 Dk = D * FinalBaseCol_Intensity;
+
+	// ---- Q61-77 (bParallaxDiamond): bump-offset parallax emissive ------------------------------------------------------------
+	float2 tv = float2(dot(WorldTangent, V), dot(Bt, V));
+	float3 Pc = 0.0;
+	if (bParallaxDiamond)
+	{
+		float2 puv = UV3 * BumpOffsetTilling;
+		float dw = DepthWeight_Tex.SampleBias(DepthWeight_TexSampler, puv, MaterialTextureMipBias).r;
+		dw = dw * (1.0 - DepthHeightTexNoise) + DepthHeightTexNoise;
+		float ph = Ice_Depth_Weight * dw + Ice_Depth_Weight * -0.5;
+		puv = tv * ph + puv;
+		float3 P = BumpOffset_BaseTex.SampleBias(BumpOffset_BaseTexSampler, puv, MaterialTextureMipBias).rgb;
+		Pc = P * ParallaxEmissiveColor.rgb;
+		float lp = dot(Pc, WUWA_CRY_LUM3);
+		Pc = ParallaxEmissive_Desaturate * (-P * ParallaxEmissiveColor.rgb + lp) + Pc;
+	}
+
+	// ---- C62-79: back-light SSS (View[296]) and fresnel alpha ---------------------------------------------------------------
+	float3 Ls = KuroSSSDirection / sqrt(dot(KuroSSSDirection, KuroSSSDirection));
+	Ls = SSSValue * Nn + Ls;
+	Ls = Ls / sqrt(dot(Ls, Ls));
+	float bl = saturate(dot(Ls, -V));
+	bl = saturate(exp2(log2(bl) * BLPower) * BLScale);
+	float dn = dot(N2, V);
+	float fr = WuwaWPowGuard(1.0 - saturate(dn), FresnelAlpha_Power);
+	float A = max(bl, fr);
+	float3 Col;
+	if (bParallaxDiamond)
+	{
+		Col = A * (D * FinalBaseCol_Intensity - Pc) + Pc;
+		Col = spec * Dk + Col;
+	}
+	else
+	{
+		Col = spec * Dk + Dk;
+	}
+
+	// ---- C81-116: fragment-normal refraction of the SCENE COLOUR at an offset viewport UV --------------------------------------
+	float2 fuv = UV0 * FragmentNormal_Tilling;
+	float fh = FragmentNormal_Height * asfloat(0x3D4CCCCDu) + asfloat(0xBCCCCCCDu);   // 0.05, -0.025
+	fuv = tv * fh + fuv;
+	float2 fn = FragmentNormal_Tex.SampleBias(FragmentNormal_TexSampler, fuv, MaterialTextureMipBias).xy * 2.0 + -1.0;
+	float fz = sqrt(max(1.0 - dot(fn, fn), 0.0));
+	float3 Nf = Bt * fn.y;
+	Nf = fn.x * WorldTangent + Nf;
+	Nf = fz * WorldNormal + Nf;
+	Nf = FragmentNormal_Intensity * (Nf - WorldNormal) + WorldNormal;
+	float k = (dot(V, Nf) + FragmentNormal_Offset) * FragmentNormal_Intensity;
+	float3 t = float3(Nn.x, Nn.y, Nn.z + 1.0);
+	float dtu;
+	if (bParallaxDiamond)
+		dtu = dot(float3(t.z, t.x, t.y), float3(k, -k, -k));
+	else
+		dtu = dot(t, float3(-k, -k, k));
+	float2 rf = t.xy * dtu - t.z * -k;
+	float2 Pix = SvPositionXY - ViewRectMin;
+	float2 suv = rf * Refraction_IOR + Pix * ViewSizeAndInvSize.zw;
+	suv = suv * ViewSizeAndInvSize.xy + ViewRectMin;
+	suv = suv * SceneColorBufferSizeAndInvSize.zw;
+	suv = min(max(suv, SceneColorBufferUVMinMax.xy), SceneColorBufferUVMinMax.zw);
+	float3 sc = SceneColor.Sample(SceneColorSampler, suv).rgb;
+	sc = sc * sc;
+	sc = sc * sc;
+	sc = sc * Refraction_Intensity;
+	sc = sc * 10.0;
+	float rr = saturate(dot(Nn, V)) + RefractionRange_Offset;
+	rr = saturate(rr * RefractionRange_Intensity);
+	Col = rr * sc + Col;
+
+	// ---- Q117-152 (bParallaxDiamond): refracted-view diamond layer with a normal.RefractDir glint ----------------------------
+	if (bParallaxDiamond)
+	{
+		float kq = -dn * dn + 1.0;
+		kq = -kq * asfloat(0x3F101271u) + 1.0;                                   // eta^2
+		float sq = dn * asfloat(0x3F400C4Bu) + sqrt(kq);                          // eta = 0.7502
+		float3 R = V * asfloat(0x3F400C4Bu) - N2 * sq;
+		if (!(kq >= 0.0))
+			R = 0.0;
+		float2 rv = mul(R, (float3x3)TranslatedWorldToView).xy;
+		float2 duv = UV0 * Diamond_Tiling;
+		duv = GameTime * float2(Diamond_PannerSpeed_X, Diamond_PannerSpeed_Y) + duv;
+		duv = UseDiamond_UV_Switch * (duv - rv) + rv;
+		float3 Dm = Diamond_MainTex.SampleBias(Diamond_MainTexSampler, duv, MaterialTextureMipBias).rgb;
+		float3 Nv = mul(N2, (float3x3)TranslatedWorldToView);
+		float nd = dot(Nv, Diamond_RefractDir);
+		float st = (nd >= asfloat(0x3E087FCCu)) ? 1.0 : 0.0;
+		float pw = exp2(log2(nd) * 12.0) * st;
+		pw = min(pw * 1000.0, 20.0);
+		pw = (asfloat(0x33000002u) >= nd) ? 0.0 : pw;
+		Dm = Dm * pw + Dm;
+		Col = saturate(k) * (Dm * Diamond_Intensity - Col) + Col;
+	}
+
+	// ---- C117-157: flow-light wave (sin band along the selected UV, view-blended normal) ------------------------------------
+	float fu = dot(FlowLight_UV_Switch, Ux);
+	float fv = dot(FlowLight_UV_Switch, Uy);
+	float gw = GameTime * WaveSpeed;
+	fv = fv * WaveTiling - gw;
+	float vz = mul(Nn, (float3x3)TranslatedWorldToView).z;
+	vz = Normal_ViewBlend * (1.0 - vz) + vz;
+	fv = -vz * WaveNormalAmount + fv;
+	float sw = sin(fv * asfloat(0x40C90FDBu)) + 1.0;
+	float h = sw * 0.5;
+	float wave = (asfloat(0x33800002u) >= sw) ? 0.0 : (h * (h * h)) * WaveAmount;
+	float3 Fa = Dk * TintColorFlow02.rgb;
+	float fnz = FlowLight_NoiseTex.SampleBias(FlowLight_NoiseTexSampler, float2(fu * 12.0, gw * asfloat(0x3DCCCCCDu)), MaterialTextureMipBias).r;
+	fnz = sw * 0.5 + fnz;
+	float fp = WuwaWPowGuard(fnz + -0.5, 9.0) * 3.0;
+	float fk = (wave - fp) * 0.5 + fp;
+	fk = min(max(fk, 0.0), 0.75) * asfloat(0x3FAA9FBEu);
+	float3 Fl = TintColorFlow.rgb * Dk - Fa;
+	Fl = fk * Fl + Fa;
+	Col = wave * Fl + Col;
+
+	// ---- C158-189 (bEffectSecond): Second layer x effect mask --------------------------------------------------------------
+	if (bEffectSecond)
+	{
+		float2 s2 = WuwaFXRotate(WuwaFXUV4(SecondTex_UVSwitch, Ux, Uy, Second_UseScreenUV, Pix, ViewSizeAndInvSize.zw), Second_RotCos, Second_RotSin);
+		float a = GameTime * asfloat(0x3ADA740Eu);                                 // 1/600
+		a = (a >= -a) ? frac(abs(a)) : -frac(abs(a));
+		float tt = a * 600.0;
+		s2 = s2 * Second_UV.xy + tt * Second_UV.zw;
+		s2 = s2 + Second_UV_Offset.xy;   // + (Second_NoiseStrength * 0, ...) as compiled: a constant 0
+		float3 Sc = Second_RGB.SampleBias(Second_RGBSampler, s2, MaterialTextureMipBias).rgb;
+		float3 g = float3(WuwaWPowGuard(Sc.x, Second_Refine.x), WuwaWPowGuard(Sc.y, Second_Refine.x), WuwaWPowGuard(Sc.z, Second_Refine.x)) * Second_Refine.y;
+		Sc = Second_Refine.w * (Sc * Second_Refine.z - g) + g;
+		Sc = Sc * Second_ColorTint.rgb;
+		float2 muv = EffectMaskTexUV2Switch * (UV2 - UV0) + UV0;
+		float m = R_Noise_A_Mask.SampleBias(R_Noise_A_MaskSampler, muv, MaterialTextureMipBias).g;
+		m = WuwaWPowGuard(m, 1.0 - Effect_Progress);
+		Col = m * Sc + Col;
+	}
+
+	// ---- C190-212: selection colour, opacity, pattern dither ---------------------------------------------------------------
+	X.Emissive = SelectionColor.a * (SelectionColor.rgb - Col) + Col;
+	float op = (A + BaseOpacity) * FinalOpacity;
+	float keep = WuwaCrystalPatternDither(Pix, E_Dither_DitherValue, E_Dither_DitherValue_MainPass, E_Dither_DitherValue2,
+		E_Dither_UseDither, E_Dither_UseDither2);
+	X.Opacity = max(min(keep, op), 0.0);
+	return X;
+}
+
+// =====================================================================================================================
+// Entries (one per compiled PS hash)
+// =====================================================================================================================
+// PS c3338a60e7 (#137263; MI_R5Device510Md20001_Effect, Blooming Jadehaven): Use_Specular + Use_FlowLight + UseEffectMaterial +
+// UseSecond + UseWrappingUV. VS #2157 (98ddcc5e, stock translucent GPU-skin VS, engine_only).
+FWuwaFXOutput WuwaCrystalTransmitting_EffectSecond(
+	Texture2D SceneColor, SamplerState SceneColorSampler,
+	Texture2D NormalMap, SamplerState NormalMapSampler, Texture2D BaseColTex, SamplerState BaseColTexSampler,
+	Texture2D FragmentNormal_Tex, SamplerState FragmentNormal_TexSampler,
+	Texture2D FlowLight_NoiseTex, SamplerState FlowLight_NoiseTexSampler, Texture2D Second_RGB, SamplerState Second_RGBSampler,
+	Texture2D R_Noise_A_Mask, SamplerState R_Noise_A_MaskSampler,
+	float2 UV0, float2 UV1, float2 UV2, float2 UV3, float3 WorldTangent, float3 WorldNormal, float TangentSign, float TwoSidedSign,
+	float3 TranslatedWorldPosition, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime,
+	float4x4 TranslatedWorldToView, float3 KuroDirectionalLightDirection, float3 KuroSSSDirection,
+	float4 SceneColorBufferSizeAndInvSize, float4 SceneColorBufferUVMinMax,
+	float NormalStrength, float Specular_Offset, float Specular_Intensity,
+	float4 ShadowCol_Tint, float4 BaseCol_Tint, float BaseCol_Desaturate, float ShadowColor_Intensity, float ShadowProcess, float ShadowWidth,
+	float FinalBaseCol_Intensity, float SSSValue, float BLPower, float BLScale, float FresnelAlpha_Power,
+	float FragmentNormal_Tilling, float FragmentNormal_Height, float FragmentNormal_Intensity, float FragmentNormal_Offset,
+	float Refraction_IOR, float Refraction_Intensity, float RefractionRange_Offset, float RefractionRange_Intensity,
+	float4 FlowLight_UV_Switch, float WaveTiling, float WaveSpeed, float Normal_ViewBlend, float WaveNormalAmount, float WaveAmount,
+	float4 TintColorFlow02, float4 TintColorFlow,
+	float4 SecondTex_UVSwitch, float Second_UseScreenUV, float Second_RotCos, float Second_RotSin, float4 Second_UV, float4 Second_UV_Offset,
+	float4 Second_Refine, float4 Second_ColorTint, float EffectMaskTexUV2Switch, float Effect_Progress,
+	float4 SelectionColor, float BaseOpacity, float FinalOpacity,
+	float E_Dither_DitherValue, float E_Dither_DitherValue_MainPass, float E_Dither_DitherValue2, float E_Dither_UseDither, float E_Dither_UseDither2,
+	float4 NormalOverrideParameter, float MaterialTextureMipBias)
+{
+	return WuwaCrystalTransmitting_Impl(true, false,
+		SceneColor, SceneColorSampler, NormalMap, NormalMapSampler, BaseColTex, BaseColTexSampler,
+		BaseColTex, BaseColTexSampler, BaseColTex, BaseColTexSampler,
+		FragmentNormal_Tex, FragmentNormal_TexSampler, BaseColTex, BaseColTexSampler,
+		FlowLight_NoiseTex, FlowLight_NoiseTexSampler, Second_RGB, Second_RGBSampler, R_Noise_A_Mask, R_Noise_A_MaskSampler,
+		UV0, UV1, UV2, UV3, WorldTangent, WorldNormal, TangentSign, TwoSidedSign,
+		TranslatedWorldPosition, SvPositionXY, ViewRectMin, ViewSizeAndInvSize, GameTime,
+		TranslatedWorldToView, KuroDirectionalLightDirection, KuroSSSDirection, SceneColorBufferSizeAndInvSize, SceneColorBufferUVMinMax,
+		NormalStrength, Specular_Offset, Specular_Intensity,
+		ShadowCol_Tint, BaseCol_Tint, BaseCol_Desaturate, ShadowColor_Intensity, ShadowProcess, ShadowWidth, FinalBaseCol_Intensity,
+		0.0, 0.0, 0.0, (float4)0, 0.0,
+		SSSValue, BLPower, BLScale, FresnelAlpha_Power,
+		FragmentNormal_Tilling, FragmentNormal_Height, FragmentNormal_Intensity, FragmentNormal_Offset,
+		Refraction_IOR, Refraction_Intensity, RefractionRange_Offset, RefractionRange_Intensity,
+		0.0, 0.0, 0.0, 0.0, (float3)0, 0.0,
+		FlowLight_UV_Switch, WaveTiling, WaveSpeed, Normal_ViewBlend, WaveNormalAmount, WaveAmount, TintColorFlow02, TintColorFlow,
+		SecondTex_UVSwitch, Second_UseScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset,
+		Second_Refine, Second_ColorTint, EffectMaskTexUV2Switch, Effect_Progress,
+		SelectionColor, BaseOpacity, FinalOpacity,
+		E_Dither_DitherValue, E_Dither_DitherValue_MainPass, E_Dither_DitherValue2, E_Dither_UseDither, E_Dither_UseDither2,
+		NormalOverrideParameter, MaterialTextureMipBias);
+}
+
+// PS 6525ac23af (#11113; MI_EQingxiaoDajianMd10011_Effect, Qingxiao / Rover props): Use_Specular + Use_ParallaxCrystal +
+// Use_CrystalDimond + Use_FlowLight + UseWrappingUV. VS #2157 (98ddcc5e, engine_only).
+FWuwaFXOutput WuwaCrystalTransmitting_ParallaxDiamond(
+	Texture2D SceneColor, SamplerState SceneColorSampler,
+	Texture2D NormalMap, SamplerState NormalMapSampler, Texture2D BaseColTex, SamplerState BaseColTexSampler,
+	Texture2D DepthWeight_Tex, SamplerState DepthWeight_TexSampler, Texture2D BumpOffset_BaseTex, SamplerState BumpOffset_BaseTexSampler,
+	Texture2D FragmentNormal_Tex, SamplerState FragmentNormal_TexSampler, Texture2D Diamond_MainTex, SamplerState Diamond_MainTexSampler,
+	Texture2D FlowLight_NoiseTex, SamplerState FlowLight_NoiseTexSampler,
+	float2 UV0, float2 UV1, float2 UV2, float2 UV3, float3 WorldTangent, float3 WorldNormal, float TangentSign, float TwoSidedSign,
+	float3 TranslatedWorldPosition, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime,
+	float4x4 TranslatedWorldToView, float3 KuroDirectionalLightDirection, float3 KuroSSSDirection,
+	float4 SceneColorBufferSizeAndInvSize, float4 SceneColorBufferUVMinMax,
+	float NormalStrength, float Specular_Offset, float Specular_Intensity,
+	float4 ShadowCol_Tint, float4 BaseCol_Tint, float BaseCol_Desaturate, float ShadowColor_Intensity, float ShadowProcess, float ShadowWidth,
+	float FinalBaseCol_Intensity,
+	float BumpOffsetTilling, float Ice_Depth_Weight, float DepthHeightTexNoise, float4 ParallaxEmissiveColor, float ParallaxEmissive_Desaturate,
+	float SSSValue, float BLPower, float BLScale, float FresnelAlpha_Power,
+	float FragmentNormal_Tilling, float FragmentNormal_Height, float FragmentNormal_Intensity, float FragmentNormal_Offset,
+	float Refraction_IOR, float Refraction_Intensity, float RefractionRange_Offset, float RefractionRange_Intensity,
+	float Diamond_Tiling, float Diamond_PannerSpeed_X, float Diamond_PannerSpeed_Y, float UseDiamond_UV_Switch, float3 Diamond_RefractDir,
+	float Diamond_Intensity,
+	float4 FlowLight_UV_Switch, float WaveTiling, float WaveSpeed, float Normal_ViewBlend, float WaveNormalAmount, float WaveAmount,
+	float4 TintColorFlow02, float4 TintColorFlow,
+	float4 SelectionColor, float BaseOpacity, float FinalOpacity,
+	float E_Dither_DitherValue, float E_Dither_DitherValue_MainPass, float E_Dither_DitherValue2, float E_Dither_UseDither, float E_Dither_UseDither2,
+	float4 NormalOverrideParameter, float MaterialTextureMipBias)
+{
+	return WuwaCrystalTransmitting_Impl(false, true,
+		SceneColor, SceneColorSampler, NormalMap, NormalMapSampler, BaseColTex, BaseColTexSampler,
+		DepthWeight_Tex, DepthWeight_TexSampler, BumpOffset_BaseTex, BumpOffset_BaseTexSampler,
+		FragmentNormal_Tex, FragmentNormal_TexSampler, Diamond_MainTex, Diamond_MainTexSampler,
+		FlowLight_NoiseTex, FlowLight_NoiseTexSampler, BaseColTex, BaseColTexSampler, BaseColTex, BaseColTexSampler,
+		UV0, UV1, UV2, UV3, WorldTangent, WorldNormal, TangentSign, TwoSidedSign,
+		TranslatedWorldPosition, SvPositionXY, ViewRectMin, ViewSizeAndInvSize, GameTime,
+		TranslatedWorldToView, KuroDirectionalLightDirection, KuroSSSDirection, SceneColorBufferSizeAndInvSize, SceneColorBufferUVMinMax,
+		NormalStrength, Specular_Offset, Specular_Intensity,
+		ShadowCol_Tint, BaseCol_Tint, BaseCol_Desaturate, ShadowColor_Intensity, ShadowProcess, ShadowWidth, FinalBaseCol_Intensity,
+		BumpOffsetTilling, Ice_Depth_Weight, DepthHeightTexNoise, ParallaxEmissiveColor, ParallaxEmissive_Desaturate,
+		SSSValue, BLPower, BLScale, FresnelAlpha_Power,
+		FragmentNormal_Tilling, FragmentNormal_Height, FragmentNormal_Intensity, FragmentNormal_Offset,
+		Refraction_IOR, Refraction_Intensity, RefractionRange_Offset, RefractionRange_Intensity,
+		Diamond_Tiling, Diamond_PannerSpeed_X, Diamond_PannerSpeed_Y, UseDiamond_UV_Switch, Diamond_RefractDir, Diamond_Intensity,
+		FlowLight_UV_Switch, WaveTiling, WaveSpeed, Normal_ViewBlend, WaveNormalAmount, WaveAmount, TintColorFlow02, TintColorFlow,
+		(float4)0, 0.0, 1.0, 0.0, (float4)0, (float4)0, (float4)0, (float4)0, 0.0, 0.0,
+		SelectionColor, BaseOpacity, FinalOpacity,
+		E_Dither_DitherValue, E_Dither_DitherValue_MainPass, E_Dither_DitherValue2, E_Dither_UseDither, E_Dither_UseDither2,
+		NormalOverrideParameter, MaterialTextureMipBias);
+}
+
+#endif // WUWA_CRYSTAL_USH

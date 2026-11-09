@@ -1,0 +1,682 @@
+{
+ "name": "CharWeapon_Com_SDFXingHenMatCap2S",
+ "entry": "WuwaToonCharWeaponBasePass_SDFXingHenMatCap2S",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_CharWeapon2.ush",
+ "kuro_shading_model": "MSM_ToonCommon (GBufferB id 12)",
+ "kuro_asm": "M_CharWeapon_Com PS 557b6f4eb7 (#193048) / VS d05a7cbf (#193076); UseSDFEffect + UseXingHenEffect + UseMatCap + UsePBR(Mask), UseToonMask off, two-sided",
+ "kuro_root_material": "M_CharWeapon_Com",
+ "blend_mode": "BLEND_Opaque",
+ "two_sided": true,
+ "resolve": true,
+ "resolve_note": "toon GBuffer (id 12) through WuwaToonResolve. M_CharWeapon_Com packing: B.rgb = sqrt(saturate(ShadowColor)) (no ramp), C.rgb = Lit * AniSwitch_ShadowColorBright, A.z = (Shadow * 0.5 + 0.5) * SolidShadowAZ; mode 0: C.a = 0, D = (ToonRimWidth, packed rough/metal, 0, packed AO/FFT), A.w = 0; mode 1: rim byte in C.a, D = 0, A.w = 1. PBR highlight, constant toon-mask emission and the SDF / XingHen noise colour are in the emissive.",
+ "vs_note": null,
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "o0.rgb SceneColor (o0.a = 0)"
+  },
+  "A": {
+   "type": "float4",
+   "kuro": "o1 GBufferA: xy oct normal, z toon shadow factor, w flag"
+  },
+  "B": {
+   "type": "float4",
+   "kuro": "o2 GBufferB: rgb sqrt(shadow colour), a (LightingChannelMask<<5 | ShadingModelId)/255"
+  },
+  "C": {
+   "type": "float4",
+   "kuro": "o3 GBufferC: rgb lit colour, a MainTex.a*OpacityIntensity / rim byte"
+  },
+  "D": {
+   "type": "float4",
+   "kuro": "o6 \"GBufferD\": x ToonRimWidth, y packed nibble, z 0, w packed AO|FFT"
+  }
+ },
+ "inputs": [
+  {
+   "name": "Normal_Roughness_Metallic",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Normal_Roughness_Metallic",
+   "default": "T_EAogusitaChangjianMd10011_N",
+   "note": "reference MI MI_EAogusitaChangjianMd10011: {'ObjectName': \"Texture2D'T_EAogusitaChangjianMd10011_N'\", 'ObjectPath': 'Client/Content/Aki/Character/Weapon/Prop/Role/AogusitaProp/EAogusitaChangjianMd10011/Model/T_EAogusitaChangjianMd10011_N.1'}"
+  },
+  {
+   "name": "Normal_Roughness_MetallicSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Normal_Roughness_Metallic",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "Normal_Roughness_MetallicSampler"
+  },
+  {
+   "name": "MainTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "MainTex",
+   "default": "T_EAogusitaChangjianMd10011_D",
+   "note": "reference MI MI_EAogusitaChangjianMd10011: {'ObjectName': \"Texture2D'T_EAogusitaChangjianMd10011_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Weapon/Prop/Role/AogusitaProp/EAogusitaChangjianMd10011/Model/T_EAogusitaChangjianMd10011_D.1'}"
+  },
+  {
+   "name": "MainTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "MainTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MainTexSampler"
+  },
+  {
+   "name": "CommonNoiseMap",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "CommonNoiseMap",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "CommonNoiseMapSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "CommonNoiseMap",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "CommonNoiseMapSampler"
+  },
+  {
+   "name": "MatCapTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "MatCapTex",
+   "default": "T_MC_premake_D",
+   "note": "reference MI MI_EAogusitaChangjianMd10011: {'ObjectName': \"Texture2D'T_MC_premake_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/CommonTexture/CharacterCubeMaps/T_MC_premake_D.1'}"
+  },
+  {
+   "name": "MatCapTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "MatCapTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MatCapTexSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "WorldTangent",
+   "type": "float3",
+   "kind": "worldtangent",
+   "ue_expr": "Parameters.TangentToWorld[0]"
+  },
+  {
+   "name": "WorldNormal",
+   "type": "float3",
+   "kind": "worldnormal",
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "TangentSign",
+   "type": "float",
+   "kind": "worldtangent",
+   "channel": "sign",
+   "ue_expr": "Parameters.TangentToWorldSign"
+  },
+  {
+   "name": "TwoSidedSign",
+   "type": "float",
+   "kind": "twosidedsign",
+   "ue_expr": "Parameters.TwoSidedSign"
+  },
+  {
+   "name": "WorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "absolute",
+   "ue_expr": "WSHackToFloat(GetWorldPosition(Parameters))"
+  },
+  {
+   "name": "TranslatedWorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "translated",
+   "ue_expr": "GetTranslatedWorldPosition(Parameters)"
+  },
+  {
+   "name": "CameraVector",
+   "type": "float3",
+   "kind": "cameravector",
+   "ue_expr": "Parameters.CameraVector"
+  },
+  {
+   "name": "LightDirVS",
+   "type": "float3",
+   "kind": "interpolator",
+   "source": "WuwaToonBaseVS_LightDir",
+   "note": "Kuro TEXCOORD2.yzw on M_Char_Com_Special (Face-VS layout) / TEXCOORD2.xyz on M_CharWeapon_Com (Body-VS layout); VS symbolically compared in vs_status_r2.py"
+  },
+  {
+   "name": "MotionEmissiveMask",
+   "type": "float",
+   "kind": "interpolator",
+   "source": "WuwaToonBaseVS_WPO:MotionEmissiveMask",
+   "note": "Kuro TEXCOORD2.x on M_Char_Com_Special (.yzw light direction) / TEXCOORD2.w on M_CharWeapon_Com"
+  },
+  {
+   "name": "NormalStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "NormalStrength",
+   "default": 1.0
+  },
+  {
+   "name": "BaseColorTint",
+   "type": "float3",
+   "kind": "vector",
+   "param": "BaseColorTint",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "EmissionIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EmissionIntensity",
+   "default": 0.0
+  },
+  {
+   "name": "EmissionColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "EmissionColor",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "MetallicIntensityDebug",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MetallicIntensity(Debug)",
+   "default": 1.0
+  },
+  {
+   "name": "RoughnessIntensityDebug",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RoughnessIntensity(Debug))",
+   "default": 1.0
+  },
+  {
+   "name": "SDFMetallicInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SDFMetallicInt",
+   "default": 0.6000000238418579
+  },
+  {
+   "name": "SDFRoughnessInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SDFRoughnessInt",
+   "default": 0.30000001192092896
+  },
+  {
+   "name": "RaytracingReflectionFix",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RaytracingReflectionFix",
+   "default": 0.0
+  },
+  {
+   "name": "MetalSpecularPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MetalSpecularPower",
+   "default": 5000.0
+  },
+  {
+   "name": "SpecularPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SpecularPower",
+   "default": 5.0
+  },
+  {
+   "name": "LightOffset_Pitch",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightOffset_Pitch",
+   "default": 0.0
+  },
+  {
+   "name": "SolidShadowProcess",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowProcess",
+   "default": 0.20000000298023224
+  },
+  {
+   "name": "ShadowOffsetAdjustFactor",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowOffsetAdjustFactor",
+   "default": 1.0
+  },
+  {
+   "name": "ShadowOffsetPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowOffsetPower",
+   "default": 1.0
+  },
+  {
+   "name": "MaskShadowOffsetStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MaskShadowOffsetStrength",
+   "default": 0.0
+  },
+  {
+   "name": "ShadowProcess",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowProcess",
+   "default": 0.5
+  },
+  {
+   "name": "ShadowWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowWidth",
+   "default": 0.009999999776482582
+  },
+  {
+   "name": "ToonMaskShadow",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "SolidShadowProcess"
+   ],
+   "expr": "0.001 + SolidShadowProcess",
+   "expr_note": "shadow part = constant toon mask (0, 0.001 + SolidShadowProcess, 0, EmissionIntensity).y when UseToonMask is off (Kuro cb4[70].y; an HLSL add would be folded with the later \"- SolidShadowProcess\" by fxc)",
+   "cb4_mi": "MI_EAogusitaChangjianMd10011",
+   "cb4_slot": "cb4[70].y",
+   "cb4_comp": 0,
+   "cb4_source": "evidence/roster/shadermaps/weapons/cb4/MI_EAogusitaChangjianMd10011.json (slot cb4[70].y component 0, opcode stream re-run in float32)",
+   "ue_nodes": "the material graph expression of the same name, evaluated by UE as a uniform expression (CPU float32 preshader)",
+   "default": 0.201
+  },
+  {
+   "name": "SolidShadowFactor",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "SolidShadowProcess"
+   ],
+   "expr": "(clamp(min(SolidShadowProcess, 0.001 + SolidShadowProcess) / max(SolidShadowProcess, 0.01), 0.9, 1) - 0.9) / max(1 - 0.9, 0.0001)",
+   "expr_note": "solid-shadow factor multiplying the half-Lambert smoothstep (Kuro cb4[73].x)",
+   "cb4_mi": "MI_EAogusitaChangjianMd10011",
+   "cb4_slot": "cb4[73].x",
+   "cb4_comp": 0,
+   "cb4_source": "evidence/roster/shadermaps/weapons/cb4/MI_EAogusitaChangjianMd10011.json (slot cb4[73].x component 0, opcode stream re-run in float32)",
+   "ue_nodes": "the material graph expression of the same name, evaluated by UE as a uniform expression (CPU float32 preshader)",
+   "default": 1.0
+  },
+  {
+   "name": "SolidShadowAZ",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "SolidShadowProcess",
+    "SolidShadowStrength"
+   ],
+   "expr": "1 - (1 - min(SolidShadowProcess, 0.001 + SolidShadowProcess) / max(SolidShadowProcess, 0.01)) * SolidShadowStrength",
+   "expr_note": "GBufferA.z scale (Kuro cb4[99].y)",
+   "cb4_mi": "MI_EAogusitaChangjianMd10011",
+   "cb4_slot": "cb4[99].y",
+   "cb4_comp": 0,
+   "cb4_source": "evidence/roster/shadermaps/weapons/cb4/MI_EAogusitaChangjianMd10011.json (slot cb4[99].y component 0, opcode stream re-run in float32)",
+   "ue_nodes": "the material graph expression of the same name, evaluated by UE as a uniform expression (CPU float32 preshader)",
+   "default": 1.0
+  },
+  {
+   "name": "PBRHardSpecWidth_Test",
+   "type": "float",
+   "kind": "scalar",
+   "param": "PBRHardSpecWidth_Test",
+   "default": 0.8999999761581421
+  },
+  {
+   "name": "PBRHardSpeSmooth_Test",
+   "type": "float",
+   "kind": "scalar",
+   "param": "PBRHardSpeSmooth_Test",
+   "default": 0.05000000074505806
+  },
+  {
+   "name": "PBRRateIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "PBRRateIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "MetalEmissionStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MetalEmissionStrength",
+   "default": 2.0
+  },
+  {
+   "name": "SDFTimeSpeed",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SDFTimeSpeed",
+   "default": 0.0
+  },
+  {
+   "name": "SDFNormalInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SDFNormalInt",
+   "default": 0.0
+  },
+  {
+   "name": "SDFColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SDFColor",
+   "channels": "rgba",
+   "default": [
+    0.11305300146341324,
+    0.16484199464321136,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "E_Motion_Emissive",
+   "type": "float3",
+   "kind": "vector",
+   "param": "E_Motion_Emissive",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "MatCapInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MatCapInt",
+   "default": 1.0
+  },
+  {
+   "name": "MetalMatCapBack",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MetalMatCapBack",
+   "default": 4.0
+  },
+  {
+   "name": "MetalMatCapInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MetalMatCapInt",
+   "default": 5.0
+  },
+  {
+   "name": "AniSwitch_ShadowColorBright",
+   "type": "float",
+   "kind": "scalar",
+   "param": "AniSwitch_ShadowColorBright",
+   "default": 1.0
+  },
+  {
+   "name": "ShadowColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "ShadowColor",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "ToonRimWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ToonRimWidth",
+   "default": 0.05000000074505806
+  },
+  {
+   "name": "FFTIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FFTIntensity",
+   "default": 0.0
+  },
+  {
+   "name": "SSAOIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SSAOIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "CPD1",
+   "type": "float",
+   "kind": "cpd",
+   "index": 1,
+   "role": "weight toward VS fixed-angle light"
+  },
+  {
+   "name": "CPD13",
+   "type": "float",
+   "kind": "cpd",
+   "index": 13,
+   "role": "toon local light anchor blend"
+  },
+  {
+   "name": "MPC_GlobalCharacterAmbientSkinColor",
+   "type": "float3",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalCharacterAmbientSkinColor",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "kuro": "cb3[23] (used as a light-direction target [U])"
+  },
+  {
+   "name": "MPC_GlobalCharacterDebugLightDirection",
+   "type": "float3",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalCharacterDebugLightDirection",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "kuro": "cb3[42] (base character light direction; must be written at runtime)"
+  },
+  {
+   "name": "ToonLight0",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 0,
+   "kuro": "ToonShadowLightData CB1[0]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "ToonLight1",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 1,
+   "kuro": "ToonShadowLightData CB1[1]",
+   "default": [
+    0,
+    0,
+    -1,
+    0
+   ],
+   "note": "[1].w is a raw uint bit pattern (type in bits 16..17): feed it bit-exactly"
+  },
+  {
+   "name": "ToonLight2",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 2,
+   "kuro": "ToonShadowLightData CB1[2]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "ToonLight3",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 3,
+   "kuro": "ToonShadowLightData CB1[3]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "TranslatedWorldToView",
+   "type": "float4x4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.TranslatedWorldToView",
+   "kuro": "Kuro View[12..15]"
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "NormalOverrideParameter",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.NormalOverrideParameter",
+   "kuro": "Kuro View[144] (stock member), default (0,0,0,1)",
+   "default": [
+    0,
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "name": "KuroGBufferMode",
+   "type": "float",
+   "kind": "view",
+   "kuro": "View[276].x (int, ==1 selects the alternate packing)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "KuroEmissiveScale",
+   "type": "float3",
+   "kind": "view",
+   "kuro": "View[285].xyz (emissive multiplier when Primitive[42].w == 0)",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true
+  },
+  {
+   "name": "KuroSkipEmissiveScale",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[42].w (skip View[285] multiply when != 0)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "OutOfBoundsMask",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.OutOfBoundsMask",
+   "kuro": "Kuro View[146].x (stock debug)",
+   "default": 0.0
+  },
+  {
+   "name": "ObjectWorldPosition",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "WSHackToFloat(GetObjectWorldPosition(Parameters))"
+  },
+  {
+   "name": "ObjectBounds",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "float3(GetPrimitiveData(Parameters).ObjectBoundsX, GetPrimitiveData(Parameters).ObjectBoundsY, GetPrimitiveData(Parameters).ObjectBoundsZ)"
+  },
+  {
+   "name": "LightingChannelMask",
+   "type": "uint",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitive_LightingChannelMask_FromFlags(GetPrimitiveData(Parameters).Flags)"
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  }
+ ],
+ "generated_by": "tools/shaderdiff/weapons/r3/make_specs_charweapon.py",
+ "notes": {
+  "textures": "t0 Normal_Roughness_Metallic (name from the cooked map), t1 MainTex (MI override T_EAogusitaChangjianMd10011_D; .a >= 0.95 = SDF mask), t2 CommonNoiseMap [U] (XingHen noise, channel .x; the cooked map lists Normal_Roughness_Metallic, MainTex, CommonNoiseMap, E_Tex_NoiseTex, MatCapTex and the PS samples 4 textures, the 4th being the matcap; not overridden by the MI, root default), t3 MatCapTex (MI override T_MC_premake_D) [U: slot order inferred from usage]."
+ }
+}

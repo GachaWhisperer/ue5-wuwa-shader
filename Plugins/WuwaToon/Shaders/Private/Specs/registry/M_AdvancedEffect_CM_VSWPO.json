@@ -1,0 +1,40 @@
+{
+ "root_material": "M_AdvancedEffect_CM",
+ "generated_by": "tools/shaderdiff/weapons/build_registry_r2.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 2 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes that are symbolically identical to a verified WuwaToon base VS (toon entries) or whose material WPO is ported and verified (VSWPO). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "AdvancedEffect_CM_NoiseSecondRim_SwimWPO.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ad44d2722739315a8fc76afc81e9fcc1e515c09f"
+    ],
+    "base_pass_vs_hash": [
+     "62a7757c98a6ff6fbb96fc6e9bf79dcd79540562"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-2; PS: evidence/validation/shaderdiff/weapons/results_r1_recheck_r2.json summary.AdvCM_ad44d2 (30 runs, o0 491520/491520 o1 491520/491520 bit-exact; same as round 1 results_final2.json); VS #185794 Swim/Noise WPO: WuwaFXSwimNoiseWPO bit-exact on SV_POSITION 786432/786432 components (evidence/validation/shaderdiff/weapons/results_vs_wpo_r2.json); E_Absorbed branch gated off (E_Absorbed_Enable = 0 at every MI)",
+   "ps_archive_index": 185798,
+   "vs_archive_index": [
+    185794
+   ],
+   "vs_status": {
+    "62a7757c98a6ff6fbb96fc6e9bf79dcd79540562": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 2,
+   "roster_slot_uses": 3,
+   "entities": [
+    "character:Hiyuki",
+    "skin:Soundless Prayer",
+    "weapon:Whispers of Sirens"
+   ],
+   "example_mis": [
+    "MI_ETaidaonvGongMd10011_Xian",
+    "MI_R5Device505Md200011Effect"
+   ]
+  }
+ ]
+}

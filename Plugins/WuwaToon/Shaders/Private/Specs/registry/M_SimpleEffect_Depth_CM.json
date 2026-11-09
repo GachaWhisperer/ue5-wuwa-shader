@@ -1,0 +1,39 @@
+{
+ "root_material": "M_SimpleEffect_Depth_CM",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "SimpleEffect_Depth_CM_UV4NoiseSecondDissolvePortal.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ad17e3727515fdc765ebeda0db52cebc662d5c81"
+    ],
+    "base_pass_vs_hash": [
+     "98ddcc5eb79440ab36d97df6fc205943b3913f87"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/simplefx/results_multi_final.json summary.simplefx_ad17e3 (51 runs, o0 835584/835584 bit-exact); VS #2157 engine_only (engine_only (round 1); no Material UB: CB0[260]/CB1[309]/CB2[45] + 1-row GPU-skin VF buffer (integer reads only))",
+   "ps_archive_index": 95763,
+   "vs_archive_index": [
+    2157
+   ],
+   "vs_status": {
+    "98ddcc5eb79440ab36d97df6fc205943b3913f87": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Phrolova",
+    "skin:From the Beyond"
+   ],
+   "example_mis": [
+    "MI_EFuluoluoHekateMD10011FX2"
+   ],
+   "notes": "M_SimpleEffect_Depth_CM; entry WuwaFXSimpleEffect_DepthUV4NoiseSecondDissolve; MIs MI_EFuluoluoHekateMD10011FX2 (2 slot uses)"
+  }
+ ]
+}

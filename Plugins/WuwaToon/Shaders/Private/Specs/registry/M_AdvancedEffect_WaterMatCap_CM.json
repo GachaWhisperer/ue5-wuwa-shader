@@ -1,0 +1,71 @@
+{
+ "root_material": "M_AdvancedEffect_WaterMatCap_CM",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "AdvancedEffect_WaterMatCap_CM_RefractionTFlowCurve.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b7984d7ec86bde2409f413f3fb74a77e403d76b6"
+    ],
+    "base_pass_vs_hash": [
+     "627cf5780da1b332ad71fcf8ca03854731105f7d"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/waterfx/results_multi_final.json summary.waterfx_b7984d (30 runs, o0 491520/491520 o1 491520/491520 bit-exact); VS #283111 ported_wpo_verified (UseWPO screen-mask / T-Flow WPO ported (WuwaFXWaterMatCap_WPO, spec \"wpo\" block); SV_POSITION 1572864/1572864 components bit-exact (evidence/validation/shaderdiff/weapons/round3/waterfx/results_vs_wpo_matcap_final.json, tools/shaderdiff/weapons/r3/waterfx_vs_wpo_matcap.py))",
+   "ps_archive_index": 283113,
+   "vs_archive_index": [
+    283111
+   ],
+   "vs_status": {
+    "627cf5780da1b332ad71fcf8ca03854731105f7d": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 2,
+   "roster_slot_uses": 4,
+   "entities": [
+    "character:Suisui",
+    "skin:Halcyon Days of Harvest"
+   ],
+   "example_mis": [
+    "MI_ESuisuidaShuishanMd10011_Shanmian",
+    "MI_ESuisuixiaoShuishanMd10011_Shanmian"
+   ],
+   "notes": "Suisui fan faces MI_ESuisuixiaoShuishanMd10011_Shanmian / MI_ESuisuidaShuishanMd10011_Shanmian (+ skin Halcyon Days of Harvest); engine inputs: SceneColor texture (pseudo refraction), View[138] / [139] buffer UV"
+  },
+  {
+   "spec": "AdvancedEffect_WaterMatCap_CM_NoiseSecondDissolveMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "8a5ec49c075d5e888ddc8d282162e39f37a84a81"
+    ],
+    "base_pass_vs_hash": [
+     "8a3bc731ed3cb0075d5d35d194b720ea0553cdc5"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/waterfx/results_multi_final.json summary.waterfx_8a5ec4 (27 runs, o0 442368/442368 o1 442368/442368 bit-exact); VS #156558 gated_wpo (E_Absorbed WPO (+ WPOIntensity) only, branched on E_Absorbed_Enable > 0.5 = 0 at every roster MI (evidence/validation/shaderdiff/weapons/round3/waterfx/vs_status_waterfx.json))",
+   "ps_archive_index": 156559,
+   "vs_archive_index": [
+    156558
+   ],
+   "vs_status": {
+    "8a3bc731ed3cb0075d5d35d194b720ea0553cdc5": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 4,
+   "entities": [
+    "character:Suisui",
+    "skin:Halcyon Days of Harvest"
+   ],
+   "example_mis": [
+    "MI_ESuisuidaShuishanMd10011_ShanmainGoldenDots"
+   ],
+   "notes": "MI_ESuisuidaShuishanMd10011_ShanmainGoldenDots; scene-grade translucent tail (View[280].z / [286].y / [277]) in the harness"
+  }
+ ]
+}

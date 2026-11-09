@@ -1,0 +1,1004 @@
+// WuwaToonBasePass_CommonTrans.ush — forward-translucent M_Char_Com props / weapon effect pieces (round 7, group "forward_trans";
+// research/roster/round7/trans.md). These MIs (BlendMode Translucent: test tubes / sprays / lamps "_Boli" / "_Glass" / "Shuijin",
+// R5 weapon "Effect" pieces) do NOT write the toon GBuffer: the original is Kuro's forward translucent base pass with one o0.
+//
+// They are NOT the M_Char_Glass / M_Char_BlurTransLucentGlass graphs (no scene-colour / scene-depth reads, no refraction / blur):
+// each is the M_Char_Com body graph (WuwaToonCommonBasePass_Impl, WuwaToonBasePass_Common.ush) compiled translucent, i.e. the
+// same material part followed by Kuro's forward engine tail. Line refs = evidence/roster/shadermaps/sm5/assembly/<idx>_*.asm.txt.
+//
+//   material part (ported here, bit-exact through the whole original o0, tools/shaderdiff/roster_charcom/round7_trans_tdiff.py):
+//     Emissive (before max 0 / emissive scale / OOB), Opacity (before the primitive fade), the desaturated toon lit colour
+//     (BaseColor of the UE lit-translucent template), and the Kuro forward toon-lighting inputs shadow colour / shadow / shadow AO /
+//     shading normal (unconnected outputs)
+//   engine tail (NOT ported; UE translucency lighting / fog replace it): primitive fade (Primitive[43]), vertex / volumetric
+//     height fog, emissive max 0 / View[285] scale / OOB stripes, screen shadow mask or CSM, Kuro forward toon lighting of the
+//     main light and of the local-light list (CB4, 9 float4 per light), pre-exposure.
+//
+// WuwaCTrans_Impl is a statement-for-statement copy of the WuwaToonCommonBasePass_Impl paths these PS use (WuwaToonBasePass_Common.ush
+// is owned elsewhere and only #included here; its helpers WuwaBPSmooth / WuwaBPSecond and the Shared helpers are reused) with the
+// GBuffer encode replaced by the raw material values, plus one switch the Common Impl does not have:
+//   bConstMR  UseNormal_Roughness_MetallicTex off (PS __94615 l.93-110, __203017, __120115): no Normal_Roughness_Metallic texture;
+//             Metallic = the "Metalllic" parameter, Roughness = the "Roughness" parameter; the Kuro preshaders that only depend on
+//             Roughness are CPU values (uniform_expression): 1 - Roughness (PBR mask, l.275) and the matcap channel weights
+//             saturate(R * 3), saturate((R * 3) - 1), saturate(((R * 3) - 1) - 1) (l.293-298)
+#pragma once
+#ifndef WUWA_COMMONTRANS_USH
+#define WUWA_COMMONTRANS_USH
+
+#include "WuwaToonBasePass_Common.ush"          // WuwaBPSmooth, WuwaBPSecond, Shared helpers (read-only)
+#include "WuwaToonBasePass_WeaponShared.ush"    // FWuwaFXOutput {Emissive, Opacity} (read-only)
+
+struct FWuwaCTransRaw
+{
+	float3 Emissive;      // material Emissive Color: before max 0, View[285] scale, OOB stripes
+	float  Opacity;       // before the Kuro primitive fade
+	float3 Lit;           // desaturated toon lit colour (Kuro forward toon-lighting albedo; UE BaseColor)
+	float3 ShadowColor;   // desaturated shadow colour (the deferred GBufferB.rgb before sqrt)
+	float  Shadow;        // toon shadow step x solid mask (Kuro tail: S * 0.5 + 0.5)
+	float  ShadowAO;      // 1 - (1 - SolidRatio) * SolidShadowStrength
+	float3 Normal;        // normalised world-space normal (forward local lights)
+};
+
+// Compile-time switches (all as in WuwaToonCommonBasePass_Impl except bConstMR, see the header):
+//   bConstMR, bNoNormalMap, bTwoSided, bNoVDL, bBreath, bNoPBR, bNoRamp (shadow colour without the ramp; else the
+//   UseSkinAllRampColor-off ramp blend of the shadow colour), bSecond (+ SecondC from WuwaBPSecond). The lit colour is always
+//   desaturate(Lit * Bright) (UseSkinAllRampColor off / UseRampColor off in every PS of this group).
+FWuwaCTransRaw WuwaCTrans_Impl(const bool bConstMR, const bool bNoNormalMap, const bool bTwoSided, const bool bNoVDL,
+	const bool bBreath, const bool bNoPBR, const bool bNoRamp, const bool bSecond,
+	Texture2D Normal_Roughness_Metallic, SamplerState Normal_Roughness_MetallicSampler,
+	Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D MatCapTex, SamplerState MatCapTexSampler,
+	Texture2D Ramp, SamplerState RampSampler,
+	float2 UV0, float4 VertexColor, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 TranslatedWorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask,
+	float3 SkinColor, float3 BaseColorTint, float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor,
+	float3 SkinSubsurfaceColor, float3 SubsurfaceColor, float LightOffset_Pitch, float NormalStrength, float RaytracingReflectionFix,
+	float DefaultSkinFactor, float UseSkinMask_DYN, float UseFaceAni_SkinMask, float MetallicIntensityDebug, float RoughnessIntensityDebug,
+	float Metalllic, float RoughnessC, float OneMinusRoughness, float3 RoughSel,
+	float MetalSpecularPower, float SpecularPower, float ShadowProcess, float FrontShadowProcessOffset, float BackShadowProcessOffset,
+	float ShadowWidth, float OpacityIntensity, float DecodeShadowThreshold, float DecodeSpecThreshold, float SolidShadowProcess,
+	float ShadowOffsetAdjustFactor, float ShadowOffsetPower, float MaskShadowOffsetStrength, float SolidShadowWidth,
+	float PBRRateIntensity, float MetalEmissionStrength, float MetalMatCapBack, float MatCapInt, float MetalMatCapInt,
+	float AniSwitch_ShadowColorBright, float SolidShadow_RampPosition, float RampPosition, float RampInt, float Desaturation,
+	float SolidShadowStrength,
+	float CPD1, float CPD13,
+	float MPC_GlobalCharSkyLightIntensity, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float4x4 TranslatedWorldToView, float MaterialTextureMipBias, float4 NormalOverrideParameter, float3 ObjectWorldPosition,
+	float GameTime, float BreatheStrength, float BreatheFrequency, float BreathePropotion, float EmissionStrength, float EmissionBreathThreshold,
+	float TwoSidedSign, float3 SecondC)
+{
+	FWuwaCTransRaw R;
+	const float3 V = CameraVector;
+
+	// ---- normal (Common B62-85; bNoNormalMap: PS __94615 l.74-79) ------------------------------------------------------
+	float3 TangentY = cross(WorldNormal, WorldTangent) * TangentSign;
+	float4 NRM = float4(0.0, 0.0, 0.0, 0.0);
+	if (!bConstMR)
+		NRM = Normal_Roughness_Metallic.SampleBias(Normal_Roughness_MetallicSampler, UV0, MaterialTextureMipBias);
+	float2 nxy = (NRM.xy * 2.0 + -1.0) * NormalStrength;
+	float3 Nmap = TangentY * nxy.y;
+	Nmap = nxy.x * WorldTangent + Nmap;
+	Nmap = Nmap + WorldNormal;
+	if (bNoNormalMap)
+		Nmap = WorldNormal;
+	float  nw = NormalOverrideParameter.w;
+	float3 Nraw = Nmap * nw + (1.0 - nw) * WorldNormal;
+	float  NrawRsq = rsqrt(dot(Nraw, Nraw));
+	float3 N = Nraw * NrawRsq;
+
+	// ---- band mask (vertex colour R), skin factor, base colour ---------------------------------------------------------
+	float BandMask;
+	float vcSkin = WuwaBPBandClassify(VertexColor.r, BandMask);
+	float  Skin = WuwaBPSkinFactor(vcSkin, UseSkinMask_DYN, DefaultSkinFactor, UseFaceAni_SkinMask);
+	float3 SkinTint = Skin * (SkinColor - 1.0) + 1.0;
+	float4 MT = MainTex.SampleBias(MainTexSampler, UV0, MaterialTextureMipBias);
+	float3 TexColor  = MT.rgb * BaseColorTint;
+	float3 BaseColor = SkinTint * TexColor;
+
+	// ---- metallic / roughness ------------------------------------------------------------------------------------------
+	float Metallic  = bConstMR ? Metalllic  : NRM.z * MetallicIntensityDebug;
+	float Roughness = bConstMR ? RoughnessC : NRM.w * RoughnessIntensityDebug;
+
+	// ---- shading normal N2, NoV ------------------------------------------------------------------------------------------
+	float3 N2;
+	if (bTwoSided)
+		N2 = RaytracingReflectionFix * (-N * TwoSidedSign + WorldNormal) + N * TwoSidedSign;
+	else
+		N2 = RaytracingReflectionFix * (-Nraw * NrawRsq + WorldNormal) + N;
+	float  NoV_sat = saturate(dot(N2, V));
+
+	// ---- roughness -> spec exponent / intensity, metal flag, specular power ------------------------------------------------
+	const float PowEps = asfloat(0x33000002u);
+	float r01 = (PowEps >= Roughness) ? 0.0 : exp2(log2(Roughness) * 0.1);
+	float SpecIntensity = (1.0 - r01) * 19.9 + 0.1;
+	float SpecExponent  = r01 * -999.0 + 1000.0;
+	float IsMetal = (Metallic >= 0.85) ? 1.0 : 0.0;
+	float SpecPow = IsMetal * (MetalSpecularPower - SpecularPower) + SpecularPower;
+
+	// ---- light direction ----------------------------------------------------------------------------------------------------
+	float3 L = WuwaBPMainLightDir(LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+
+	// ---- shadow threshold band ----------------------------------------------------------------------------------------------
+	float fb = (dot(L, V) * (1.0 - abs(V.z)) + 1.0) * 0.5;
+	float ShadowOffset = fb * (FrontShadowProcessOffset - BackShadowProcessOffset) + BackShadowProcessOffset;
+	float Threshold = bNoVDL ? ShadowProcess
+	                         : ShadowOffset * (1.0 - NoV_sat) + (0.0 + ShadowProcess);
+	float Lo = Threshold - ShadowWidth;
+	float Hi = Threshold + ShadowWidth;
+
+	// ---- MainTex.a decode ---------------------------------------------------------------------------------------------------
+	float A = MT.a * OpacityIntensity;
+	float ShadowPart = min(max(A, 0.0), DecodeShadowThreshold) / DecodeShadowThreshold;
+	float SpecPart   = (min(max(A, DecodeSpecThreshold), 1.0) - DecodeSpecThreshold) / (1.0 - DecodeSpecThreshold);
+
+	// ---- alpha-driven shadow offset + half-Lambert --------------------------------------------------------------------------
+	float so = WuwaBPSmooth(saturate((1.0 / (1.0 - SolidShadowProcess)) * (ShadowPart - SolidShadowProcess)));
+	so = so * ShadowOffsetAdjustFactor;
+	so = (PowEps >= so) ? 0.0 : exp2(log2(so) * ShadowOffsetPower) * MaskShadowOffsetStrength;
+	float HL = dot(N2, L) * 0.5 + so;
+	HL = HL + 0.5;
+
+	// ---- toon shadow step x solid-shadow mask ---------------------------------------------------------------------------------
+	float Shadow = WuwaBPSmooth(saturate((1.0 / (Hi - Lo)) * (HL - Lo)));
+	float SolidRatio = min(ShadowPart, SolidShadowProcess) / max(SolidShadowProcess, 0.01);
+	float oneMinusSSW = 1.0 - SolidShadowWidth;
+	float Solid = (min(max(SolidRatio, oneMinusSSW), 1.0) - oneMinusSSW) / max(1.0 - (1.0 - SolidShadowWidth), 0.0001);
+	Shadow = Shadow * Solid;
+	bool  bLit  = (Shadow >= 0.4);
+	float IsLit = bLit ? 1.0 : 0.0;
+
+	// ---- toon specular --------------------------------------------------------------------------------------------------------
+	float3 Lm = (L * IsLit) * float3(2.0, 2.0, 0.0);
+	Lm = L * float3(-1.0, -1.0, 1.0) + Lm;
+	float3 H1 = V + Lm;
+	H1 = H1 / sqrt(dot(H1, H1));
+	float  NoH1 = saturate(dot(H1, N));
+	float3 H = V + L;
+	H = H / sqrt(dot(H, H));
+	float  NoH = saturate(dot(N2, H));
+	float  NoHs = IsMetal * (NoH - NoH1) + NoH1;
+	float  Spec = exp2(log2(NoHs) * SpecExponent);
+	Spec = SpecPow * Spec;
+	Spec = Spec * (SpecPow + 2.0);
+	Spec = saturate((Spec * asfloat(0x3E22F983u) + -0.6) * asfloat(0x3F555556u));
+	Spec = WuwaBPSmooth(Spec) * SpecIntensity;
+
+	// ---- PBR terms --------------------------------------------------------------------------------------------------------------
+	float  F0d = (Metallic * 0.5 + 0.5) * 0.08;
+	float3 MetalBase = Metallic * BaseColor;
+	float3 SpecColor = Metallic * (SkinTint * TexColor - F0d) + F0d;
+	float4 eb = Roughness * float4(-1.0, -0.0275, -0.572, 0.022) + float4(1.0, 0.0425, 1.04, -0.04);
+	float  a004 = min(eb.x * eb.x, asfloat(0x3AD2D6DFu)) * eb.x + eb.y;
+	float2 AB = a004 * float2(-1.04, 1.04) + eb.zw;
+	AB.y = AB.y * saturate(SpecColor.g * 50.0);
+	float3 EnvBRDF = SpecColor * AB.x + AB.y;
+	float3 SpecColorP = SpecColor * PBRRateIntensity;
+	float3 MetalHL = Spec * SpecColorP;
+	EnvBRDF = EnvBRDF * PBRRateIntensity;
+	float3 Diffuse = PBRRateIntensity * -MetalBase + BaseColor;
+	MetalHL = (IsMetal * MetalHL) * MetalEmissionStrength;
+
+	// ---- PBR mask (bConstMR: CPU preshader 1 - Roughness) -----------------------------------------------------------------------
+	float RoughKeep = bConstMR ? OneMinusRoughness : (-NRM.w * RoughnessIntensityDebug + 1.0);
+	float PBRMask = (1.0 - max(BandMask, Skin)) * ((RoughKeep >= 0.01) ? 1.0 : 0.0);
+
+	// ---- emissive -----------------------------------------------------------------------------------------------------------------
+	float3 Emissive;
+	if (bBreath)
+	{
+		float3 e0 = BaseColor * SpecPart;
+		float3 eB = e0 * EmissionColor;
+		float  br = cos(GameTime * BreatheFrequency);
+		br = BreatheStrength * br + BreatheStrength * BreathePropotion;
+		br = br * EmissionStrength;
+		eB = br * eB;
+		float sel = (EmissionBreathThreshold >= SpecPart) ? 1.0 : 0.0;
+		Emissive = sel * (EmissionColor * e0 - eB) + eB;
+	}
+	else
+	{
+		Emissive = (BaseColor * SpecPart) * EmissionColor;
+	}
+	if (!bNoPBR)
+		Emissive = PBRMask * MetalHL + Emissive;
+	if (bSecond)
+		Emissive = Emissive + (MotionEmissiveMask * E_Motion_Emissive + SecondC);
+	else
+		Emissive = MotionEmissiveMask * E_Motion_Emissive + Emissive;
+	Emissive = SelectionColor.a * (SelectionColor.rgb - Emissive) + Emissive;
+
+	float3 Lit = SpecColorP * Spec + Diffuse;
+
+	// ---- view-space matcap -------------------------------------------------------------------------------------------------------
+	// (bNoPBR: not evaluated at all -- its entries pass no view matrix, and fxc -WX rejects the folded 0/0 of dead code)
+	float4 MC = float4(0.0, 0.0, 0.0, 0.0);
+	if (!bNoPBR)
+	{
+		float3 Pv = mul(float4(TranslatedWorldPosition, 1.0), TranslatedWorldToView).xyz;
+		float3 PvYZX = min(Pv.yzx, 3.402823466e+38);
+		Pv = Pv / sqrt(dot(PvYZX, PvYZX));
+		float3 Nv = mul(N, (float3x3)TranslatedWorldToView);
+		float2 MatCapUV = float2(Pv.z * Nv.x - Pv.x * Nv.z, Pv.y * Nv.z - Pv.z * Nv.y) * 0.5 + 0.5;
+		MC = MatCapTex.SampleBias(MatCapTexSampler, MatCapUV, MaterialTextureMipBias);
+	}
+
+	// ---- roughness selects one of four matcap channels (bConstMR: CPU preshader weights) -------------------------------------------
+	float3 rs;
+	if (bConstMR)
+		rs = RoughSel;
+	else
+	{
+		rs.x  = saturate(Roughness * 3.0);
+		rs.yz = saturate(Roughness * float2(3.0, 3.0) + float2(-1.0, -2.0));
+	}
+	float  mc = rs.x * (MC.y - MC.x) + MC.x;
+	mc = rs.y * (MC.z - mc) + mc;
+	mc = rs.z * (MC.w - mc) + mc;
+
+	// ---- matcap intensity ------------------------------------------------------------------------------------------------------------
+	float backI = IsMetal * (MetalMatCapBack - MatCapInt) + MatCapInt;
+	float inSh  = bLit ? 0.0 : 1.0;
+	float shI   = inSh * backI;
+	float litI  = IsMetal * (MetalMatCapInt - MatCapInt) + MatCapInt;
+	float mcI   = IsLit * (-backI * inSh + litI) + shI;
+	mc = mc * mcI;
+
+	// ---- PBR composite -> lit colour ---------------------------------------------------------------------------------------------------
+	Lit = EnvBRDF * mc + Lit;
+	Lit = -SkinTint * TexColor + Lit;
+	Lit = PBRMask * Lit + BaseColor;
+	if (bNoPBR)
+		Lit = BaseColor;
+	float3 LitB = Lit * AniSwitch_ShadowColorBright;
+	R.Lit = WuwaBPDesaturate(LitB, Desaturation);
+
+	// ---- opacity ---------------------------------------------------------------------------------------------------------------------------
+	R.Opacity = min(max(A, 0.0), 1.0);
+	R.Emissive = Emissive;
+
+	// ---- shadow colour (+ ramp: UseRampColor with UseSkinAllRampColor off, PS __203017 l.375-389) ---------------------------------------
+	float3 SC = Skin * (SkinSubsurfaceColor - SubsurfaceColor) + SubsurfaceColor;
+	if (!bNoRamp)
+	{
+		float rp = min(max(HL, 0.0), SolidShadow_RampPosition);
+		rp = SolidRatio * (HL - rp) + rp;
+		rp = rp + 0.5;
+		float2 RampUV = float2(saturate(rp - Threshold), Skin * (0.1 - RampPosition) + RampPosition);
+		float3 RampC = Ramp.SampleBias(RampSampler, RampUV, MaterialTextureMipBias).rgb;
+		float  RampW = ((MPC_GlobalCharSkyLightIntensity >= 0.05) ? 1.0 : 0.0) * RampInt;
+		SC = RampW * (RampC - SC) + SC;
+	}
+	R.ShadowColor = WuwaBPDesaturate(SC, Desaturation);
+
+	// ---- shadow factor inputs of the Kuro toon lighting (deferred: A.z = AO * (Shadow * 0.5 + 0.5)) --------------------------------------
+	R.ShadowAO = -(1.0 - SolidRatio) * SolidShadowStrength + 1.0;
+	R.Shadow = Shadow;
+	R.Normal = N;
+	return R;
+}
+
+// PS __215220 (MI_R5Knife505Md20001Effect): a different M_Char_Com permutation, written out by hand (no WuwaCTrans_Impl):
+//   UsePBR off (lit colour = desaturate(Base * Bright)); MainTex.a is NOT decoded: the shadow / emission decode channels are the
+//   constant preshader vector (0, 0.001 + SolidShadowProcess, 0, EmissionIntensity) (cb[12..14]), so SpecPart = EmissionIntensity
+//   and ShadowPart = 0.001 + SSP; the solid ratio / solid mask / AO built from it are CPU preshaders (uniform_expression
+//   ShadowPartC, SolidRatioC, SolidC1 = Solid * 1 (cb[108].y), SolidC2 = Solid * 1 * 1 (cb[108].w), ShadowAOC (cb[109].x));
+//   UseFresnelRim: Emissive += lerp(f, 1 - f, Reverse) * RimColor + EffectMaskColor, f = pow(max(|1 - max(N.V, 0)|, 1e-4), RimRange)
+//   * (1 - Smooth) + Smooth, times the effect mask pow(R_Noise_A_Mask.r(lerp(UV0, UV2, EffectMaskTexUV2Switch)), 1 - Effect_Progress)
+//   (l.104-121); AniSwitch_FaceShadow >= 0.1 selects SolidC2 over SolidC1 (l.297-302); UseRampColor with UseSkinAllRampColor off
+//   (ramp only in the shadow colour, l.270-288); two-sided; opacity = saturate(MainTex.a * OpacityIntensity) (l.129).
+FWuwaFXOutput WuwaToonCommonTransFresnelRimNoPBR2S(
+	Texture2D MainTex, SamplerState MainTexSampler, Texture2D R_Noise_A_Mask, SamplerState R_Noise_A_MaskSampler,
+	Texture2D Ramp, SamplerState RampSampler,
+	float2 UV0, float2 UV2, float4 VertexColor, float3 WorldNormal, float3 WorldPosition, float3 CameraVector, float3 LightDirVS,
+	float MotionEmissiveMask,
+	float3 SkinColor, float3 BaseColorTint, float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor,
+	float3 SkinSubsurfaceColor, float3 SubsurfaceColor, float3 FresnelRim_RimColor, float3 EffectMaskColor,
+	float LightOffset_Pitch, float RaytracingReflectionFix, float DefaultSkinFactor, float UseSkinMask_DYN, float UseFaceAni_SkinMask,
+	float EmissionIntensity, float FresnelRim_RimRange, float FresnelRim_Smooth, float FresnelRim_Reverse,
+	float EffectMaskTexUV2Switch, float Effect_Progress, float AniSwitch_ShadowColorBright, float Desaturation, float OpacityIntensity,
+	float SolidShadowProcess, float ShadowOffsetAdjustFactor, float ShadowOffsetPower, float MaskShadowOffsetStrength,
+	float SolidShadow_RampPosition, float ShadowProcess, float FrontShadowProcessOffset, float BackShadowProcessOffset,
+	float RampPosition, float RampInt, float ShadowWidth, float AniSwitch_FaceShadow,
+	float ShadowPartC, float SolidRatioC, float SolidC1, float SolidC2, float ShadowAOC,
+	float CPD1, float CPD13,
+	float MPC_GlobalCharSkyLightIntensity, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float3 ObjectWorldPosition, float TwoSidedSign,
+	out float3 OutBaseColor, out float3 OutNormal, out float3 OutShadowColor, out float OutShadow, out float OutShadowAO)
+{
+	const float3 V = CameraVector;
+	const float  PowEps = asfloat(0x33000002u);
+	FWuwaFXOutput X;
+	// l.78-83: normal (no normal map)
+	float  nw = NormalOverrideParameter.w;
+	float3 Nraw = WorldNormal * nw + (1.0 - nw) * WorldNormal;
+	float3 N = Nraw * rsqrt(dot(Nraw, Nraw));
+	// l.84-102: band / skin factor, base colour
+	float  BandMask;
+	float  vcSkin = WuwaBPBandClassify(VertexColor.r, BandMask);
+	float  Skin = WuwaBPSkinFactor(vcSkin, UseSkinMask_DYN, DefaultSkinFactor, UseFaceAni_SkinMask);
+	float3 SkinTint = Skin * (SkinColor - 1.0) + 1.0;
+	float4 MT = MainTex.SampleBias(MainTexSampler, UV0, MaterialTextureMipBias);
+	float3 BaseColor = SkinTint * (MT.rgb * BaseColorTint);
+	// l.103-124: emissive (constant emission decode), Fresnel rim x effect mask, motion, selection
+	float3 e0 = BaseColor * EmissionIntensity;
+	float  f = 1.0 - max(dot(N, V), 0.0);
+	f = max(abs(f), 0.0001);
+	f = exp2(log2(f) * FresnelRim_RimRange);
+	f = f * (1.0 - FresnelRim_Smooth) + FresnelRim_Smooth;
+	f = FresnelRim_Reverse * (f * -2.0 + 1.0) + f;
+	float3 rim = FresnelRim_RimColor * f + EffectMaskColor;
+	float2 euv = EffectMaskTexUV2Switch * (UV2 - UV0) + UV0;
+	float  em = R_Noise_A_Mask.SampleBias(R_Noise_A_MaskSampler, euv, MaterialTextureMipBias).x;   // l.118 (t5.yzwx -> .w = R)
+	em = (PowEps >= em) ? 0.0 : exp2(log2(em) * (1.0 - Effect_Progress));
+	rim = rim * em;
+	rim = MotionEmissiveMask * E_Motion_Emissive + rim;
+	float3 Emissive = EmissionColor * e0 + rim;
+	X.Emissive = SelectionColor.a * (SelectionColor.rgb - Emissive) + Emissive;
+	// l.125-129: lit colour, opacity
+	OutBaseColor = WuwaBPDesaturate(BaseColor * AniSwitch_ShadowColorBright, Desaturation);
+	X.Opacity = saturate(MT.a * OpacityIntensity);
+	// shadow offset from the constant shadow decode
+	float so = WuwaBPSmooth(saturate((1.0 / (1.0 - SolidShadowProcess)) * (ShadowPartC - SolidShadowProcess)));
+	so = so * ShadowOffsetAdjustFactor;
+	so = (PowEps >= so) ? 0.0 : exp2(log2(so) * ShadowOffsetPower) * MaskShadowOffsetStrength;
+	float3 N2 = RaytracingReflectionFix * (-N * TwoSidedSign + WorldNormal) + N * TwoSidedSign;
+	float3 L = WuwaBPMainLightDir(LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+	float HL = dot(N2, L) * 0.5 + so;
+	HL = HL + 0.5;
+	float rp = min(max(HL, 0.0), SolidShadow_RampPosition);
+	rp = SolidRatioC * (HL - rp) + rp;
+	rp = rp + 0.5;
+	float fb = (dot(L, V) * (1.0 - abs(V.z)) + 1.0) * 0.5;
+	float ShadowOffset = fb * (FrontShadowProcessOffset - BackShadowProcessOffset) + BackShadowProcessOffset;
+	float Threshold = ShadowOffset * (1.0 - saturate(dot(N2, V))) + (0.0 + ShadowProcess);
+	// shadow colour with the ramp
+	float3 SC = Skin * (SkinSubsurfaceColor - SubsurfaceColor) + SubsurfaceColor;
+	float2 RampUV = float2(saturate(rp - Threshold), Skin * (0.1 - RampPosition) + RampPosition);
+	float3 RampC = Ramp.SampleBias(RampSampler, RampUV, MaterialTextureMipBias).rgb;
+	float  RampW = ((MPC_GlobalCharSkyLightIntensity >= 0.05) ? 1.0 : 0.0) * RampInt;
+	SC = RampW * (RampC - SC) + SC;
+	OutShadowColor = WuwaBPDesaturate(SC, Desaturation);
+	// toon shadow step x the (constant) solid mask
+	float Lo = Threshold - ShadowWidth;
+	float Hi = Threshold + ShadowWidth;
+	float Shadow = WuwaBPSmooth(saturate((1.0 / (Hi - Lo)) * (HL - Lo)));
+	float aniSel = (AniSwitch_FaceShadow >= 0.1) ? 1.0 : 0.0;
+	Shadow = Shadow * (aniSel * (SolidC2 - SolidC1) + SolidC1);
+	OutShadow = Shadow;
+	OutShadowAO = ShadowAOC;
+	OutNormal = N;
+	return X;
+}
+
+// ==== ROUND 7 TRANS ENTRIES (generated by tools/shaderdiff/roster_charcom/round7_trans.py; do not edit) ====
+// trans_94615: PS #94615 17bff16c (MI_ELuhesiTesttube01Md10011Boli, MI_ELuhesiTesttubeMd10011Boli)
+//   switches: bConstMR, bNoNormalMap, bTwoSided, bNoRamp
+FWuwaFXOutput WuwaToonCommonTransConstMRNoNMap2S(
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MatCapTex,
+	SamplerState MatCapTexSampler,
+	float2 UV0,
+	float4 VertexColor,
+	float3 WorldNormal,
+	float3 WorldPosition,
+	float3 TranslatedWorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float3 SkinColor,
+	float3 BaseColorTint,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SkinSubsurfaceColor,
+	float3 SubsurfaceColor,
+	float LightOffset_Pitch,
+	float RaytracingReflectionFix,
+	float DefaultSkinFactor,
+	float UseSkinMask_DYN,
+	float UseFaceAni_SkinMask,
+	float Metalllic,
+	float RoughnessC,
+	float OneMinusRoughness,
+	float RoughSel0,
+	float RoughSel1,
+	float RoughSel2,
+	float MetalSpecularPower,
+	float SpecularPower,
+	float ShadowProcess,
+	float FrontShadowProcessOffset,
+	float BackShadowProcessOffset,
+	float ShadowWidth,
+	float OpacityIntensity,
+	float DecodeShadowThreshold,
+	float DecodeSpecThreshold,
+	float SolidShadowProcess,
+	float ShadowOffsetAdjustFactor,
+	float ShadowOffsetPower,
+	float MaskShadowOffsetStrength,
+	float SolidShadowWidth,
+	float PBRRateIntensity,
+	float MetalEmissionStrength,
+	float MetalMatCapBack,
+	float MatCapInt,
+	float MetalMatCapInt,
+	float AniSwitch_ShadowColorBright,
+	float Desaturation,
+	float SolidShadowStrength,
+	float CPD1,
+	float CPD13,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float4x4 TranslatedWorldToView,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float3 ObjectWorldPosition,
+	float TwoSidedSign,
+	out float3 OutBaseColor, out float3 OutNormal, out float3 OutShadowColor, out float OutShadow, out float OutShadowAO)
+{
+	FWuwaCTransRaw R = WuwaCTrans_Impl(true, true, true, false, false, false, true, false, MainTex, MainTexSampler, MainTex, MainTexSampler, MatCapTex, MatCapTexSampler, MainTex, MainTexSampler, UV0, VertexColor, float3(0.0, 0.0, 0.0), WorldNormal, 0.0, WorldPosition, TranslatedWorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, SkinColor, BaseColorTint, EmissionColor, E_Motion_Emissive, SelectionColor, SkinSubsurfaceColor, SubsurfaceColor, LightOffset_Pitch, 0.0, RaytracingReflectionFix, DefaultSkinFactor, UseSkinMask_DYN, UseFaceAni_SkinMask, 0.0, 0.0, Metalllic, RoughnessC, OneMinusRoughness, float3(RoughSel0, RoughSel1, RoughSel2), MetalSpecularPower, SpecularPower, ShadowProcess, FrontShadowProcessOffset, BackShadowProcessOffset, ShadowWidth, OpacityIntensity, DecodeShadowThreshold, DecodeSpecThreshold, SolidShadowProcess, ShadowOffsetAdjustFactor, ShadowOffsetPower, MaskShadowOffsetStrength, SolidShadowWidth, PBRRateIntensity, MetalEmissionStrength, MetalMatCapBack, MatCapInt, MetalMatCapInt, AniSwitch_ShadowColorBright, 0.0, 0.0, 0.0, Desaturation, SolidShadowStrength, CPD1, CPD13, 0.0, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, TranslatedWorldToView, MaterialTextureMipBias, NormalOverrideParameter, ObjectWorldPosition, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, TwoSidedSign, float3(0.0, 0.0, 0.0));
+	FWuwaFXOutput X;
+	X.Emissive = R.Emissive;
+	X.Opacity = R.Opacity;
+	OutBaseColor = R.Lit;
+	OutNormal = R.Normal;
+	OutShadowColor = R.ShadowColor;
+	OutShadow = R.Shadow;
+	OutShadowAO = R.ShadowAO;
+	return X;
+}
+
+// trans_120115: PS #120115 ad2ac1a9 (MI_R5Device508Md20001_Boli)
+//   switches: bConstMR, bNoNormalMap, bTwoSided, bNoVDL, bBreath, bNoRamp
+FWuwaFXOutput WuwaToonCommonTransConstMRNoNMap2SNoVDLBreath(
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MatCapTex,
+	SamplerState MatCapTexSampler,
+	float2 UV0,
+	float4 VertexColor,
+	float3 WorldNormal,
+	float3 WorldPosition,
+	float3 TranslatedWorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float3 SkinColor,
+	float3 BaseColorTint,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SkinSubsurfaceColor,
+	float3 SubsurfaceColor,
+	float LightOffset_Pitch,
+	float RaytracingReflectionFix,
+	float DefaultSkinFactor,
+	float UseSkinMask_DYN,
+	float UseFaceAni_SkinMask,
+	float Metalllic,
+	float RoughnessC,
+	float OneMinusRoughness,
+	float RoughSel0,
+	float RoughSel1,
+	float RoughSel2,
+	float MetalSpecularPower,
+	float SpecularPower,
+	float ShadowProcess,
+	float ShadowWidth,
+	float OpacityIntensity,
+	float DecodeShadowThreshold,
+	float DecodeSpecThreshold,
+	float SolidShadowProcess,
+	float ShadowOffsetAdjustFactor,
+	float ShadowOffsetPower,
+	float MaskShadowOffsetStrength,
+	float SolidShadowWidth,
+	float PBRRateIntensity,
+	float MetalEmissionStrength,
+	float MetalMatCapBack,
+	float MatCapInt,
+	float MetalMatCapInt,
+	float AniSwitch_ShadowColorBright,
+	float Desaturation,
+	float SolidShadowStrength,
+	float CPD1,
+	float CPD13,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float4x4 TranslatedWorldToView,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float3 ObjectWorldPosition,
+	float GameTime,
+	float BreatheStrength,
+	float BreatheFrequency,
+	float BreathePropotion,
+	float EmissionStrength,
+	float EmissionBreathThreshold,
+	float TwoSidedSign,
+	out float3 OutBaseColor, out float3 OutNormal, out float3 OutShadowColor, out float OutShadow, out float OutShadowAO)
+{
+	FWuwaCTransRaw R = WuwaCTrans_Impl(true, true, true, true, true, false, true, false, MainTex, MainTexSampler, MainTex, MainTexSampler, MatCapTex, MatCapTexSampler, MainTex, MainTexSampler, UV0, VertexColor, float3(0.0, 0.0, 0.0), WorldNormal, 0.0, WorldPosition, TranslatedWorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, SkinColor, BaseColorTint, EmissionColor, E_Motion_Emissive, SelectionColor, SkinSubsurfaceColor, SubsurfaceColor, LightOffset_Pitch, 0.0, RaytracingReflectionFix, DefaultSkinFactor, UseSkinMask_DYN, UseFaceAni_SkinMask, 0.0, 0.0, Metalllic, RoughnessC, OneMinusRoughness, float3(RoughSel0, RoughSel1, RoughSel2), MetalSpecularPower, SpecularPower, ShadowProcess, 0.0, 0.0, ShadowWidth, OpacityIntensity, DecodeShadowThreshold, DecodeSpecThreshold, SolidShadowProcess, ShadowOffsetAdjustFactor, ShadowOffsetPower, MaskShadowOffsetStrength, SolidShadowWidth, PBRRateIntensity, MetalEmissionStrength, MetalMatCapBack, MatCapInt, MetalMatCapInt, AniSwitch_ShadowColorBright, 0.0, 0.0, 0.0, Desaturation, SolidShadowStrength, CPD1, CPD13, 0.0, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, TranslatedWorldToView, MaterialTextureMipBias, NormalOverrideParameter, ObjectWorldPosition, GameTime, BreatheStrength, BreatheFrequency, BreathePropotion, EmissionStrength, EmissionBreathThreshold, TwoSidedSign, float3(0.0, 0.0, 0.0));
+	FWuwaFXOutput X;
+	X.Emissive = R.Emissive;
+	X.Opacity = R.Opacity;
+	OutBaseColor = R.Lit;
+	OutNormal = R.Normal;
+	OutShadowColor = R.ShadowColor;
+	OutShadow = R.Shadow;
+	OutShadowAO = R.ShadowAO;
+	return X;
+}
+
+// trans_203017: PS #203017 803e8185 (MI_EJingranDengMd10011_Glass)
+//   switches: bConstMR, bNoNormalMap
+FWuwaFXOutput WuwaToonCommonTransConstMRNoNMapShadowRamp(
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MatCapTex,
+	SamplerState MatCapTexSampler,
+	Texture2D Ramp,
+	SamplerState RampSampler,
+	float2 UV0,
+	float4 VertexColor,
+	float3 WorldNormal,
+	float3 WorldPosition,
+	float3 TranslatedWorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float3 SkinColor,
+	float3 BaseColorTint,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SkinSubsurfaceColor,
+	float3 SubsurfaceColor,
+	float LightOffset_Pitch,
+	float RaytracingReflectionFix,
+	float DefaultSkinFactor,
+	float UseSkinMask_DYN,
+	float UseFaceAni_SkinMask,
+	float Metalllic,
+	float RoughnessC,
+	float OneMinusRoughness,
+	float RoughSel0,
+	float RoughSel1,
+	float RoughSel2,
+	float MetalSpecularPower,
+	float SpecularPower,
+	float ShadowProcess,
+	float FrontShadowProcessOffset,
+	float BackShadowProcessOffset,
+	float ShadowWidth,
+	float OpacityIntensity,
+	float DecodeShadowThreshold,
+	float DecodeSpecThreshold,
+	float SolidShadowProcess,
+	float ShadowOffsetAdjustFactor,
+	float ShadowOffsetPower,
+	float MaskShadowOffsetStrength,
+	float SolidShadowWidth,
+	float PBRRateIntensity,
+	float MetalEmissionStrength,
+	float MetalMatCapBack,
+	float MatCapInt,
+	float MetalMatCapInt,
+	float AniSwitch_ShadowColorBright,
+	float SolidShadow_RampPosition,
+	float RampPosition,
+	float RampInt,
+	float Desaturation,
+	float SolidShadowStrength,
+	float CPD1,
+	float CPD13,
+	float MPC_GlobalCharSkyLightIntensity,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float4x4 TranslatedWorldToView,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float3 ObjectWorldPosition,
+	out float3 OutBaseColor, out float3 OutNormal, out float3 OutShadowColor, out float OutShadow, out float OutShadowAO)
+{
+	FWuwaCTransRaw R = WuwaCTrans_Impl(true, true, false, false, false, false, false, false, MainTex, MainTexSampler, MainTex, MainTexSampler, MatCapTex, MatCapTexSampler, Ramp, RampSampler, UV0, VertexColor, float3(0.0, 0.0, 0.0), WorldNormal, 0.0, WorldPosition, TranslatedWorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, SkinColor, BaseColorTint, EmissionColor, E_Motion_Emissive, SelectionColor, SkinSubsurfaceColor, SubsurfaceColor, LightOffset_Pitch, 0.0, RaytracingReflectionFix, DefaultSkinFactor, UseSkinMask_DYN, UseFaceAni_SkinMask, 0.0, 0.0, Metalllic, RoughnessC, OneMinusRoughness, float3(RoughSel0, RoughSel1, RoughSel2), MetalSpecularPower, SpecularPower, ShadowProcess, FrontShadowProcessOffset, BackShadowProcessOffset, ShadowWidth, OpacityIntensity, DecodeShadowThreshold, DecodeSpecThreshold, SolidShadowProcess, ShadowOffsetAdjustFactor, ShadowOffsetPower, MaskShadowOffsetStrength, SolidShadowWidth, PBRRateIntensity, MetalEmissionStrength, MetalMatCapBack, MatCapInt, MetalMatCapInt, AniSwitch_ShadowColorBright, SolidShadow_RampPosition, RampPosition, RampInt, Desaturation, SolidShadowStrength, CPD1, CPD13, MPC_GlobalCharSkyLightIntensity, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, TranslatedWorldToView, MaterialTextureMipBias, NormalOverrideParameter, ObjectWorldPosition, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0));
+	FWuwaFXOutput X;
+	X.Emissive = R.Emissive;
+	X.Opacity = R.Opacity;
+	OutBaseColor = R.Lit;
+	OutNormal = R.Normal;
+	OutShadowColor = R.ShadowColor;
+	OutShadow = R.Shadow;
+	OutShadowAO = R.ShadowAO;
+	return X;
+}
+
+// trans_275565: PS #275565 808b1e10 (MI_ELinnaeaSprayMd10011_Boli)
+//   switches: bNoVDL, bBreath, bNoRamp
+FWuwaFXOutput WuwaToonCommonTransNoVDLBreath(
+	Texture2D Normal_Roughness_Metallic,
+	SamplerState Normal_Roughness_MetallicSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MatCapTex,
+	SamplerState MatCapTexSampler,
+	float2 UV0,
+	float4 VertexColor,
+	float3 WorldTangent,
+	float3 WorldNormal,
+	float TangentSign,
+	float3 WorldPosition,
+	float3 TranslatedWorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float3 SkinColor,
+	float3 BaseColorTint,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SkinSubsurfaceColor,
+	float3 SubsurfaceColor,
+	float LightOffset_Pitch,
+	float NormalStrength,
+	float RaytracingReflectionFix,
+	float DefaultSkinFactor,
+	float UseSkinMask_DYN,
+	float UseFaceAni_SkinMask,
+	float MetallicIntensityDebug,
+	float RoughnessIntensityDebug,
+	float MetalSpecularPower,
+	float SpecularPower,
+	float ShadowProcess,
+	float ShadowWidth,
+	float OpacityIntensity,
+	float DecodeShadowThreshold,
+	float DecodeSpecThreshold,
+	float SolidShadowProcess,
+	float ShadowOffsetAdjustFactor,
+	float ShadowOffsetPower,
+	float MaskShadowOffsetStrength,
+	float SolidShadowWidth,
+	float PBRRateIntensity,
+	float MetalEmissionStrength,
+	float MetalMatCapBack,
+	float MatCapInt,
+	float MetalMatCapInt,
+	float AniSwitch_ShadowColorBright,
+	float Desaturation,
+	float SolidShadowStrength,
+	float CPD1,
+	float CPD13,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float4x4 TranslatedWorldToView,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float3 ObjectWorldPosition,
+	float GameTime,
+	float BreatheStrength,
+	float BreatheFrequency,
+	float BreathePropotion,
+	float EmissionStrength,
+	float EmissionBreathThreshold,
+	out float3 OutBaseColor, out float3 OutNormal, out float3 OutShadowColor, out float OutShadow, out float OutShadowAO)
+{
+	FWuwaCTransRaw R = WuwaCTrans_Impl(false, false, false, true, true, false, true, false, Normal_Roughness_Metallic, Normal_Roughness_MetallicSampler, MainTex, MainTexSampler, MatCapTex, MatCapTexSampler, MainTex, MainTexSampler, UV0, VertexColor, WorldTangent, WorldNormal, TangentSign, WorldPosition, TranslatedWorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, SkinColor, BaseColorTint, EmissionColor, E_Motion_Emissive, SelectionColor, SkinSubsurfaceColor, SubsurfaceColor, LightOffset_Pitch, NormalStrength, RaytracingReflectionFix, DefaultSkinFactor, UseSkinMask_DYN, UseFaceAni_SkinMask, MetallicIntensityDebug, RoughnessIntensityDebug, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), MetalSpecularPower, SpecularPower, ShadowProcess, 0.0, 0.0, ShadowWidth, OpacityIntensity, DecodeShadowThreshold, DecodeSpecThreshold, SolidShadowProcess, ShadowOffsetAdjustFactor, ShadowOffsetPower, MaskShadowOffsetStrength, SolidShadowWidth, PBRRateIntensity, MetalEmissionStrength, MetalMatCapBack, MatCapInt, MetalMatCapInt, AniSwitch_ShadowColorBright, 0.0, 0.0, 0.0, Desaturation, SolidShadowStrength, CPD1, CPD13, 0.0, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, TranslatedWorldToView, MaterialTextureMipBias, NormalOverrideParameter, ObjectWorldPosition, GameTime, BreatheStrength, BreatheFrequency, BreathePropotion, EmissionStrength, EmissionBreathThreshold, 0.0, float3(0.0, 0.0, 0.0));
+	FWuwaFXOutput X;
+	X.Emissive = R.Emissive;
+	X.Opacity = R.Opacity;
+	OutBaseColor = R.Lit;
+	OutNormal = R.Normal;
+	OutShadowColor = R.ShadowColor;
+	OutShadow = R.Shadow;
+	OutShadowAO = R.ShadowAO;
+	return X;
+}
+
+// trans_302665: PS #302665 2a926161 (MI_ELinnaeaSprayMd10011_Shuijin)
+//   switches: bNoNormalMap, bNoVDL, bBreath, bNoRamp
+FWuwaFXOutput WuwaToonCommonTransNoNMapNoVDLBreath(
+	Texture2D Normal_Roughness_Metallic,
+	SamplerState Normal_Roughness_MetallicSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MatCapTex,
+	SamplerState MatCapTexSampler,
+	float2 UV0,
+	float4 VertexColor,
+	float3 WorldNormal,
+	float3 WorldPosition,
+	float3 TranslatedWorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float3 SkinColor,
+	float3 BaseColorTint,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SkinSubsurfaceColor,
+	float3 SubsurfaceColor,
+	float LightOffset_Pitch,
+	float RaytracingReflectionFix,
+	float DefaultSkinFactor,
+	float UseSkinMask_DYN,
+	float UseFaceAni_SkinMask,
+	float MetallicIntensityDebug,
+	float RoughnessIntensityDebug,
+	float MetalSpecularPower,
+	float SpecularPower,
+	float ShadowProcess,
+	float ShadowWidth,
+	float OpacityIntensity,
+	float DecodeShadowThreshold,
+	float DecodeSpecThreshold,
+	float SolidShadowProcess,
+	float ShadowOffsetAdjustFactor,
+	float ShadowOffsetPower,
+	float MaskShadowOffsetStrength,
+	float SolidShadowWidth,
+	float PBRRateIntensity,
+	float MetalEmissionStrength,
+	float MetalMatCapBack,
+	float MatCapInt,
+	float MetalMatCapInt,
+	float AniSwitch_ShadowColorBright,
+	float Desaturation,
+	float SolidShadowStrength,
+	float CPD1,
+	float CPD13,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float4x4 TranslatedWorldToView,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float3 ObjectWorldPosition,
+	float GameTime,
+	float BreatheStrength,
+	float BreatheFrequency,
+	float BreathePropotion,
+	float EmissionStrength,
+	float EmissionBreathThreshold,
+	out float3 OutBaseColor, out float3 OutNormal, out float3 OutShadowColor, out float OutShadow, out float OutShadowAO)
+{
+	FWuwaCTransRaw R = WuwaCTrans_Impl(false, true, false, true, true, false, true, false, Normal_Roughness_Metallic, Normal_Roughness_MetallicSampler, MainTex, MainTexSampler, MatCapTex, MatCapTexSampler, MainTex, MainTexSampler, UV0, VertexColor, float3(0.0, 0.0, 0.0), WorldNormal, 0.0, WorldPosition, TranslatedWorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, SkinColor, BaseColorTint, EmissionColor, E_Motion_Emissive, SelectionColor, SkinSubsurfaceColor, SubsurfaceColor, LightOffset_Pitch, 0.0, RaytracingReflectionFix, DefaultSkinFactor, UseSkinMask_DYN, UseFaceAni_SkinMask, MetallicIntensityDebug, RoughnessIntensityDebug, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), MetalSpecularPower, SpecularPower, ShadowProcess, 0.0, 0.0, ShadowWidth, OpacityIntensity, DecodeShadowThreshold, DecodeSpecThreshold, SolidShadowProcess, ShadowOffsetAdjustFactor, ShadowOffsetPower, MaskShadowOffsetStrength, SolidShadowWidth, PBRRateIntensity, MetalEmissionStrength, MetalMatCapBack, MatCapInt, MetalMatCapInt, AniSwitch_ShadowColorBright, 0.0, 0.0, 0.0, Desaturation, SolidShadowStrength, CPD1, CPD13, 0.0, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, TranslatedWorldToView, MaterialTextureMipBias, NormalOverrideParameter, ObjectWorldPosition, GameTime, BreatheStrength, BreatheFrequency, BreathePropotion, EmissionStrength, EmissionBreathThreshold, 0.0, float3(0.0, 0.0, 0.0));
+	FWuwaFXOutput X;
+	X.Emissive = R.Emissive;
+	X.Opacity = R.Opacity;
+	OutBaseColor = R.Lit;
+	OutNormal = R.Normal;
+	OutShadowColor = R.ShadowColor;
+	OutShadow = R.Shadow;
+	OutShadowAO = R.ShadowAO;
+	return X;
+}
+
+// trans_308298: PS #308298 6aff1580 (MI_R5Knuckles506Md20001Effect)
+//   switches: bNoNormalMap, bTwoSided, bNoVDL, bBreath, bNoPBR, bNoRamp, bSecond
+FWuwaFXOutput WuwaToonCommonTransNoPBRNoNMap2SNoVDLBreathSecondNoise(
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	float2 UV0,
+	float4 VertexColor,
+	float3 WorldNormal,
+	float3 WorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float3 SkinColor,
+	float3 BaseColorTint,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SkinSubsurfaceColor,
+	float3 SubsurfaceColor,
+	float LightOffset_Pitch,
+	float RaytracingReflectionFix,
+	float DefaultSkinFactor,
+	float UseSkinMask_DYN,
+	float UseFaceAni_SkinMask,
+	float ShadowProcess,
+	float ShadowWidth,
+	float OpacityIntensity,
+	float DecodeShadowThreshold,
+	float DecodeSpecThreshold,
+	float SolidShadowProcess,
+	float ShadowOffsetAdjustFactor,
+	float ShadowOffsetPower,
+	float MaskShadowOffsetStrength,
+	float SolidShadowWidth,
+	float AniSwitch_ShadowColorBright,
+	float Desaturation,
+	float SolidShadowStrength,
+	float CPD1,
+	float CPD13,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float3 ObjectWorldPosition,
+	float GameTime,
+	float BreatheStrength,
+	float BreatheFrequency,
+	float BreathePropotion,
+	float EmissionStrength,
+	float EmissionBreathThreshold,
+	float TwoSidedSign,
+	Texture2D Second_RGB,
+	SamplerState Second_RGBSampler,
+	Texture2D R_Noise_A_Mask,
+	SamplerState R_Noise_A_MaskSampler,
+	float2 UV1,
+	float2 UV2,
+	float2 UV3,
+	float2 SvPositionXY,
+	float2 ViewRectMin,
+	float4 ViewSizeAndInvSize,
+	float4 SecondTex_UVSwitch,
+	float Second_UseScreenUV,
+	float Second_RotCos,
+	float Second_RotSin,
+	float4 Second_UV,
+	float2 Second_UV_Offset,
+	float4 Second_Refine,
+	float3 Second_ColorTint,
+	float EffectMaskTexUV2Switch,
+	float Effect_Progress,
+	float4 Noise_UVSwitch,
+	float Noise_UseScreenUV,
+	float4 NoiseUV,
+	float NoiseStrength,
+	float Second_NoiseStrength,
+	out float3 OutBaseColor, out float3 OutNormal, out float3 OutShadowColor, out float OutShadow, out float OutShadowAO)
+{
+	float3 SecondC = WuwaBPSecond(true, false, false, 3, Second_RGB, Second_RGBSampler, R_Noise_A_Mask, R_Noise_A_MaskSampler, UV0, UV1, UV2, UV3, SvPositionXY, ViewRectMin, ViewSizeAndInvSize, GameTime, MaterialTextureMipBias, SecondTex_UVSwitch, Second_UseScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset, Second_Refine, Second_ColorTint, EffectMaskTexUV2Switch, Effect_Progress, Noise_UVSwitch, Noise_UseScreenUV, NoiseUV, NoiseStrength, Second_NoiseStrength, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), WorldNormal, 0.0, CameraVector);
+	FWuwaCTransRaw R = WuwaCTrans_Impl(false, true, true, true, true, true, true, true, MainTex, MainTexSampler, MainTex, MainTexSampler, MainTex, MainTexSampler, MainTex, MainTexSampler, UV0, VertexColor, float3(0.0, 0.0, 0.0), WorldNormal, 0.0, WorldPosition, float3(0.0, 0.0, 0.0), CameraVector, LightDirVS, MotionEmissiveMask, SkinColor, BaseColorTint, EmissionColor, E_Motion_Emissive, SelectionColor, SkinSubsurfaceColor, SubsurfaceColor, LightOffset_Pitch, 0.0, RaytracingReflectionFix, DefaultSkinFactor, UseSkinMask_DYN, UseFaceAni_SkinMask, 0.0, 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0, ShadowProcess, 0.0, 0.0, ShadowWidth, OpacityIntensity, DecodeShadowThreshold, DecodeSpecThreshold, SolidShadowProcess, ShadowOffsetAdjustFactor, ShadowOffsetPower, MaskShadowOffsetStrength, SolidShadowWidth, 0.0, 0.0, 0.0, 0.0, 0.0, AniSwitch_ShadowColorBright, 0.0, 0.0, 0.0, Desaturation, SolidShadowStrength, CPD1, CPD13, 0.0, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, (float4x4)0, MaterialTextureMipBias, NormalOverrideParameter, ObjectWorldPosition, GameTime, BreatheStrength, BreatheFrequency, BreathePropotion, EmissionStrength, EmissionBreathThreshold, TwoSidedSign, SecondC);
+	FWuwaFXOutput X;
+	X.Emissive = R.Emissive;
+	X.Opacity = R.Opacity;
+	OutBaseColor = R.Lit;
+	OutNormal = R.Normal;
+	OutShadowColor = R.ShadowColor;
+	OutShadow = R.Shadow;
+	OutShadowAO = R.ShadowAO;
+	return X;
+}
+
+// trans_119651: PS #119651 40ada26d (MI_R5Device506Md20001Effect)
+//   switches: bNoNormalMap, bTwoSided, bNoVDL, bBreath, bNoRamp, bSecond
+FWuwaFXOutput WuwaToonCommonTransNoNMap2SNoVDLBreathSecond(
+	Texture2D Normal_Roughness_Metallic,
+	SamplerState Normal_Roughness_MetallicSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MatCapTex,
+	SamplerState MatCapTexSampler,
+	float2 UV0,
+	float4 VertexColor,
+	float3 WorldNormal,
+	float3 WorldPosition,
+	float3 TranslatedWorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float3 SkinColor,
+	float3 BaseColorTint,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SkinSubsurfaceColor,
+	float3 SubsurfaceColor,
+	float LightOffset_Pitch,
+	float RaytracingReflectionFix,
+	float DefaultSkinFactor,
+	float UseSkinMask_DYN,
+	float UseFaceAni_SkinMask,
+	float MetallicIntensityDebug,
+	float RoughnessIntensityDebug,
+	float MetalSpecularPower,
+	float SpecularPower,
+	float ShadowProcess,
+	float ShadowWidth,
+	float OpacityIntensity,
+	float DecodeShadowThreshold,
+	float DecodeSpecThreshold,
+	float SolidShadowProcess,
+	float ShadowOffsetAdjustFactor,
+	float ShadowOffsetPower,
+	float MaskShadowOffsetStrength,
+	float SolidShadowWidth,
+	float PBRRateIntensity,
+	float MetalEmissionStrength,
+	float MetalMatCapBack,
+	float MatCapInt,
+	float MetalMatCapInt,
+	float AniSwitch_ShadowColorBright,
+	float Desaturation,
+	float SolidShadowStrength,
+	float CPD1,
+	float CPD13,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float4x4 TranslatedWorldToView,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float3 ObjectWorldPosition,
+	float GameTime,
+	float BreatheStrength,
+	float BreatheFrequency,
+	float BreathePropotion,
+	float EmissionStrength,
+	float EmissionBreathThreshold,
+	float TwoSidedSign,
+	Texture2D Second_RGB,
+	SamplerState Second_RGBSampler,
+	Texture2D R_Noise_A_Mask,
+	SamplerState R_Noise_A_MaskSampler,
+	float2 UV1,
+	float2 UV2,
+	float2 UV3,
+	float2 SvPositionXY,
+	float2 ViewRectMin,
+	float4 ViewSizeAndInvSize,
+	float4 SecondTex_UVSwitch,
+	float Second_UseScreenUV,
+	float Second_RotCos,
+	float Second_RotSin,
+	float4 Second_UV,
+	float2 Second_UV_Offset,
+	float4 Second_Refine,
+	float3 Second_ColorTint,
+	float EffectMaskTexUV2Switch,
+	float Effect_Progress,
+	out float3 OutBaseColor, out float3 OutNormal, out float3 OutShadowColor, out float OutShadow, out float OutShadowAO)
+{
+	float3 SecondC = WuwaBPSecond(false, false, false, 3, Second_RGB, Second_RGBSampler, R_Noise_A_Mask, R_Noise_A_MaskSampler, UV0, UV1, UV2, UV3, SvPositionXY, ViewRectMin, ViewSizeAndInvSize, GameTime, MaterialTextureMipBias, SecondTex_UVSwitch, Second_UseScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset, Second_Refine, Second_ColorTint, EffectMaskTexUV2Switch, Effect_Progress, float4(0.0, 0.0, 0.0, 0.0), 0.0, float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), WorldNormal, 0.0, CameraVector);
+	FWuwaCTransRaw R = WuwaCTrans_Impl(false, true, true, true, true, false, true, true, Normal_Roughness_Metallic, Normal_Roughness_MetallicSampler, MainTex, MainTexSampler, MatCapTex, MatCapTexSampler, MainTex, MainTexSampler, UV0, VertexColor, float3(0.0, 0.0, 0.0), WorldNormal, 0.0, WorldPosition, TranslatedWorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, SkinColor, BaseColorTint, EmissionColor, E_Motion_Emissive, SelectionColor, SkinSubsurfaceColor, SubsurfaceColor, LightOffset_Pitch, 0.0, RaytracingReflectionFix, DefaultSkinFactor, UseSkinMask_DYN, UseFaceAni_SkinMask, MetallicIntensityDebug, RoughnessIntensityDebug, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), MetalSpecularPower, SpecularPower, ShadowProcess, 0.0, 0.0, ShadowWidth, OpacityIntensity, DecodeShadowThreshold, DecodeSpecThreshold, SolidShadowProcess, ShadowOffsetAdjustFactor, ShadowOffsetPower, MaskShadowOffsetStrength, SolidShadowWidth, PBRRateIntensity, MetalEmissionStrength, MetalMatCapBack, MatCapInt, MetalMatCapInt, AniSwitch_ShadowColorBright, 0.0, 0.0, 0.0, Desaturation, SolidShadowStrength, CPD1, CPD13, 0.0, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, TranslatedWorldToView, MaterialTextureMipBias, NormalOverrideParameter, ObjectWorldPosition, GameTime, BreatheStrength, BreatheFrequency, BreathePropotion, EmissionStrength, EmissionBreathThreshold, TwoSidedSign, SecondC);
+	FWuwaFXOutput X;
+	X.Emissive = R.Emissive;
+	X.Opacity = R.Opacity;
+	OutBaseColor = R.Lit;
+	OutNormal = R.Normal;
+	OutShadowColor = R.ShadowColor;
+	OutShadow = R.Shadow;
+	OutShadowAO = R.ShadowAO;
+	return X;
+}
+
+// ==== END ROUND 7 TRANS ENTRIES ====
+
+#endif // WUWA_COMMONTRANS_USH

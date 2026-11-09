@@ -1,0 +1,62 @@
+{
+ "root_material": "M_Char_Com",
+ "generated_by": "tools/shaderdiff/roster_charcom/register_r6_vs.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 6 (vs): M_Char_Com UseGhost \"Alpha\" pairs whose PS was verified in round 5 (common_masked) and whose base-pass VS (UseGhost wave WPO, WuwaToonBaseVS_WPO_Ghost in WuwaToonBasePass_CommonVS.ush) is verified in round 6; research/roster/round6/vs.md",
+ "variants": [
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskTwoSidedMaskedDTAA_GhostWPO.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "72831c54cb7a4de30b5786bbe6c2ab8ea32b469c"
+    ],
+    "base_pass_vs_hash": [
+     "4599e6a890e6b098d094473d39cba96dabca4041"
+    ]
+   },
+   "verified": "research/roster/round6/vs.md; PS: evidence/validation/shaderdiff/roster_charcom/round5/common_masked/results_masked.json variants.r5m_tmrm_2s_dtaa_9712 (509190/509190 px bit-exact, 0 discard mismatches); VS #9702: evidence/validation/shaderdiff/roster_charcom/round6/vs/results_vs.json (SV_POSITION 589824/589824, TEXCOORD2 589824/589824 bit-exact; negative controls detected, results_vs_neg.json)",
+   "ps_archive_index": 9712,
+   "vs_archive_index": [
+    9702
+   ],
+   "vs_status": "ported_wpo_verified",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1KamolaMd20011Alpha"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseTranslucent": true
+   },
+   "round": "6 (vs)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCTwoSidedHETMaskedDTAA_GhostWPO.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "7e28cf3392a81dc30cab2064da92b7df243415f1"
+    ],
+    "base_pass_vs_hash": [
+     "b3356515314284cdd67a3771677d8249de664448"
+    ]
+   },
+   "verified": "research/roster/round6/vs.md; PS: evidence/validation/shaderdiff/roster_charcom/round5/common_masked/results_masked.json variants.r5m_noskinrampc_2s_het_dtaa_224954 (495902/495902 px bit-exact, 0 discard mismatches); VS #224964: evidence/validation/shaderdiff/roster_charcom/round6/vs/results_vs.json (SV_POSITION 589824/589824, TEXCOORD2 589824/589824 bit-exact; negative controls detected, results_vs_neg.json)",
+   "ps_archive_index": 224954,
+   "vs_archive_index": [
+    224964
+   ],
+   "vs_status": "ported_wpo_verified",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1ChangLiMd20011Alpha"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "IsHairHET": true,
+    "UseTranslucent": true
+   },
+   "round": "6 (vs)"
+  }
+ ]
+}

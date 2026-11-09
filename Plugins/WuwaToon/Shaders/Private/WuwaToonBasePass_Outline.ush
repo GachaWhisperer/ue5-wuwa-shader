@@ -1,0 +1,270 @@
+// WuwaToonBasePass_Outline.ush — M_CharacterOutline (MSM_ToonOutline, GBufferB id 13), inverted hull.
+//   VS families (research/shaders/ToonOutline.md §7):
+//     A  Body_OL, Up_OL      VS-A __207702 : G width, constant camera push -0.01*InnerOutlineOffset
+//     B  Face_OL, Down_OL    VS-B __114157 : + UseVertexColorB_InnerOutline push -0.01*B*InnerOutlineMulti*InnerOutlineOffset
+//     C  Hair_OL, Bangs_OL   VS-C __201129 : + UseCurvature width term from vertex alpha
+//   PS: WuwaToonOutlineBasePass (PS-1 __137566, OutlineColor) / WuwaToonOutlineBasePass_MainTex (PS-2 __83834, UseMainTex)
+// Line refs are into those .asm.txt files (research/hlsl/ToonOutline.hlsl).
+//
+// ---- WPO reproduction of Kuro's clip-space extrusion in UE5 --------------------------------------------------------------
+// Kuro builds the offset from absolute-world matrices (View[4..7] WorldToClip, View[8..11] ClipToWorld) and adds it
+// to the translated world position before TranslatedWorldToClip. In UE5 feed (ResolvedView):
+//   TranslatedWorldToClip  = View.TranslatedWorldToClip   (3x3 identical to Kuro WorldToClip; clip.w via translated pos)
+//   ClipToTranslatedWorld  = View.ClipToTranslatedWorld + PreViewTranslation (LWC-demoted View.PreViewTranslation*):
+//                            Kuro's ClipToWorld row i = ClipToTranslatedWorld row i with xyz -= w * PreViewTranslation.
+//                            Only clip-z row has w != 0; with UE's infinite-far reversed-Z the clip-z of a direction is 0,
+//                            so this term vanishes exactly, but it is kept for non-default projections.
+//   ClipToView00/11        = View.ClipToView[0][0] / [1][1]  (tan of the half FOVs)
+//   ViewSizeAndInvSize     = View.ViewSizeAndInvSize
+//   TranslatedWorldCameraOrigin = View.TranslatedWorldCameraOrigin (Kuro: WorldCameraOrigin - absolute position)
+//   KuroOutlinePixelScale  = Kuro View[280].y, unknown runtime value [U]; 1 = one pixel minimum.
+//   TranslatedWorldPosition = vertex translated world position EXCLUDING material offsets.
+//   VertexTangentWS/BitangentWS/NormalWS = Parameters.TangentToWorld rows in the VS (UE's CalcTangentToWorldNoScale
+//     re-orthogonalises exactly like Kuro: TY = cross(TZ,TX)*w, TX = cross(TY,TZ)*w, times LocalToWorld*InvScale).
+//   ObjectAxisScale = (|LocalToWorld row0|, |row1|, |row2|) (UE: GetPrimitiveData(Parameters).NonUniformScale.xyz).
+// The result is returned as a WORLD-space offset vector (UE WPO); offsets are directions so translated/absolute is moot.
+// Kuro sums ((offset + camera push) + position) + primitive offset; UE adds WPO to the position, so the float
+// association differs by rounding only.
+#pragma once
+
+#include "WuwaToonBasePassShared.ush"
+
+#define WUWA_OUTLINE_FAMILY_A 0
+#define WUWA_OUTLINE_FAMILY_B 1
+#define WUWA_OUTLINE_FAMILY_C 2
+
+float3 WuwaToonOutlineWPO_Impl(const int Family,
+	float2 UV1, float4 VertexColor, float3 VertexTangentWS, float3 VertexBitangentWS, float3 VertexNormalWS,
+	float3 ObjectAxisScale, float3 TranslatedWorldPosition, float3 TranslatedWorldCameraOrigin,
+	float4x4 TranslatedWorldToClip, float4x4 ClipToTranslatedWorld, float3 PreViewTranslation,
+	float ClipToView00, float ClipToView11, float4 ViewSizeAndInvSize, float KuroOutlinePixelScale,
+	float VertexGMinWidthFactor, float OutlineClipWidth, float OutlineHoldDistance,
+	float InnerOutlineMulti, float InnerOutlineOffset, float CurvatureMin, float CurvatureMax, float CurvatureStrength,
+	float KuroEnablePrimitiveOffset, float4 KuroPrimitiveOffset)
+{
+	// ---- VS-A:206-215: octahedral decode of the smoothed normal in UV1 (already in [-1,1]) -------------------------
+	precise float z  = abs(UV1.y) + abs(UV1.x);
+	z = 1.0 - z;
+	precise float t  = saturate(z * -1.0);
+	precise float nt = t * -1.0;
+	precise float2 ge = float2((UV1.x >= 0.0) ? 1.0 : 0.0, (UV1.y >= 0.0) ? 1.0 : 0.0);
+	nt = -t + nt;
+	precise float2 nxy = nt * ge;
+	nxy = t + nxy;
+	nxy = UV1 + nxy;
+
+	// ---- VS-A:216-223: to world with the skinned basis, normalise (dp3/sqrt/div) ---------------------------------------
+	precise float3 n = VertexTangentWS * nxy.x;
+	precise float3 nb = VertexBitangentWS * nxy.y;
+	n = nb + n;
+	precise float3 nn = VertexNormalWS * z;
+	n = n + nn;
+	n = n / sqrt(dot(n, n));
+
+	// ---- VS-A:224-227 (+ VS-C:236-251): width scalar --------------------------------------------------------------------
+	precise float curv = 0.0;
+	if (Family == WUWA_OUTLINE_FAMILY_C)
+	{
+		precise float inv = 1.0 / (CurvatureMax - CurvatureMin);
+		precise float s = saturate((VertexColor.a - CurvatureMin) * inv);
+		precise float k = s * -2.0;
+		k = k + 3.0;
+		s = s * s;
+		s = s * k;
+		s = max(s, 0.001);
+		s = 1.0 / s;
+		curv = s * (CurvatureStrength * 0.01);              // preshader 0.01*CurvatureStrength
+	}
+	precise float W = 1.0 - VertexGMinWidthFactor;
+	W = W * VertexColor.g;
+	W = W + VertexGMinWidthFactor;
+	W = W * OutlineClipWidth;
+	if (Family == WUWA_OUTLINE_FAMILY_C)
+	{
+		W = W + curv;
+	}
+
+	// ---- VS-A:228-243: widthVec = W * per-axis object scale -------------------------------------------------------------
+	precise float3 widthVec = W * ObjectAxisScale;
+
+	// ---- VS-A:244-250: clip.w of the un-extruded vertex ----------------------------------------------------------------
+	precise float clipW = mul(float4(TranslatedWorldPosition, 1.0), TranslatedWorldToClip).w;
+
+	// ---- VS-A:251-255: normal -> clip (3x3) -----------------------------------------------------------------------------
+	precise float3 c0 = n.x * TranslatedWorldToClip[0].xyz;
+	precise float3 c1 = n.y * TranslatedWorldToClip[1].xyz;
+	precise float3 nClip = c1 + c0;
+	precise float3 c2 = n.z * TranslatedWorldToClip[2].xyz;
+	nClip = nClip + c2;
+
+	// ---- VS-A:256-261: aspect / FOV normalisation (ref 75° vertical FOV, 16:9), one-pixel floor ----------------------
+	precise float aspectK = ClipToView11 / (ClipToView00 * 0.5625);
+	precise float fovK    = asfloat(0x3F446F8Bu) / ClipToView11;                       // 0.767327 = tan(37.5°)
+	precise float2 pixel  = (clipW * 2.0) * ViewSizeAndInvSize.zw;
+	pixel = pixel * KuroOutlinePixelScale;
+
+	// ---- VS-A:262-268: offset in clip units -----------------------------------------------------------------------------
+	nClip = rsqrt(dot(nClip, nClip)) * nClip;
+	precise float3 off = widthVec * nClip;
+	off = off * 0.1;
+	off = fovK * off;
+	off.xy = aspectK * off.xy;
+
+	// ---- VS-A:269-286: minimum-pixel floor with smooth fade-in -------------------------------------------------------
+	precise float2 sgn = float2((0.0 < off.x) ? 1.0 : -1.0, (0.0 < off.y) ? 1.0 : -1.0);
+	precise float hold = OutlineHoldDistance * 0.1;
+	precise float2 a = abs(off.xy);
+	precise float2 floored = max(pixel, a);
+	precise float2 cap = pixel * 999.0;
+	floored = min(cap, floored);
+	precise float2 tt = pixel * hold;
+	tt = 1.0 / tt;
+	tt = saturate(a * tt);
+	precise float2 kk = tt * -2.0;
+	kk = kk + 3.0;
+	tt = tt * tt;
+	tt = tt * kk;
+	floored = -a + floored;
+	tt = tt * floored;
+	precise float2 oxy = a + tt;
+	oxy = oxy * sgn;
+
+	// ---- VS-A:287-293: back to world with Kuro ClipToWorld (w = 0, resulting w dropped) -----------------------------
+	precise float3 cw0 = ClipToTranslatedWorld[0].xyz - ClipToTranslatedWorld[0].w * PreViewTranslation;
+	precise float3 cw1 = ClipToTranslatedWorld[1].xyz - ClipToTranslatedWorld[1].w * PreViewTranslation;
+	precise float3 cw2 = ClipToTranslatedWorld[2].xyz - ClipToTranslatedWorld[2].w * PreViewTranslation;
+	precise float3 cw3 = ClipToTranslatedWorld[3].xyz - ClipToTranslatedWorld[3].w * PreViewTranslation;
+	precise float3 w0 = oxy.x * cw0;
+	precise float3 w1 = oxy.y * cw1;
+	precise float3 offWS = w0 + w1;
+	precise float3 w2 = off.z * cw2;
+	offWS = offWS + w2;
+	precise float3 w3 = cw3 * 0.0;
+	offWS = offWS + w3;
+
+	// ---- VS-A:294-299 / VS-B:301-305: push along the camera direction (negative = away from the camera) ---------
+	precise float3 camDir = TranslatedWorldCameraOrigin - TranslatedWorldPosition;
+	camDir = camDir / sqrt(dot(camDir, camDir));
+	precise float D;
+	if (Family == WUWA_OUTLINE_FAMILY_B)
+	{
+		D = VertexColor.b * InnerOutlineMulti;
+		D = D * InnerOutlineOffset;
+		D = D * asfloat(0xBC23D70Au);                                                   // -0.01
+	}
+	else
+	{
+		D = InnerOutlineOffset * -0.01;                                                  // preshader -0.01*InnerOutlineOffset
+	}
+	precise float3 push = camDir * D;
+	offWS = offWS + push;
+
+	// ---- VS-A:92-94, 300-301: Kuro primitive offset (Primitive[44], gated by View[308].x) [U] -----------------------
+	// Kuro rounds ((offset + TWP) + PrimitiveOffset); UE computes TWP + WPO. With the offset off this is the same sum.
+	// With it on, return ((offset + TWP) + PrimitiveOffset) - TWP: the subtraction is exact (Sterbenz) whenever the
+	// position and TWP are within a factor of 2 per component, so UE's TWP + WPO reproduces the original's bits; one
+	// correction step covers the remaining cases (verified: tools/shaderdiff/basepass_outline_vs, sets *_kuro_offset).
+	bool kuroOn = (KuroEnablePrimitiveOffset != 0.0) && (0.0 < KuroPrimitiveOffset.w);
+	precise float3 posK = offWS + TranslatedWorldPosition;
+	posK = KuroPrimitiveOffset.xyz + posK;
+	precise float3 wK = posK - TranslatedWorldPosition;
+	precise float3 cK = TranslatedWorldPosition + wK;     // what UE will compute; one correction step for the rare
+	precise float3 rK = posK - cK;                        // non-Sterbenz case (component of TWP small vs. the offset)
+	wK = wK + rK;
+	return kuroOn ? wK : offWS;
+}
+
+#define WUWA_OUTLINE_WPO_PARAMS \
+	float2 UV1, float4 VertexColor, float3 VertexTangentWS, float3 VertexBitangentWS, float3 VertexNormalWS, \
+	float3 ObjectAxisScale, float3 TranslatedWorldPosition, float3 TranslatedWorldCameraOrigin, \
+	float4x4 TranslatedWorldToClip, float4x4 ClipToTranslatedWorld, float3 PreViewTranslation, \
+	float ClipToView00, float ClipToView11, float4 ViewSizeAndInvSize, float KuroOutlinePixelScale, \
+	float VertexGMinWidthFactor, float OutlineClipWidth, float OutlineHoldDistance
+#define WUWA_OUTLINE_WPO_ARGS \
+	UV1, VertexColor, VertexTangentWS, VertexBitangentWS, VertexNormalWS, ObjectAxisScale, TranslatedWorldPosition, \
+	TranslatedWorldCameraOrigin, TranslatedWorldToClip, ClipToTranslatedWorld, PreViewTranslation, ClipToView00, ClipToView11, \
+	ViewSizeAndInvSize, KuroOutlinePixelScale, VertexGMinWidthFactor, OutlineClipWidth, OutlineHoldDistance
+
+// Family A: Body_OL, Up_OL (UseVertexGreen_OutlineWidth).
+float3 WuwaToonOutlineWPO_A(WUWA_OUTLINE_WPO_PARAMS, float InnerOutlineOffset,
+	float KuroEnablePrimitiveOffset, float4 KuroPrimitiveOffset)
+{
+	return WuwaToonOutlineWPO_Impl(WUWA_OUTLINE_FAMILY_A, WUWA_OUTLINE_WPO_ARGS,
+		0.0, InnerOutlineOffset, 0.0, 1.0, 0.0, KuroEnablePrimitiveOffset, KuroPrimitiveOffset);
+}
+
+// Family B: Face_OL, Down_OL (+ UseVertexColorB_InnerOutline).
+float3 WuwaToonOutlineWPO_B(WUWA_OUTLINE_WPO_PARAMS, float InnerOutlineMulti, float InnerOutlineOffset,
+	float KuroEnablePrimitiveOffset, float4 KuroPrimitiveOffset)
+{
+	return WuwaToonOutlineWPO_Impl(WUWA_OUTLINE_FAMILY_B, WUWA_OUTLINE_WPO_ARGS,
+		InnerOutlineMulti, InnerOutlineOffset, 0.0, 1.0, 0.0, KuroEnablePrimitiveOffset, KuroPrimitiveOffset);
+}
+
+// Family C: Hair_OL, Bangs_OL (+ UseCurvature).
+float3 WuwaToonOutlineWPO_C(WUWA_OUTLINE_WPO_PARAMS, float InnerOutlineOffset,
+	float CurvatureMin, float CurvatureMax, float CurvatureStrength,
+	float KuroEnablePrimitiveOffset, float4 KuroPrimitiveOffset)
+{
+	return WuwaToonOutlineWPO_Impl(WUWA_OUTLINE_FAMILY_C, WUWA_OUTLINE_WPO_ARGS,
+		0.0, InnerOutlineOffset, CurvatureMin, CurvatureMax, CurvatureStrength, KuroEnablePrimitiveOffset, KuroPrimitiveOffset);
+}
+
+#undef WUWA_OUTLINE_WPO_PARAMS
+#undef WUWA_OUTLINE_WPO_ARGS
+
+// ---------------------------------------------------------------------------------------------------------------
+// Outline PS (PS-1:47-167, PS-2:55-173). No lighting, no discard; SV_IsFrontFace declared but unused.
+// ---------------------------------------------------------------------------------------------------------------
+FWuwaToonGBuffer WuwaToonOutlinePS_Impl(float3 Color, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 E_Outline_EmissionColor, float E_Outline_EmissionIntensity, float4 SelectionColor,
+	float4 NormalOverrideParameter, float KuroGBufferMode, float3 KuroEmissiveScale, float KuroSkipEmissiveScale,
+	float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds, uint LightingChannelMask)
+{
+	FWuwaToonGBuffer G;
+	// PS-1:47-59: N = normalize(TangentToWorld * normalize(NormalOverride.xyz + w*(0,0,1)))
+	float3 B = cross(WorldNormal, WorldTangent) * TangentSign;
+	float3 nTS = NormalOverrideParameter.w * float3(0.0, 0.0, 1.0) + NormalOverrideParameter.xyz;
+	nTS = nTS * rsqrt(dot(nTS, nTS));
+	float3 N = B * nTS.y;
+	N = nTS.x * WorldTangent + N;
+	N = nTS.z * WorldNormal + N;
+	N = N * rsqrt(dot(N, N));
+	// PS-1:60-61, 96-99: emissive = lerp(E_Outline_EmissionColor*Intensity, SelectionColor.rgb, SelectionColor.a)
+	float3 E0 = E_Outline_EmissionColor * E_Outline_EmissionIntensity;           // preshader cb2[20]
+	float3 E  = SelectionColor.a * (SelectionColor.rgb - E0) + E0;
+	G.Emissive = WuwaBPFinalEmissive(E, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+	// PS-1:120-167
+	G.A = float4(WuwaBPOctEncode(N), 1.0, (KuroGBufferMode == 1.0) ? 1.0 : 0.0);
+	G.B = float4(sqrt(saturate(Color)), WuwaBPShadingModelByte(LightingChannelMask, 13u));
+	G.C = float4(Color, 0.0);
+	G.D = float4(0.0, 0.0, 0.0, 0.0);
+	return G;
+}
+
+// PS-1 (Body_OL, Face_OL, Hair_OL, Bangs_OL): colour = BaseColorTint.rgb * OutlineColor.rgb (preshader cb2[26]).
+FWuwaToonGBuffer WuwaToonOutlineBasePass(float3 WorldTangent, float3 WorldNormal, float TangentSign, float3 WorldPosition,
+	float3 OutlineColor, float3 BaseColorTint, float3 E_Outline_EmissionColor, float E_Outline_EmissionIntensity, float4 SelectionColor,
+	float4 NormalOverrideParameter, float KuroGBufferMode, float3 KuroEmissiveScale, float KuroSkipEmissiveScale,
+	float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds, uint LightingChannelMask)
+{
+	return WuwaToonOutlinePS_Impl(BaseColorTint * OutlineColor, WorldTangent, WorldNormal, TangentSign, WorldPosition,
+		E_Outline_EmissionColor, E_Outline_EmissionIntensity, SelectionColor, NormalOverrideParameter, KuroGBufferMode,
+		KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask);
+}
+
+// PS-2 (Up_OL, Down_OL; UseMainTex): colour = MainTex(UV0, bias).rgb * OutlineColorTint.rgb * BaseColorTint.rgb (PS-2:65-67).
+FWuwaToonGBuffer WuwaToonOutlineBasePass_MainTex(Texture2D MainTex, SamplerState MainTexSampler, float2 UV0,
+	float3 WorldTangent, float3 WorldNormal, float TangentSign, float3 WorldPosition,
+	float3 OutlineColorTint, float3 BaseColorTint, float3 E_Outline_EmissionColor, float E_Outline_EmissionIntensity, float4 SelectionColor,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode, float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds, uint LightingChannelMask)
+{
+	float3 c = MainTex.SampleBias(MainTexSampler, UV0, MaterialTextureMipBias).rgb;
+	c = c * OutlineColorTint;
+	c = c * BaseColorTint;
+	return WuwaToonOutlinePS_Impl(c, WorldTangent, WorldNormal, TangentSign, WorldPosition,
+		E_Outline_EmissionColor, E_Outline_EmissionIntensity, SelectionColor, NormalOverrideParameter, KuroGBufferMode,
+		KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask);
+}

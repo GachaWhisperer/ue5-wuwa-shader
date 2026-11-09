@@ -1,0 +1,158 @@
+{
+ "root_material": "M_Refraction_CM",
+ "generated_by": "tools/shaderdiff/weapons/build_registry.py",
+ "contract": "Specs/registry/README.md",
+ "note": "one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose material terms are verified or provably inactive (vs_status.py: verified_binary / engine_only / gated_wpo). Translucent / unlit entries (\"resolve\": false) output Emissive + Opacity, not the toon GBuffer. research/roster/Port_Weapons_Specials.md",
+ "variants": [
+  {
+   "spec": "Refraction_CM_UV4NoiseSecondDissolveMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "bf10f1c1cd9c225f5b8bd3c9288454fa2e2bc15c"
+    ],
+    "base_pass_vs_hash": [
+     "98ddcc5eb79440ab36d97df6fc205943b3913f87"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_bf10f1 (27 runs, 442368/442368 px bit-exact on o0/o1); VS #2157 engine_only; evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 292497,
+   "vs_archive_index": [
+    2157
+   ],
+   "vs_status": {
+    "98ddcc5eb79440ab36d97df6fc205943b3913f87": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 1,
+   "entities": [
+    "weapon:Lethean Elegy"
+   ],
+   "example_mis": [
+    "MI_R5Device506Md20001Effect_02"
+   ]
+  },
+  {
+   "spec": "Refraction_CM_NoiseSecondDissolveMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b7370e7c8c5dfa3e5d5172be57669b04400af7c5"
+    ],
+    "base_pass_vs_hash": [
+     "8f521f3c13c8a4a110312ff54de0f306d42bc2c4"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_b7370e (27 runs, 442368/442368 px bit-exact on o0/o1); VS #9523 engine_only; evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 314729,
+   "vs_archive_index": [
+    9523
+   ],
+   "vs_status": {
+    "8f521f3c13c8a4a110312ff54de0f306d42bc2c4": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 6,
+   "entities": [
+    "character:Galbrena",
+    "skin:Hunt Unending"
+   ],
+   "example_mis": [
+    "MI_ECalbrenaWingMd10011FX4"
+   ]
+  },
+  {
+   "spec": "Refraction_CM_NoiseSecondDissolve.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "73ae222aa9bbfbd72c94f21c0162b328cd71ad9e"
+    ],
+    "base_pass_vs_hash": [
+     "8f521f3c13c8a4a110312ff54de0f306d42bc2c4"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_73ae22 (27 runs, 442368/442368 px bit-exact on o0/o1); VS #9523 engine_only; evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 82346,
+   "vs_archive_index": [
+    9523
+   ],
+   "vs_status": {
+    "8f521f3c13c8a4a110312ff54de0f306d42bc2c4": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Phrolova",
+    "skin:From the Beyond"
+   ],
+   "example_mis": [
+    "MI_EFuluoluoHekateMD10011FX1"
+   ]
+  },
+  {
+   "spec": "Refraction_CM_UV4SecondRimDissolve.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "4cf5f536277871b764b458203713092e950c589b"
+    ],
+    "base_pass_vs_hash": [
+     "98ddcc5eb79440ab36d97df6fc205943b3913f87"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_4cf5f5 (30 runs, 491520/491520 px bit-exact on o0/o1); VS #2157 engine_only; evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 209357,
+   "vs_archive_index": [
+    2157
+   ],
+   "vs_status": {
+    "98ddcc5eb79440ab36d97df6fc205943b3913f87": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 2,
+   "roster_slot_uses": 4,
+   "entities": [
+    "character:Cartethyia",
+    "skin:Thorny Rain"
+   ],
+   "example_mis": [
+    "MI_Trans_Fuludelisi_140001_SK",
+    "MI_Trans_Fuludelisi_140002_SK"
+   ]
+  },
+  {
+   "spec": "Refraction_CM_UV4RimDissolve.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "c030692f01a9cedd474165e15742d9e9be0592a7"
+    ],
+    "base_pass_vs_hash": [
+     "98ddcc5eb79440ab36d97df6fc205943b3913f87"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_c03069 (27 runs, 442368/442368 px bit-exact on o0/o1); VS #2157 engine_only; evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 246600,
+   "vs_archive_index": [
+    2157
+   ],
+   "vs_status": {
+    "98ddcc5eb79440ab36d97df6fc205943b3913f87": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Cartethyia",
+    "skin:Thorny Rain"
+   ],
+   "example_mis": [
+    "MI_Trans_Fuludelisi_140003_SK"
+   ]
+  }
+ ]
+}

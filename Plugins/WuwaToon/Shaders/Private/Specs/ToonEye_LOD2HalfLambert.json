@@ -1,0 +1,1105 @@
+{
+ "name": "ToonEye_LOD2HalfLambert",
+ "entry": "WuwaToonEyeBasePass_LOD2HalfLambert",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_Eye.ush",
+ "kuro_shading_model": "MSM_ToonFace (GBufferB id 12)",
+ "kuro_asm": "Eye PS __19588 / VS __19585 (MI_R2T1PlayerMaleMd10011Eyes_LOD2)",
+ "blend_mode": "BLEND_Opaque",
+ "two_sided": false,
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "o0.rgb SceneColor (o0.a = 0)"
+  },
+  "A": {
+   "type": "float4",
+   "kuro": "o1 GBufferA: xy oct normal, z toon shadow factor, w flag"
+  },
+  "B": {
+   "type": "float4",
+   "kuro": "o2 GBufferB: rgb sqrt(shadow colour), a (LightingChannelMask<<5 | ShadingModelId)/255"
+  },
+  "C": {
+   "type": "float4",
+   "kuro": "o3 GBufferC: rgb lit colour, a MainTex.a*OpacityIntensity / rim byte"
+  },
+  "D": {
+   "type": "float4",
+   "kuro": "o6 \"GBufferD\": x ToonRimWidth, y packed nibble, z 0, w packed AO|FFT"
+  }
+ },
+ "inputs": [
+  {
+   "name": "HeightLightMap",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "HeightLightMap",
+   "default": "T_EyesSecondHeightLight02_EG"
+  },
+  {
+   "name": "HeightLightMapSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "HeightLightMap",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "HeightLightMapSampler"
+  },
+  {
+   "name": "EM",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "EM",
+   "default": "T_HDMF_EM"
+  },
+  {
+   "name": "EMSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "EM",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "EMSampler"
+  },
+  {
+   "name": "MainTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "MainTex",
+   "default": "T_DefaultColorWhite_D"
+  },
+  {
+   "name": "MainTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "MainTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MainTexSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "VertexColor",
+   "type": "float4",
+   "kind": "vertexcolor"
+  },
+  {
+   "name": "WorldNormal",
+   "type": "float3",
+   "kind": "worldnormal",
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "WorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "absolute",
+   "ue_expr": "WSHackToFloat(GetWorldPosition(Parameters))"
+  },
+  {
+   "name": "LightDirVS",
+   "type": "float3",
+   "kind": "interpolator",
+   "source": "WuwaToonBaseVS_LightDir",
+   "note": "Kuro TEXCOORD2.xyz (yzw on face/hair/eye)"
+  },
+  {
+   "name": "MotionEmissiveMask",
+   "type": "float",
+   "kind": "interpolator",
+   "source": "WuwaToonBaseVS_WPO:MotionEmissiveMask",
+   "note": "Kuro TEXCOORD2.w (.x on face/hair/eye)"
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  },
+  {
+   "name": "SecondLight_WidthX",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SecondLight_WidthX",
+   "default": 1.0
+  },
+  {
+   "name": "SecondLight_WidthY",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SecondLight_WidthY",
+   "default": 1.0
+  },
+  {
+   "name": "LightNormlScale",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightNormlScale",
+   "default": 0.0
+  },
+  {
+   "name": "SecondLight_PositionX",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SecondLight_PositionX",
+   "default": 0.25
+  },
+  {
+   "name": "SecondLight_PositionY",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SecondLight_PositionY",
+   "default": 0.4
+  },
+  {
+   "name": "SecondLight_Position_02X",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SecondLight_Position_02X",
+   "default": 0.0
+  },
+  {
+   "name": "SecondLight_Position_02Y",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SecondLight_Position_02Y",
+   "default": 0.0
+  },
+  {
+   "name": "LightPositionX",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightPositionX",
+   "default": 0.0
+  },
+  {
+   "name": "LightPositionY",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightPositionY",
+   "default": 0.0
+  },
+  {
+   "name": "EyeSize",
+   "type": "float2",
+   "kind": "vector",
+   "param": "EyeSize",
+   "channels": "rg",
+   "default": [
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "EyeScale",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EyeScale",
+   "default": 0.8
+  },
+  {
+   "name": "MainTexColorTint",
+   "type": "float3",
+   "kind": "vector",
+   "param": "MainTexColorTint",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Rot01Cos",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "RotationAnlgle01"
+   ],
+   "expr": "cos(RotationAnlgle01 * 6.2831855)",
+   "ue_nodes": "Cosine[Period 0](Multiply(ScalarParameter RotationAnlgle01, 6.2831855 = 0x40C90FDB))",
+   "default": 1.0,
+   "note": "Kuro CPU preshader cb5[63].x / [64].y (round 3c); MI parameter RotationAnlgle01 (default 0.0)"
+  },
+  {
+   "name": "Rot01Sin",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "RotationAnlgle01"
+   ],
+   "expr": "sin(RotationAnlgle01 * 6.2831855)",
+   "ue_nodes": "Sine[Period 0](Multiply(ScalarParameter RotationAnlgle01, 6.2831855 = 0x40C90FDB))",
+   "default": 0.0,
+   "note": "Kuro CPU preshader cb5[64].x (and * -1 in cb5[63].y) (round 3c)"
+  },
+  {
+   "name": "ShapeScaleX",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShapeScaleX",
+   "default": 6.0
+  },
+  {
+   "name": "ShapeScaleY",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShapeScaleY",
+   "default": 12.0
+  },
+  {
+   "name": "EdgeColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "EdgeColor",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "HeightLightColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "HeightLightColor",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "OutLineColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "OutLineColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "name": "EyeLightSimulation_Color",
+   "type": "float4",
+   "kind": "vector",
+   "param": "EyeLightSimulation_Color",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "name": "EyeLightSimulation_TongKong",
+   "type": "float4",
+   "kind": "vector",
+   "param": "EyeLightSimulation_TongKong",
+   "channels": "rgba",
+   "default": [
+    0.5,
+    0.5,
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "name": "EyeLightSimulation_YanBai",
+   "type": "float4",
+   "kind": "vector",
+   "param": "EyeLightSimulation_YanBai",
+   "channels": "rgba",
+   "default": [
+    0.5,
+    1.5,
+    1.66,
+    1.0
+   ]
+  },
+  {
+   "name": "EmissionColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "EmissionColor",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Motion_Emissive",
+   "type": "float3",
+   "kind": "vector",
+   "param": "E_Motion_Emissive",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "note": "engine selection tint; not in Material CachedExpressionData, compiled default 0",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "ScaleTransition_Speed",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ScaleTransition_Speed",
+   "default": 5.0
+  },
+  {
+   "name": "EyeLight_TransitionScale",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EyeLight_TransitionScale",
+   "default": 0.5
+  },
+  {
+   "name": "UseEyeScaleTransition",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseEyeScaleTransition",
+   "default": 0.0
+  },
+  {
+   "name": "LightDifferentScale",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightDifferentScale",
+   "default": 1.0
+  },
+  {
+   "name": "LightShakeSpeed",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightShakeSpeed",
+   "default": 10.0
+  },
+  {
+   "name": "LightShakeScale",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightShakeScale",
+   "default": 0.01
+  },
+  {
+   "name": "LightShakPositionX",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightShakPositionX",
+   "default": 0.0
+  },
+  {
+   "name": "LightShakPositionY",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightShakPositionY",
+   "default": 0.0
+  },
+  {
+   "name": "RotateAngle",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RotateAngle",
+   "default": 0.0
+  },
+  {
+   "name": "LightEmissiveInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightEmissiveInt",
+   "default": 4.0
+  },
+  {
+   "name": "LightDisable",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightDisable",
+   "default": 0.0
+  },
+  {
+   "name": "ShapePosition01X",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShapePosition01X",
+   "default": 0.68
+  },
+  {
+   "name": "ShapePosition01Y",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShapePosition01Y",
+   "default": 0.75
+  },
+  {
+   "name": "EdgeWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EdgeWidth",
+   "default": 0.6
+  },
+  {
+   "name": "UseProLight",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseProLight",
+   "default": 1.0
+  },
+  {
+   "name": "OpacityIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "OpacityIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "Main_EmissionPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Main_EmissionPower",
+   "default": 0.25
+  },
+  {
+   "name": "Desaturation",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Desaturation",
+   "default": 0.0
+  },
+  {
+   "name": "SolidShadowStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowStrength",
+   "default": 1.0
+  },
+  {
+   "name": "MPC_EyeEmissive",
+   "type": "float",
+   "kind": "mpc",
+   "mpc": "EyesParameter",
+   "mpc_param": "EyeEmissive",
+   "default": 0.0,
+   "kuro": "eye CB4[4].z"
+  },
+  {
+   "name": "ToonLight0",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 0,
+   "kuro": "ToonShadowLightData CB1[0]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "note": null
+  },
+  {
+   "name": "ToonLight3",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 3,
+   "kuro": "ToonShadowLightData CB1[3]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ],
+   "note": null
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "NormalOverrideParameter",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.NormalOverrideParameter",
+   "kuro": "Kuro View[144] (stock member), default (0,0,0,1)",
+   "default": [
+    0,
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "name": "KuroGBufferMode",
+   "type": "float",
+   "kind": "view",
+   "kuro": "View[276].x (int, ==1 selects the alternate packing)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "KuroEmissiveScale",
+   "type": "float3",
+   "kind": "view",
+   "kuro": "View[285].xyz (emissive multiplier when Primitive[42].w == 0)",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true
+  },
+  {
+   "name": "KuroSkipEmissiveScale",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[42].w (skip View[285] multiply when != 0)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "OutOfBoundsMask",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.OutOfBoundsMask",
+   "kuro": "Kuro View[146].x (stock debug)",
+   "default": 0.0
+  },
+  {
+   "name": "ObjectWorldPosition",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "WSHackToFloat(GetObjectWorldPosition(Parameters))"
+  },
+  {
+   "name": "ObjectBounds",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "float3(GetPrimitiveData(Parameters).ObjectBoundsX, GetPrimitiveData(Parameters).ObjectBoundsY, GetPrimitiveData(Parameters).ObjectBoundsZ)"
+  },
+  {
+   "name": "LightingChannelMask",
+   "type": "uint",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitive_LightingChannelMask_FromFlags(GetPrimitiveData(Parameters).Flags)"
+  },
+  {
+   "name": "ShadowColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "ShadowColor",
+   "channels": "rgb",
+   "default": [
+    0.65,
+    0.65,
+    0.65
+   ],
+   "note": "root default (M_Char_Eye root .uexp, root_defaults.json)"
+  },
+  {
+   "name": "ActorPosition",
+   "type": "float3",
+   "kind": "vector",
+   "param": "ActorPosition",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    100.0
+   ],
+   "note": "root default (M_Char_Eye root .uexp, root_defaults.json); added to the primitive actor position for the local toon-light vector"
+  },
+  {
+   "name": "PrimActorWorldPosition",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "WSHackToFloat(GetActorWorldPosition(Parameters))",
+   "kuro": "Primitive[18].xyz"
+  },
+  {
+   "name": "RampShadowColorScale",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RampShadowColorScale",
+   "default": 5.0,
+   "note": "root default (M_Char_Eye root .uexp, root_defaults.json)"
+  },
+  {
+   "name": "RampShadowIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RampShadowIntensity",
+   "default": 0.1,
+   "note": "root default (M_Char_Eye root .uexp, root_defaults.json)"
+  },
+  {
+   "name": "SolidShadowThreshold",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowThreshold",
+   "default": 0.0,
+   "note": "root default (M_Char_Eye root .uexp, root_defaults.json)"
+  },
+  {
+   "name": "ShadowOffset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowOffset",
+   "default": 0.5,
+   "note": "root default (M_Char_Eye root .uexp, root_defaults.json)"
+  },
+  {
+   "name": "RampShadowRange",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RampShadowRange",
+   "default": 0.5,
+   "note": "root default (M_Char_Eye root .uexp, root_defaults.json)"
+  },
+  {
+   "name": "SolidShadowSaturation",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowSaturation",
+   "default": 1.4,
+   "note": "root default (M_Char_Eye root .uexp, root_defaults.json)"
+  },
+  {
+   "name": "SolidShadowView",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowView",
+   "default": 0.6,
+   "note": "root default (M_Char_Eye root .uexp, root_defaults.json)"
+  },
+  {
+   "name": "ShadowRange",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowRange",
+   "default": 0.015,
+   "note": "root default (M_Char_Eye root .uexp, root_defaults.json)"
+  }
+ ],
+ "custom_node_code": "FWuwaToonGBuffer G = WuwaToonEyeBasePass_LOD2HalfLambert(HeightLightMap, HeightLightMapSampler, EM, EMSampler, MainTex, MainTexSampler, UV0, VertexColor, WorldNormal, WorldPosition, LightDirVS, MotionEmissiveMask, GameTime, SecondLight_WidthX, SecondLight_WidthY, LightNormlScale, SecondLight_PositionX, SecondLight_PositionY, SecondLight_Position_02X, SecondLight_Position_02Y, LightPositionX, LightPositionY, EyeSize, EyeScale, MainTexColorTint, Rot01Cos, Rot01Sin, ShapeScaleX, ShapeScaleY, EdgeColor, HeightLightColor, OutLineColor, EyeLightSimulation_Color, EyeLightSimulation_TongKong, EyeLightSimulation_YanBai, EmissionColor, E_Motion_Emissive, SelectionColor, ScaleTransition_Speed, EyeLight_TransitionScale, UseEyeScaleTransition, LightDifferentScale, LightShakeSpeed, LightShakeScale, LightShakPositionX, LightShakPositionY, RotateAngle, LightEmissiveInt, LightDisable, ShapePosition01X, ShapePosition01Y, EdgeWidth, UseProLight, OpacityIntensity, Main_EmissionPower, Desaturation, SolidShadowStrength, MPC_EyeEmissive, ToonLight0, ToonLight3, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, ShadowColor, ActorPosition, PrimActorWorldPosition, RampShadowColorScale, RampShadowIntensity, SolidShadowThreshold, ShadowOffset, RampShadowRange, SolidShadowSaturation, SolidShadowView, ShadowRange);\nOutA = G.A; OutB = G.B; OutC = G.C; OutD = G.D;\nreturn G.Emissive;",
+ "gbuffer_storage": "values are raw MRT registers; apply WuwaToonGBufferStore() to emulate 8-bit targets",
+ "input_kinds": {
+  "texture": "Texture2D material parameter `param` (Texture Object pin); `default` = parent Material default texture",
+  "sampler": "sampler paired with `texture`; ue_expr is the HLSL name inside the Custom node",
+  "scalar|vector": "material parameter `param` (Kuro name), `default` = compiled/Material default; vector `channels` used",
+  "uv": "TextureCoordinate `index` (optional `channel`)",
+  "vertexcolor": "VertexColor (optional `channel`)",
+  "worldnormal|worldtangent": "raw interpolated TangentToWorld rows (`channel` sign/bitangent), ue_expr given",
+  "worldposition": "`space` absolute (LWC demoted) or translated",
+  "cameravector": "Parameters.CameraVector",
+  "svposition": "pixel position",
+  "interpolator": "value produced in the VS by `source` (vertex_interpolators)",
+  "cpd": "CustomPrimitiveData `index` (list = assembled vector), filled by UWuwaToonCharacterComponent",
+  "mpc": "Material Parameter Collection `mpc` / `mpc_param` (Kuro asset default in `default`)",
+  "toonlight": "ToonShadowLightData CB1 row `index` (float4); no recovered default (see note on [1].w bits)",
+  "view": "View uniform field (ue_expr) or Kuro-only View member (ue_expr null, `kuro` row, explicit default)",
+  "primitive": "Primitive data (ue_expr) or Kuro-only Primitive member (ue_expr null, explicit default)",
+  "output": "out parameter, exposed as an additional Custom node output",
+  "uniform_expression": "CPU uniform expression of material parameters `params` (`expr`; UE material nodes `ue_nodes`, folded into a uniform expression evaluated on the CPU)"
+ },
+ "vertex_interpolators": [
+  {
+   "name": "LightDirVS",
+   "type": "float3",
+   "entry": "WuwaToonEyeLOD2VS_LightDir",
+   "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_Eye.ush",
+   "returns": "float3",
+   "inputs": [
+    {
+     "name": "CPD0",
+     "type": "float",
+     "kind": "cpd",
+     "index": 0,
+     "role": "light yaw (deg) when CPD1 > 0.5"
+    },
+    {
+     "name": "CPD1",
+     "type": "float",
+     "kind": "cpd",
+     "index": 1,
+     "role": "selects CPD0 (> 0.5) or the MPC yaw"
+    },
+    {
+     "name": "MPC_GlobalCharacterMainLightYaw",
+     "type": "float",
+     "kind": "mpc",
+     "mpc": "MPC_GlobalShaderParameters",
+     "mpc_param": "GlobalCharacterMainLightYaw",
+     "default": 0.0,
+     "kuro": "cb3[0].z (VS)"
+    }
+   ],
+   "custom_node_code": "return WuwaToonEyeLOD2VS_LightDir(CPD0, CPD1, MPC_GlobalCharacterMainLightYaw);",
+   "note": "VS __19585 l.274-372: lerp(d(GlobalCharacterMainLightYaw), d(CPD0), saturate(sign(CPD1 - 0.5))), pitch fixed at 45 deg; verified on WARP (round5/facehair/results_vs_eye_lod2.json) and symbolically (vs_symexec_eye_lod2.json)"
+  },
+  {
+   "name": "MotionEmissiveMask",
+   "type": "float",
+   "output": "MotionEmissiveMask",
+   "entry": "WuwaToonBaseVS_WPO",
+   "include": "/Plugin/WuwaToon/Private/WuwaToonBasePassShared.ush",
+   "returns": "float3",
+   "inputs": [
+    {
+     "name": "UV0",
+     "type": "float2",
+     "kind": "uv",
+     "index": 0
+    },
+    {
+     "name": "VertexNormalWS",
+     "type": "float3",
+     "kind": "worldnormal",
+     "stage": "vs",
+     "ue_expr": "Parameters.TangentToWorld[2]"
+    },
+    {
+     "name": "TranslatedWorldPosition",
+     "type": "float3",
+     "kind": "worldposition",
+     "space": "translated",
+     "ue_expr": "GetTranslatedWorldPosition(Parameters)",
+     "note": "VS: excluding material offsets"
+    },
+    {
+     "name": "TranslatedWorldCameraOrigin",
+     "type": "float3",
+     "kind": "view",
+     "ue_expr": "ResolvedView.TranslatedWorldCameraOrigin",
+     "kuro": "Kuro View[67] WorldCameraOrigin (absolute)"
+    },
+    {
+     "name": "GameTime",
+     "type": "float",
+     "kind": "view",
+     "ue_expr": "View.GameTime",
+     "kuro": "Kuro View[148].z (UE material Time node)"
+    },
+    {
+     "name": "ViewToTranslatedWorld",
+     "type": "float4x4",
+     "kind": "view",
+     "ue_expr": "ResolvedView.ViewToTranslatedWorld",
+     "kuro": "Kuro View[16..19]"
+    },
+    {
+     "name": "USE_Hologram",
+     "type": "float",
+     "kind": "scalar",
+     "param": "USE Hologram",
+     "default": 0.0
+    },
+    {
+     "name": "E_Hologram_JitterStrength",
+     "type": "float",
+     "kind": "scalar",
+     "param": "E_Hologram_JitterStrength",
+     "default": 0.3
+    },
+    {
+     "name": "E_Hologram_WPOVector",
+     "type": "float3",
+     "kind": "vector",
+     "param": "E_Hologram_WPOVector",
+     "channels": "rgb",
+     "default": [
+      1.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "name": "E_MotionRange",
+     "type": "float",
+     "kind": "scalar",
+     "param": "E_MotionRange",
+     "default": 0.5
+    },
+    {
+     "name": "E_Motion_NoiseSpeed",
+     "type": "float",
+     "kind": "scalar",
+     "param": "E_Motion_NoiseSpeed",
+     "default": 0.0
+    },
+    {
+     "name": "E_Motion_Offset",
+     "type": "float4",
+     "kind": "vector",
+     "param": "E_Motion_Offset",
+     "channels": "rgba",
+     "default": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    {
+     "name": "E_Motion_NoisePos",
+     "type": "float",
+     "kind": "scalar",
+     "param": "E_Motion_NoisePos",
+     "default": 0.0
+    },
+    {
+     "name": "KuroEnablePrimitiveOffset",
+     "type": "float",
+     "kind": "view",
+     "kuro": "View[308].x (gates Primitive[44] vertex offset)",
+     "ue_expr": null,
+     "default": 0.0,
+     "unknown": true
+    },
+    {
+     "name": "KuroPrimitiveOffset",
+     "type": "float4",
+     "kind": "primitive",
+     "kuro": "Primitive[44] (xyz world offset, w > 0 enables)",
+     "ue_expr": null,
+     "default": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+     ],
+     "unknown": true
+    },
+    {
+     "name": "MotionEmissiveMask",
+     "type": "float",
+     "kind": "output"
+    }
+   ],
+   "custom_node_code": "return WuwaToonBaseVS_WPO(UV0, VertexNormalWS, TranslatedWorldPosition, TranslatedWorldCameraOrigin, GameTime, ViewToTranslatedWorld, USE_Hologram, E_Hologram_JitterStrength, E_Hologram_WPOVector, E_MotionRange, E_Motion_NoiseSpeed, E_Motion_Offset, E_Motion_NoisePos, KuroEnablePrimitiveOffset, KuroPrimitiveOffset, MotionEmissiveMask);"
+  }
+ ],
+ "wpo": {
+  "entry": "WuwaToonBaseVS_WPO",
+  "include": "/Plugin/WuwaToon/Private/WuwaToonBasePassShared.ush",
+  "returns": "float3",
+  "inputs": [
+   {
+    "name": "UV0",
+    "type": "float2",
+    "kind": "uv",
+    "index": 0
+   },
+   {
+    "name": "VertexNormalWS",
+    "type": "float3",
+    "kind": "worldnormal",
+    "stage": "vs",
+    "ue_expr": "Parameters.TangentToWorld[2]"
+   },
+   {
+    "name": "TranslatedWorldPosition",
+    "type": "float3",
+    "kind": "worldposition",
+    "space": "translated",
+    "ue_expr": "GetTranslatedWorldPosition(Parameters)",
+    "note": "VS: excluding material offsets"
+   },
+   {
+    "name": "TranslatedWorldCameraOrigin",
+    "type": "float3",
+    "kind": "view",
+    "ue_expr": "ResolvedView.TranslatedWorldCameraOrigin",
+    "kuro": "Kuro View[67] WorldCameraOrigin (absolute)"
+   },
+   {
+    "name": "GameTime",
+    "type": "float",
+    "kind": "view",
+    "ue_expr": "View.GameTime",
+    "kuro": "Kuro View[148].z (UE material Time node)"
+   },
+   {
+    "name": "ViewToTranslatedWorld",
+    "type": "float4x4",
+    "kind": "view",
+    "ue_expr": "ResolvedView.ViewToTranslatedWorld",
+    "kuro": "Kuro View[16..19]"
+   },
+   {
+    "name": "USE_Hologram",
+    "type": "float",
+    "kind": "scalar",
+    "param": "USE Hologram",
+    "default": 0.0
+   },
+   {
+    "name": "E_Hologram_JitterStrength",
+    "type": "float",
+    "kind": "scalar",
+    "param": "E_Hologram_JitterStrength",
+    "default": 0.3
+   },
+   {
+    "name": "E_Hologram_WPOVector",
+    "type": "float3",
+    "kind": "vector",
+    "param": "E_Hologram_WPOVector",
+    "channels": "rgb",
+    "default": [
+     1.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "name": "E_MotionRange",
+    "type": "float",
+    "kind": "scalar",
+    "param": "E_MotionRange",
+    "default": 0.5
+   },
+   {
+    "name": "E_Motion_NoiseSpeed",
+    "type": "float",
+    "kind": "scalar",
+    "param": "E_Motion_NoiseSpeed",
+    "default": 0.0
+   },
+   {
+    "name": "E_Motion_Offset",
+    "type": "float4",
+    "kind": "vector",
+    "param": "E_Motion_Offset",
+    "channels": "rgba",
+    "default": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "name": "E_Motion_NoisePos",
+    "type": "float",
+    "kind": "scalar",
+    "param": "E_Motion_NoisePos",
+    "default": 0.0
+   },
+   {
+    "name": "KuroEnablePrimitiveOffset",
+    "type": "float",
+    "kind": "view",
+    "kuro": "View[308].x (gates Primitive[44] vertex offset)",
+    "ue_expr": null,
+    "default": 0.0,
+    "unknown": true
+   },
+   {
+    "name": "KuroPrimitiveOffset",
+    "type": "float4",
+    "kind": "primitive",
+    "kuro": "Primitive[44] (xyz world offset, w > 0 enables)",
+    "ue_expr": null,
+    "default": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "unknown": true
+   },
+   {
+    "name": "MotionEmissiveMask",
+    "type": "float",
+    "kind": "output"
+   }
+  ],
+  "custom_node_code": "return WuwaToonBaseVS_WPO(UV0, VertexNormalWS, TranslatedWorldPosition, TranslatedWorldCameraOrigin, GameTime, ViewToTranslatedWorld, USE_Hologram, E_Hologram_JitterStrength, E_Hologram_WPOVector, E_MotionRange, E_Motion_NoiseSpeed, E_Motion_Offset, E_Motion_NoisePos, KuroEnablePrimitiveOffset, KuroPrimitiveOffset, MotionEmissiveMask);",
+  "space": "world-space offset vector (UE World Position Offset); positions fed in translated world"
+ },
+ "roster_variant": {
+  "base_spec": "ToonEye_NoParallax.json",
+  "static_switches": {
+   "UseParallaxOcclusion": false,
+   "UseHighLightPattern": false,
+   "UseHeightLightShape": true,
+   "UseEyeSDF": false
+  },
+  "notes": "LOD2 male eye: no parallax, no EM.r highlight pattern (base = iris * MainTexColorTint), no eye SDF: GBufferB / GBufferA.z come from a half-Lambert toon light (raw vertex normal . light; local ToonLight0 point about the actor position) with the ShadowColor / RampShadow* / SolidShadow* terms. LightDirVS is the LOD2 VS light direction (WuwaToonEyeLOD2VS_LightDir).",
+  "new_inputs": [
+   "ShadowColor",
+   "ActorPosition",
+   "PrimActorWorldPosition",
+   "RampShadowColorScale",
+   "RampShadowIntensity",
+   "SolidShadowThreshold",
+   "ShadowOffset",
+   "RampShadowRange",
+   "SolidShadowSaturation",
+   "SolidShadowView",
+   "ShadowRange"
+  ],
+  "removed_inputs": [
+   "MaskTex",
+   "MaskTexClampSampler",
+   "UV1",
+   "WorldTangent",
+   "TangentSign",
+   "CameraVector",
+   "HeightLight_WidthX",
+   "HeightLight_WidthY",
+   "HeightLight_PositionX",
+   "HeightLight_PositionY",
+   "HeightLight_Color",
+   "ParallaxOffset",
+   "SubsurfaceColor",
+   "HeightLightScale",
+   "ParallaxHeight",
+   "SolidShadowProcess",
+   "LightOffset_Pitch",
+   "SDFPitchPosition",
+   "ShadowProcess",
+   "ShadowWidth",
+   "CPD1",
+   "CPD_HeadForward",
+   "CPD_HeadSide",
+   "CPD11",
+   "CPD12",
+   "CPD13",
+   "MPC_GlobalCharacterAmbientSkinColor",
+   "MPC_GlobalCharacterDebugLightDirection",
+   "ToonLight1",
+   "ToonLight2"
+  ],
+  "verified": ""
+ }
+}

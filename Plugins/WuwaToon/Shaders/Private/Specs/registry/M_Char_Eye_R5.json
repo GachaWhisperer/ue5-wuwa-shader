@@ -1,0 +1,38 @@
+{
+ "root_material": "M_Char_Eye",
+ "variants": [
+  {
+   "spec": "ToonEye_LOD2HalfLambert.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "89b77659a2931c7ca24775eb2ac1851465a5f1fc"
+    ],
+    "base_pass_vs_hash": [
+     "6f2875f9d27aded821cf304bd567663e61365ce6"
+    ]
+   },
+   "verified": "research/roster/round5/facehair_eye_special.md; evidence/validation/shaderdiff/roster_charcom/round5/facehair/results_facehair.json variants.r5fh_eye_lod2_halflambert_19588 (655360/655360 px bit-exact, 0 discard mismatches); VS #19585: TEXCOORD2.yzw ported (WuwaToonEyeLOD2VS_LightDir) 1500/1500 cases bit-exact on WARP + symbolically identical (evidence/validation/shaderdiff/roster_charcom/round5/facehair/results_vs_eye_lod2.json), TEXCOORD2.x + SV_POSITION == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 19588,
+   "vs_archive_index": [
+    19585
+   ],
+   "vs_status": {
+    "6f2875f9d27aded821cf304bd567663e61365ce6": "ported_vs_verified"
+   },
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1PlayerMaleMd10011Eyes_LOD2"
+   ],
+   "static_switches_informational": {
+    "UseParallaxOcclusion": false,
+    "UseHighLightPattern": false,
+    "UseHeightLightShape": true,
+    "UseEyeSDF": false
+   },
+   "added_by": "round5_facehair"
+  }
+ ],
+ "generated_by": "tools/shaderdiff/roster_charcom/register_round5_facehair.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 5, group facehair_eye_special (research/roster/round5/facehair_eye_special.md): split registry file, merged by root_material"
+}

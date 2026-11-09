@@ -1,0 +1,135 @@
+{
+ "root_material": "M_SimpleEffect_SK",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "SimpleEffect_SK_NoiseSecondMask_Additive.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ebdc20c2cf5cb4344c05c6076d16bb4eb192876a"
+    ],
+    "base_pass_vs_hash": [
+     "f4940b72f2b6541d2eb69c0023a7af1611373791"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/simplefx/results_multi_final.json summary.simplefx_ebdc20 (45 runs, o0 737280/737280 o1 737280/737280 bit-exact); VS #2151 engine_only (no Material UB: VS declares only View(309) / TranslucentBasePass(260) / Primitive(45) and the 1-row GPU-skin passthrough VF buffer read by integer ops (evidence/validation/shaderdiff/weapons/round3/simplefx/vs_status_simplefx.json))",
+   "ps_archive_index": 245478,
+   "vs_archive_index": [
+    2151
+   ],
+   "vs_status": {
+    "f4940b72f2b6541d2eb69c0023a7af1611373791": "engine_only"
+   },
+   "blend_mode": "BLEND_Additive",
+   "resolve": false,
+   "roster_mis": 3,
+   "roster_slot_uses": 6,
+   "entities": [
+    "character:Qingxiao",
+    "skin:Silken Cloud"
+   ],
+   "example_mis": [
+    "MI_Add_Liudong_X04003_MP",
+    "MI_Add_Liudong_X04004_MP",
+    "MI_Add_Liudong_X04005_MP"
+   ],
+   "notes": "M_SimpleEffect_SK; entry WuwaFXSimpleEffect_NoiseSecondMask; MIs MI_Add_Liudong_X04003_MP, MI_Add_Liudong_X04004_MP, MI_Add_Liudong_X04005_MP (6 slot uses)"
+  },
+  {
+   "spec": "SimpleEffect_SK_UV4Dissolve_Additive.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "5c609e94e095cd0146ae85dc21a4f0946bb368a2"
+    ],
+    "base_pass_vs_hash": [
+     "f4940b72f2b6541d2eb69c0023a7af1611373791"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/simplefx/results_multi_final.json summary.simplefx_5c609e (42 runs, o0 688128/688128 o1 688128/688128 bit-exact); VS #2151 engine_only (no Material UB: VS declares only View(309) / TranslucentBasePass(260) / Primitive(45) and the 1-row GPU-skin passthrough VF buffer read by integer ops (evidence/validation/shaderdiff/weapons/round3/simplefx/vs_status_simplefx.json))",
+   "ps_archive_index": 151012,
+   "vs_archive_index": [
+    2151
+   ],
+   "vs_status": {
+    "f4940b72f2b6541d2eb69c0023a7af1611373791": "engine_only"
+   },
+   "blend_mode": "BLEND_Additive",
+   "resolve": false,
+   "roster_mis": 2,
+   "roster_slot_uses": 6,
+   "entities": [
+    "character:Cartethyia",
+    "skin:Thorny Rain"
+   ],
+   "example_mis": [
+    "MI_Add_Fuludelisi_140001_SK",
+    "MI_Add_Fuludelisi_140002_SK"
+   ],
+   "notes": "M_SimpleEffect_SK; entry WuwaFXSimpleEffect_UV4Dissolve; MIs MI_Add_Fuludelisi_140001_SK, MI_Add_Fuludelisi_140002_SK (6 slot uses)"
+  },
+  {
+   "spec": "SimpleEffect_SK_SecondDissolveMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "1bdae07ff48e5ff83ef02bb92c4300115c86a0d7"
+    ],
+    "base_pass_vs_hash": [
+     "98ddcc5eb79440ab36d97df6fc205943b3913f87"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/simplefx/results_multi_final.json summary.simplefx_1bdae0 (39 runs, o0 638976/638976 o1 638976/638976 bit-exact); VS #2157 engine_only (engine_only (round 1); no Material UB: CB0[260]/CB1[309]/CB2[45] + 1-row GPU-skin VF buffer (integer reads only))",
+   "ps_archive_index": 252993,
+   "vs_archive_index": [
+    2157
+   ],
+   "vs_status": {
+    "98ddcc5eb79440ab36d97df6fc205943b3913f87": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Qingxiao",
+    "skin:Silken Cloud"
+   ],
+   "example_mis": [
+    "MI_Add_Liudong_X04002_MP"
+   ],
+   "notes": "M_SimpleEffect_SK; entry WuwaFXSimpleEffect_SecondDissolveMask; MIs MI_Add_Liudong_X04002_MP (2 slot uses)"
+  },
+  {
+   "spec": "SimpleEffect_SK_NoiseSecondDissolveMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "69b25af5079e86bc372e2c8f8b1b6547bbb16a69"
+    ],
+    "base_pass_vs_hash": [
+     "98ddcc5eb79440ab36d97df6fc205943b3913f87"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/simplefx/results_multi_final.json summary.simplefx_69b25a (39 runs, o0 638976/638976 o1 638976/638976 bit-exact); VS #2157 engine_only (engine_only (round 1); no Material UB: CB0[260]/CB1[309]/CB2[45] + 1-row GPU-skin VF buffer (integer reads only))",
+   "ps_archive_index": 211996,
+   "vs_archive_index": [
+    2157
+   ],
+   "vs_status": {
+    "98ddcc5eb79440ab36d97df6fc205943b3913f87": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Qingxiao",
+    "skin:Silken Cloud"
+   ],
+   "example_mis": [
+    "MI_Add_Liudong_X04001_MP"
+   ],
+   "notes": "M_SimpleEffect_SK; entry WuwaFXSimpleEffect_NoiseSecondDissolveMask; MIs MI_Add_Liudong_X04001_MP (2 slot uses)"
+  }
+ ]
+}

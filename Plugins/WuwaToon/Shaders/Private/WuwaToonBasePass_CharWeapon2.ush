@@ -1,0 +1,484 @@
+// WuwaToonBasePass_CharWeapon2.ush — M_CharWeapon_Com base pass, MSM_ToonCommon (GBufferB id 12), round 3 (batch
+// charweapon) of research/roster/Port_Weapons_Specials.md. New file; WuwaToonBasePass_CharWeapon.ush (round 2) and the verified
+// shared headers are only #included.
+//
+// WuwaToonCharWeaponBasePass_SDFXingHenMatCap2S: PS __193048 (557b6f4eb7, MI_EAogusitaChangjianMd10011, Augusta sword prop;
+// static switches UseNormalMap, UsePBR, UsePBRMask, UseMatCap, UseSDFEffect, UseXingHenEffect; UseSecond / UseOutSideSDF off;
+// two-sided). Line refs A### = asm_hex of that PS (instruction lines after the declarations).
+// Differences from the round-2 CharWeapon body (WuwaToonCharWeaponBasePass_BaseColWarpSecondBreath):
+//   * no base-colour warp, no Second layer, no ramp: GBufferB.rgb = sqrt(saturate(ShadowColor))                    (A318-319)
+//   * UseToonMask off: the toon mask is the constant vector (0, 0.001 + SolidShadowProcess, 0, EmissionIntensity), so the
+//     shadow part is a material constant (uniform expression ToonMaskShadow) and the emission is TexColor * EmissionIntensity * EmissionColor (no breathing)
+//   * UseSDFEffect: SDF = (MainTex.a >= 0.95); metallic / roughness lerp to SDFMetallicInt / SDFRoughnessInt     (A31-35)
+//   * UseXingHenEffect: noise(t2).x at (normal-map xy * SDFNormalInt + frac(time * SDFTimeSpeed) + metal * NRM.z),
+//     E = 2 * Emis + SDF * (SDF * noise * SDFColor.rgb * SDFColor.a - Emis)                                    (A205-214)
+//   * two-sided: the shading normal uses N * TwoSidedSign (A13-15, 36-38)
+//   * SolidShadowWidth is NOT folded here: lit threshold 0.4, A.z = (Shadow * 0.5 + 0.5) * (1 - (1 - ratio) * Strength);
+//     the solid-shadow factor and that A.z scale are preshader constants (uniform expressions SolidShadowFactor /
+//     SolidShadowAZ, CPU float32 division chain)                                                                (A133-134, 303-304)
+#ifndef WUWA_CHARWEAPON2_USH
+#define WUWA_CHARWEAPON2_USH
+
+#include "WuwaToonBasePass_CharWeapon.ush"
+
+FWuwaToonGBuffer WuwaToonCharWeaponBasePass_SDFXingHenMatCap2S(
+	Texture2D Normal_Roughness_Metallic, SamplerState Normal_Roughness_MetallicSampler,
+	Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D CommonNoiseMap, SamplerState CommonNoiseMapSampler,
+	Texture2D MatCapTex, SamplerState MatCapTexSampler,
+	float2 UV0, float3 WorldTangent, float3 WorldNormal, float TangentSign, float TwoSidedSign,
+	float3 WorldPosition, float3 TranslatedWorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask,
+	float NormalStrength, float3 BaseColorTint, float EmissionIntensity, float3 EmissionColor,
+	float MetallicIntensityDebug, float RoughnessIntensityDebug, float SDFMetallicInt, float SDFRoughnessInt,
+	float RaytracingReflectionFix, float MetalSpecularPower, float SpecularPower, float LightOffset_Pitch,
+	float SolidShadowProcess, float ShadowOffsetAdjustFactor, float ShadowOffsetPower, float MaskShadowOffsetStrength,
+	float ShadowProcess, float ShadowWidth, float ToonMaskShadow, float SolidShadowFactor, float SolidShadowAZ,
+	float PBRHardSpecWidth_Test, float PBRHardSpeSmooth_Test, float PBRRateIntensity, float MetalEmissionStrength,
+	float SDFTimeSpeed, float SDFNormalInt, float4 SDFColor,
+	float3 E_Motion_Emissive, float4 SelectionColor, float MatCapInt, float MetalMatCapBack, float MetalMatCapInt,
+	float AniSwitch_ShadowColorBright, float3 ShadowColor, float ToonRimWidth, float FFTIntensity, float SSAOIntensity,
+	float CPD1, float CPD13, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float4x4 TranslatedWorldToView, float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask, float GameTime)
+{
+	FWuwaToonGBuffer G;
+	const float3 V = CameraVector;
+
+	// A1-3, 16-27: bitangent, normal map, View[144].w blend
+	float3 TangentY = cross(WorldNormal, WorldTangent) * TangentSign;
+	float4 NRM = Normal_Roughness_Metallic.SampleBias(Normal_Roughness_MetallicSampler, UV0, MaterialTextureMipBias);
+	float2 nxy = (NRM.xy * 2.0 + -1.0) * NormalStrength;
+	float3 Nmap = TangentY * nxy.y;
+	Nmap = nxy.x * WorldTangent + Nmap;
+	Nmap = Nmap + WorldNormal;
+	float  nw = NormalOverrideParameter.w;
+	float3 Nraw = Nmap * nw + (1.0 - nw) * WorldNormal;
+	float3 N = Nraw * rsqrt(dot(Nraw, Nraw));
+
+	// A28-35: base colour, constant toon-mask emission, SDF mask, metallic / roughness (SDF lerp)
+	float4 MT = MainTex.SampleBias(MainTexSampler, UV0, MaterialTextureMipBias);
+	float3 TexColor = MT.rgb * BaseColorTint;
+	float3 EmisTex = TexColor * EmissionIntensity;
+	float3 MR0 = NRM.zww * float3(MetallicIntensityDebug, RoughnessIntensityDebug, RoughnessIntensityDebug);
+	float  SDF = (MT.a >= asfloat(0x3F733333u)) ? 1.0 : 0.0;
+	float3 MRs = -float3(MetallicIntensityDebug, RoughnessIntensityDebug, RoughnessIntensityDebug) * NRM.zww
+		+ float3(SDFMetallicInt, SDFRoughnessInt, SDFRoughnessInt);
+	float3 MR = SDF * MRs + MR0;
+	float  Metallic = MR.x;
+	float  Rough = MR.z;
+
+	// A36-49: two-sided shading normal, NoV, spec exponent / intensity / power
+	float3 Ns = TwoSidedSign * N;
+	float3 N2 = RaytracingReflectionFix * (-N * TwoSidedSign + WorldNormal) + Ns;
+	float NoV = dot(N2, V);
+	float r01 = (asfloat(0x33000002u) >= Rough) ? 0.0 : exp2(log2(Rough) * 0.1);
+	float SpecIntensity = (1.0 - r01) * 19.9 + 0.1;
+	float SpecExponent  = r01 * -999.0 + 1000.0;
+	float SpecPow = Metallic * (MetalSpecularPower - SpecularPower) + SpecularPower;
+
+	// A50-108: light direction
+	float3 L = WuwaBPMainLightDir(LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+
+	// A109-135: shadow offset, half-Lambert step x solid-shadow factor. The shadow part is the constant toon-mask .y =
+	// 0.001 + SolidShadowProcess, a CPU preshader value (uniform expression ToonMaskShadow; written in HLSL, fxc would fold
+	// (0.001 + S) - S to 0.001)
+	float so = WuwaCWSmooth(saturate((1.0 / (1.0 - SolidShadowProcess)) * (ToonMaskShadow - SolidShadowProcess)));
+	so = so * ShadowOffsetAdjustFactor;
+	so = (asfloat(0x33000002u) >= so) ? 0.0 : exp2(log2(so) * ShadowOffsetPower) * MaskShadowOffsetStrength;
+	float HL = dot(N2, L) * 0.5 + so;
+	HL = HL + 0.5;
+	float Lo = (ShadowProcess + 0.0) - ShadowWidth;
+	float Hi = (ShadowProcess + 0.0) + ShadowWidth;
+	float Shadow = WuwaCWSmooth(saturate((1.0 / (Hi - Lo)) * (HL - Lo)));
+	Shadow = Shadow * SolidShadowFactor;
+	bool  bLit = (Shadow >= asfloat(0x3ECCCCCDu));
+	float IsLit = bLit ? 1.0 : 0.0;
+
+	// A136-161: toon specular (metal lerp)
+	float3 Lm = (IsLit * L) * float3(2.0, 2.0, 0.0);
+	Lm = L * float3(-1.0, -1.0, 1.0) + Lm;
+	float3 H1 = V + Lm;
+	H1 = H1 / sqrt(dot(H1, H1));
+	float  NoH1 = saturate(dot(H1, N));
+	float3 H = V + L;
+	H = H / sqrt(dot(H, H));
+	float  NoH = saturate(dot(N2, H));
+	float  NoHs = Metallic * (NoH - NoH1) + NoH1;
+	float  Spec = exp2(log2(NoHs) * SpecExponent);
+	Spec = SpecPow * Spec;
+	Spec = Spec * (SpecPow + 2.0);
+	Spec = saturate((Spec * asfloat(0x3E22F983u) + -0.6) * asfloat(0x3F555556u));
+	Spec = WuwaCWSmooth(Spec);
+
+	// A162-166: PBR hard-spec width (roughness <= 0.5 -> max(width, 0.01))
+	float hw0 = max(PBRHardSpecWidth_Test, 0.01);
+	float hw = -(Rough + -0.5) * 2.0 + hw0;
+	hw = ((0.5 >= Rough) ? 1.0 : 0.0) * (hw0 - hw) + hw;
+
+	// A167-182: PBR terms with EnvBRDFApprox(NoV)
+	float  F0d = (Metallic * 0.5 + 0.5) * 0.08;
+	float3 MetalBase = TexColor * Metallic;
+	float3 SpecColor = Metallic * (BaseColorTint * MT.rgb - F0d) + F0d;
+	float4 eb = Rough * float4(-1.0, -0.0275, -0.572, 0.022) + float4(1.0, 0.0425, 1.04, -0.04);
+	float  a004 = min(exp2(NoV * asfloat(0xC1147AE1u)), eb.x * eb.x) * eb.x + eb.y;
+	float2 AB = a004 * float2(-1.04, 1.04) + eb.zw;
+	AB.y = saturate(SpecColor.g * 50.0) * AB.y;
+	float3 EnvBRDF = SpecColor * AB.x + AB.y;
+
+	// A183-194: hard spec smoothstep of Spec * SpecIntensity
+	float hs = max(PBRHardSpeSmooth_Test, 0.001);
+	float hlo = (hs + 1.0) * hw - hs;
+	float hhi = hw + hs;
+	hlo = min(hhi + asfloat(0xBA83126Fu), hlo);
+	float hsp = saturate((1.0 / (hhi - hlo)) * (SpecIntensity * Spec - hlo));
+	hsp = WuwaCWSmooth(hsp);
+
+	// A195-204: metal highlight, diffuse, PBR mask, emissive
+	float3 SpecColorP = SpecColor * PBRRateIntensity;
+	float3 MetalHL = hsp * SpecColorP;
+	float3 Diffuse = PBRRateIntensity * -MetalBase + TexColor;
+	float3 MHLe = (Metallic * MetalHL) * MetalEmissionStrength;
+	float  PBRMask = ((1.0 - Rough) >= 0.01) ? 1.0 : 0.0;
+	float3 Emis = EmissionColor * EmisTex + MHLe * PBRMask;
+
+	// A205-217: XingHen / SDF noise effect, motion emissive, selection
+	float  t = frac(GameTime * SDFTimeSpeed);
+	t = MetallicIntensityDebug * NRM.z + t;
+	float2 xuv = nxy * SDFNormalInt + t;
+	float  xn = SDF * CommonNoiseMap.SampleBias(CommonNoiseMapSampler, xuv, MaterialTextureMipBias).x;
+	float3 XH = (xn * SDFColor.rgb) * SDFColor.a - Emis;
+	float3 E = SDF * XH + (Emis + Emis);
+	E = MotionEmissiveMask * E_Motion_Emissive + E;
+	float3 EPreSel = E;                                    // A349-351: the FFT nibble reads the pre-selection emissive
+	E = SelectionColor.a * (SelectionColor.rgb - E) + E;
+
+	// A218-231: view-space matcap UV (Pv summed in (y, z, x) order)
+	float3 Pv = mul(float4(TranslatedWorldPosition, 1.0), TranslatedWorldToView).xyz;
+	float3 PvYZX = min(Pv.yzx, 3.402823466e+38);
+	Pv = Pv / sqrt(dot(PvYZX, PvYZX));
+	float3 Nv = mul(N, (float3x3)TranslatedWorldToView);
+	float2 MatCapUV = float2(Pv.z * Nv.x - Pv.x * Nv.z, Pv.y * Nv.z - Pv.z * Nv.y) * 0.5 + 0.5;
+	float4 MC = MatCapTex.SampleBias(MatCapTexSampler, MatCapUV, MaterialTextureMipBias);
+
+	// A232-247: matcap channel by roughness, intensity (metal lerp)
+	float  mc = saturate(Rough * 3.0) * (MC.y - MC.x) + MC.x;
+	float2 ab = saturate(Rough * float2(3.0, 3.0) + float2(-1.0, -2.0));
+	mc = ab.x * (MC.z - mc) + mc;
+	mc = ab.y * (MC.w - mc) + mc;
+	float backI = Metallic * (MetalMatCapBack - MatCapInt) + MatCapInt;
+	float litI  = Metallic * (MetalMatCapInt - MatCapInt) + MatCapInt;
+	float inSh  = bLit ? 0.0 : 1.0;
+	float shI   = inSh * backI;
+	float mcI   = IsLit * (-backI * inSh + litI) + shI;
+	mc = mcI * mc;
+
+	// A248-252: lit colour -> GBufferC.rgb
+	float3 Lit = EnvBRDF * mc + MetalHL;
+	Lit = Diffuse + Lit;
+	Lit = -BaseColorTint * MT.rgb + Lit;
+	Lit = PBRMask * Lit + TexColor;
+	G.C.rgb = Lit * AniSwitch_ShadowColorBright;
+
+	// A285-302: emissive tail
+	G.Emissive = WuwaBPFinalEmissive(E, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+
+	// A303-304, 318-322: toon shadow factor, shadow colour, shading model
+	G.A.z = (Shadow * 0.5 + 0.5) * SolidShadowAZ;
+	G.A.xy = WuwaBPOctEncode(N);
+	G.B.rgb = sqrt(saturate(ShadowColor));
+	G.B.a = WuwaBPShadingModelByte(LightingChannelMask, 12u);
+
+	// A305-386: packings
+	if (KuroGBufferMode == 1.0)
+	{
+		G.C.a = WuwaBPRimByteEven(ToonRimWidth);
+		G.D = float4(0.0, 0.0, 0.0, 0.0);
+		G.A.w = 1.0;
+	}
+	else
+	{
+		float rr = saturate((PBRMask * Metallic) * (min(max(Rough, 0.0), asfloat(0x3ECCBFB1u)) + -1.0) + 1.0);
+		float packedY = WuwaPackU8Lo4(rr, saturate(Metallic));
+		float mx = max(EPreSel.z, max(EPreSel.y, EPreSel.x));
+		float fft = (mx * Metallic) * FFTIntensity;
+		float fsel = (FFTIntensity >= 0.0) ? fft : (FFTIntensity * -1.0);
+		fft = saturate((0.00001 < abs(FFTIntensity)) ? fsel : fft);
+		float packedW = WuwaPackU8Lo4(saturate(SSAOIntensity), fft);
+		G.D = float4(ToonRimWidth, packedY, 0.0, packedW);
+		G.A.w = 0.0;
+		G.C.a = 0.0;
+	}
+	return G;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// WuwaToonCharWeaponBasePass_SuoMinRainBreath: PS __80483 (bd9bfaaeeb, MI_ESuomingSanMd10011Sanmian_01, Suoming umbrella prop;
+// static switches Use_RenderForSuoMin, UseToonMask, UseMainTexA, UseBreathLight, UseNormalMap, UsePBR, UsePBRMask,
+// UseDoubleSpecular (no instruction of its own here)). Line refs S### = asm_hex of that PS. The cb4 table was rebuilt with
+// tools/shaderdiff/weapons/r3/charweapon_cbmap.py (all parameter names recovered, see the spec).
+// Body = the round-2 CharWeapon body (MainTex.a toon mask decode, breathing, metal-lerp PBR, folded SolidShadowWidth 0.1:
+// lit threshold 0x3D23D70C, A.z scale 0x409FFFFE) on a modified base colour, with GBufferB.rgb = sqrt(saturate(ShadowColor)).
+// Use_RenderForSuoMin (S25-129):
+//   * circle noise: c = UV2 + CircleNoise_UVOffset, polar UV (frac(frac(atan2(c.x, c.y) / 2pi + 0.5) * Tilling_X),
+//     (1 - (|c| + time * Speed_Y)) * Tilling_Y), CircleNoise_Map.x (SampleLevel at mip bias - 1) x Sanmian_FX.x mask
+//   * MainTex / MainTex_Change sampled at UV0 + noise * CircleNoise_Intensity
+//   * two rain-ripple layers (T_RainRipples .x ring / .w phase; layer 2 on UV2 rotated by Ripple_UVRotation_2), each
+//     smoothstep(SmoothMin, SmoothMax, ring * saturate(RippleWeightBias - smoothstep(FreqMin, FreqMax, |sin(2pi frac(time *
+//     Speed + phase))|))), x RippleSphereMask_Int, max of both, x mask, x (WeatherWeight * (max(MPC CharWetRenderFootPrintInt,
+//     MPC CharWetRenderBlackRainInt) - 1) + 1) -> lerp(MainTex * BaseColorTint, MainTex_Change, ripple)
+//   * circle colour: s = smoothstep(CircleNoiseRange_SmoothMin, _SmoothMax, noise * mask); Base += s * EmissInt * (s * Color *
+//     Base - Base)
+FWuwaToonGBuffer WuwaToonCharWeaponBasePass_SuoMinRainBreath(
+	Texture2D Normal_Roughness_Metallic, SamplerState Normal_Roughness_MetallicSampler,
+	Texture2D CircleNoise_Map, SamplerState CircleNoise_MapSampler,
+	Texture2D Sanmian_FX, SamplerState Sanmian_FXSampler,
+	Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D MainTex_Change, SamplerState MainTex_ChangeSampler,
+	Texture2D RainRipples, SamplerState RainRipplesSampler,
+	Texture2D MatCapTex, SamplerState MatCapTexSampler,
+	float2 UV0, float2 UV2, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 TranslatedWorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask,
+	float NormalStrength, float CircleNoise_UVOffset_X, float CircleNoise_UVOffset_Y, float CircleNoise_Tilling_X,
+	float CircleNoise_Speed_Y, float CircleNoise_Tilling_Y, float CircleNoise_Intensity, float3 BaseColorTint,
+	float RippleNoise_Intensity, float Ripple_UVTilling, float Ripple_Speed, float Ripple_Frequency_Min, float Ripple_Frequency_Max,
+	float RippleWeightBias, float RippleSphereMask_SmoothMin, float RippleSphereMask_SmoothMax,
+	float RippleRot2Cos, float RippleRot2Sin, float RippleNoise_Intensity_2, float Ripple_UVTilling_2, float Ripple_Speed_2,
+	float Ripple_Frequency_Min_2, float Ripple_Frequency_Max_2, float RippleSphereMask_SmoothMin_2, float RippleSphereMask_SmoothMax_2,
+	float RippleSphereMask_Int, float WeatherWeight, float MPC_CharWetRenderFootPrintInt, float MPC_CharWetRenderBlackRainInt,
+	float CircleNoiseRange_SmoothMin, float CircleNoiseRange_SmoothMax, float3 CircleNoise_Color, float CircleNoise_EmissInt,
+	float OpacityIntensity, float DecodeShadowThreshold, float DecodeSpecThreshold, float3 EmissionColor, float BreatheFrequency,
+	float BreatheStrength, float BreathePropotion, float EmissionStrength, float EmissionBreathThreshold,
+	float MetallicIntensityDebug, float RoughnessIntensityDebug, float RaytracingReflectionFix, float MetalSpecularPower,
+	float SpecularPower, float LightOffset_Pitch, float SolidShadowProcess, float ShadowOffsetAdjustFactor, float ShadowOffsetPower,
+	float MaskShadowOffsetStrength, float ShadowProcess, float ShadowWidth, float PBRHardSpecWidth_Test, float PBRHardSpeSmooth_Test,
+	float PBRRateIntensity, float MetalEmissionStrength, float3 E_Motion_Emissive, float4 SelectionColor, float MatCapInt,
+	float MetalMatCapBack, float MetalMatCapInt, float AniSwitch_ShadowColorBright, float3 ShadowColor, float SolidShadowStrength,
+	float ToonRimWidth, float FFTIntensity, float SSAOIntensity,
+	float CPD1, float CPD13, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float4x4 TranslatedWorldToView, float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask, float GameTime)
+{
+	FWuwaToonGBuffer G;
+	const float3 V = CameraVector;
+
+	// S1-3, 13-24: bitangent, normal map, View[144].w blend
+	float3 TangentY = cross(WorldNormal, WorldTangent) * TangentSign;
+	float4 NRM = Normal_Roughness_Metallic.SampleBias(Normal_Roughness_MetallicSampler, UV0, MaterialTextureMipBias);
+	float2 nxy = (NRM.xy * 2.0 + -1.0) * NormalStrength;
+	float3 Nmap = TangentY * nxy.y;
+	Nmap = nxy.x * WorldTangent + Nmap;
+	Nmap = Nmap + WorldNormal;
+	float  nw = NormalOverrideParameter.w;
+	float3 Nraw = Nmap * nw + (1.0 - nw) * WorldNormal;
+	float  NrawRsq = rsqrt(dot(Nraw, Nraw));
+	float3 N = Nraw * NrawRsq;
+
+	// S25-62: polar circle noise x Sanmian_FX mask, MainTex UV offset
+	float2 c = UV2 + float2(CircleNoise_UVOffset_X, CircleNoise_UVOffset_Y);
+	float  ang = frac(atan2(c.x, c.y) * asfloat(0x3E22F986u) + 0.5);
+	float2 cuv;
+	cuv.x = frac(ang * CircleNoise_Tilling_X);
+	float  rad = GameTime * CircleNoise_Speed_Y + sqrt(dot(c, c));
+	cuv.y = (1.0 - rad) * CircleNoise_Tilling_Y;
+	float  cn  = CircleNoise_Map.SampleLevel(CircleNoise_MapSampler, cuv, MaterialTextureMipBias + -1.0).x;
+	float  fxm = Sanmian_FX.SampleBias(Sanmian_FXSampler, UV0, MaterialTextureMipBias).x;
+	float  nm  = cn * fxm;
+	float2 muv = nm * CircleNoise_Intensity + UV0;
+
+	// S63-65: base colour and the "change" texture
+	float4 MT = MainTex.SampleBias(MainTexSampler, muv, MaterialTextureMipBias);
+	float3 TexColor = MT.rgb * BaseColorTint;
+	float3 MTC = MainTex_Change.SampleBias(MainTex_ChangeSampler, muv, MaterialTextureMipBias).rgb;
+
+	// S66-86: rain ripple layer 1
+	float2 ruv = UV2 * Ripple_UVTilling + nm * RippleNoise_Intensity;
+	float2 R1 = RainRipples.SampleBias(RainRipplesSampler, ruv, MaterialTextureMipBias).xw;
+	float  s1 = sin(frac(GameTime * Ripple_Speed + R1.y) * 6.28318548);
+	float  f1 = saturate((abs(s1) - Ripple_Frequency_Min) * (1.0 / (Ripple_Frequency_Max - Ripple_Frequency_Min)));
+	f1 = saturate(-(f1 * -2.0 + 3.0) * (f1 * f1) + RippleWeightBias);
+	float  rp1 = saturate((f1 * R1.x - RippleSphereMask_SmoothMin) * (1.0 / (RippleSphereMask_SmoothMax - RippleSphereMask_SmoothMin)));
+	rp1 = WuwaCWSmooth(rp1);
+
+	// S87-109: rain ripple layer 2 (UV2 rotated about 0.5 by Ripple_UVRotation_2)
+	float2 p2 = UV2 + -0.5;
+	p2 = float2(dot(p2, float2(RippleRot2Cos, -RippleRot2Sin)), dot(p2, float2(RippleRot2Sin, RippleRot2Cos))) + 0.5;
+	p2 = p2 * Ripple_UVTilling_2 + nm * RippleNoise_Intensity_2;
+	float2 R2 = RainRipples.SampleBias(RainRipplesSampler, p2, MaterialTextureMipBias).xw;
+	float  s2 = sin(frac(GameTime * Ripple_Speed_2 + R2.y) * 6.28318548);
+	float  f2 = saturate((abs(s2) - Ripple_Frequency_Min_2) * (1.0 / (Ripple_Frequency_Max_2 - Ripple_Frequency_Min_2)));
+	f2 = saturate(-(f2 * -2.0 + 3.0) * (f2 * f2) + RippleWeightBias);
+	float  rp2 = saturate((1.0 / (RippleSphereMask_SmoothMax_2 - RippleSphereMask_SmoothMin_2)) * (f2 * R2.x - RippleSphereMask_SmoothMin_2));
+	rp2 = WuwaCWSmooth(rp2);
+
+	// S110-118: ripple mask, weather weight, lerp to MainTex_Change
+	float  ripple = max(saturate(rp2 * RippleSphereMask_Int), saturate(rp1 * RippleSphereMask_Int));
+	ripple = fxm * ripple;
+	ripple = ripple * (WeatherWeight * (max(MPC_CharWetRenderFootPrintInt, MPC_CharWetRenderBlackRainInt) + -1.0) + 1.0);
+	float3 Base = ripple * (-BaseColorTint * MT.rgb + MTC) + TexColor;
+
+	// S119-129: circle-noise colour
+	float  cs = WuwaCWSmooth(saturate((nm - CircleNoiseRange_SmoothMin) * (1.0 / (CircleNoiseRange_SmoothMax - CircleNoiseRange_SmoothMin))));
+	float3 cc = cs * CircleNoise_Color;
+	float  ce = cs * CircleNoise_EmissInt;
+	Base = ce * (cc * Base - Base) + Base;
+
+	// S130-150: MainTex.a decode, breathing emission
+	float A = MT.a * OpacityIntensity;
+	float ShadowPart = min(max(A, 0.0), DecodeShadowThreshold) / DecodeShadowThreshold;
+	float SpecPart = (min(max(A, DecodeSpecThreshold), 1.0) - DecodeSpecThreshold) / (1.0 - DecodeSpecThreshold);
+	float3 e0 = SpecPart * Base;
+	float  br = cos(GameTime * BreatheFrequency);
+	br = BreatheStrength * br + BreatheStrength * BreathePropotion;
+	br = br * EmissionStrength;
+	float3 eB = br * (e0 * EmissionColor);
+	float  sel = (EmissionBreathThreshold >= SpecPart) ? 1.0 : 0.0;
+	float3 Emis = sel * (EmissionColor * e0 - eB) + eB;
+
+	// S151-164: metal / roughness, shading normal, NoV, spec exponent / intensity / power
+	float Metallic = NRM.z * MetallicIntensityDebug;
+	float Rough = NRM.w * RoughnessIntensityDebug;
+	float3 N2 = RaytracingReflectionFix * (-Nraw * NrawRsq + WorldNormal) + N;
+	float NoV = dot(N2, V);
+	float r01 = (asfloat(0x33000002u) >= Rough) ? 0.0 : exp2(log2(Rough) * 0.1);
+	float SpecIntensity = (1.0 - r01) * 19.9 + 0.1;
+	float SpecExponent  = r01 * -999.0 + 1000.0;
+	float SpecPow = Metallic * (MetalSpecularPower - SpecularPower) + SpecularPower;
+
+	// S165-223: light direction
+	float3 L = WuwaBPMainLightDir(LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+
+	// S224-255: shadow offset, half-Lambert step x solid-shadow term (SolidShadowWidth 0.1 folded)
+	float so = WuwaCWSmooth(saturate((1.0 / (1.0 - SolidShadowProcess)) * (ShadowPart - SolidShadowProcess)));
+	so = so * ShadowOffsetAdjustFactor;
+	so = (asfloat(0x33000002u) >= so) ? 0.0 : exp2(log2(so) * ShadowOffsetPower) * MaskShadowOffsetStrength;
+	float HL = dot(N2, L) * 0.5 + so;
+	HL = HL + 0.5;
+	float Lo = (ShadowProcess + 0.0) - ShadowWidth;
+	float Hi = (ShadowProcess + 0.0) + ShadowWidth;
+	float Shadow = WuwaCWSmooth(saturate((1.0 / (Hi - Lo)) * (HL - Lo)));
+	float SolidRatio = min(ShadowPart, SolidShadowProcess) / max(SolidShadowProcess, 0.01);
+	Shadow = Shadow * (min(max(SolidRatio, asfloat(0x3F666666u)), 1.0) + asfloat(0xBF666666u));
+	bool  bLit = (Shadow >= asfloat(0x3D23D70Cu));
+	float IsLit = bLit ? 1.0 : 0.0;
+
+	// S256-281: toon specular (metal lerp)
+	float3 Lm = (IsLit * L) * float3(2.0, 2.0, 0.0);
+	Lm = L * float3(-1.0, -1.0, 1.0) + Lm;
+	float3 H1 = V + Lm;
+	H1 = H1 / sqrt(dot(H1, H1));
+	float  NoH1 = saturate(dot(H1, N));
+	float3 H = V + L;
+	H = H / sqrt(dot(H, H));
+	float  NoH = saturate(dot(N2, H));
+	float  NoHs = Metallic * (NoH - NoH1) + NoH1;
+	float  Spec = exp2(log2(NoHs) * SpecExponent);
+	Spec = SpecPow * Spec;
+	Spec = Spec * (SpecPow + 2.0);
+	Spec = saturate((Spec * asfloat(0x3E22F983u) + -0.6) * asfloat(0x3F555556u));
+	Spec = WuwaCWSmooth(Spec);
+
+	// S282-286: PBR hard-spec width
+	float hw0 = max(PBRHardSpecWidth_Test, 0.01);
+	float hw = -(NRM.w * RoughnessIntensityDebug + -0.5) * 2.0 + hw0;
+	hw = ((0.5 >= Rough) ? 1.0 : 0.0) * (hw0 - hw) + hw;
+
+	// S287-302: PBR terms with EnvBRDFApprox(NoV), on the modified base colour
+	float  F0w = Metallic * 0.5 + 0.5;
+	float  F0d = F0w * 0.08;
+	float3 MetalBase = Metallic * Base;
+	float3 SpecColor = Metallic * (-F0w * 0.08 + Base) + F0d;
+	float4 eb = Rough * float4(-1.0, -0.0275, -0.572, 0.022) + float4(1.0, 0.0425, 1.04, -0.04);
+	float  a004 = min(exp2(NoV * asfloat(0xC1147AE1u)), eb.x * eb.x) * eb.x + eb.y;
+	float2 AB = a004 * float2(-1.04, 1.04) + eb.zw;
+	AB.y = AB.y * saturate(SpecColor.g * 50.0);
+	float3 EnvBRDF = SpecColor * AB.x + AB.y;
+
+	// S303-314: hard spec smoothstep of Spec * SpecIntensity
+	float hs = max(PBRHardSpeSmooth_Test, 0.001);
+	float hlo = (hs + 1.0) * hw - hs;
+	float hhi = hw + hs;
+	hlo = min(hhi + asfloat(0xBA83126Fu), hlo);
+	float hsp = saturate((1.0 / (hhi - hlo)) * (SpecIntensity * Spec - hlo));
+	hsp = WuwaCWSmooth(hsp);
+
+	// S315-327: metal highlight, diffuse, PBR mask, emissive x2, motion emissive, selection
+	float3 SpecColorP = SpecColor * PBRRateIntensity;
+	float3 MetalHL = hsp * SpecColorP;
+	float3 Diffuse = PBRRateIntensity * -MetalBase + Base;
+	float3 MHLe = (Metallic * MetalHL) * MetalEmissionStrength;
+	float  PBRMask = ((-RoughnessIntensityDebug * NRM.w + 1.0) >= 0.01) ? 1.0 : 0.0;
+	Emis = PBRMask * MHLe + Emis;
+	float3 E = Emis + Emis;
+	E = MotionEmissiveMask * E_Motion_Emissive + E;
+	float3 EPreSel = E;                                    // S459-460: the FFT nibble reads the pre-selection emissive
+	E = SelectionColor.a * (SelectionColor.rgb - E) + E;
+
+	// S328-341: view-space matcap UV (Pv summed in (y, z, x) order)
+	float3 Pv = mul(float4(TranslatedWorldPosition, 1.0), TranslatedWorldToView).xyz;
+	float3 PvYZX = min(Pv.yzx, 3.402823466e+38);
+	Pv = Pv / sqrt(dot(PvYZX, PvYZX));
+	float3 Nv = mul(N, (float3x3)TranslatedWorldToView);
+	float2 MatCapUV = float2(Pv.z * Nv.x - Pv.x * Nv.z, Pv.y * Nv.z - Pv.z * Nv.y) * 0.5 + 0.5;
+	float4 MC = MatCapTex.SampleBias(MatCapTexSampler, MatCapUV, MaterialTextureMipBias);
+
+	// S342-355: matcap channel by roughness, intensity (metal lerp)
+	float  mc = saturate(Rough * 3.0) * (MC.y - MC.x) + MC.x;
+	float2 ab = saturate(Rough * float2(3.0, 3.0) + float2(-1.0, -2.0));
+	mc = ab.x * (MC.z - mc) + mc;
+	mc = ab.y * (MC.w - mc) + mc;
+	float backI = Metallic * (MetalMatCapBack - MatCapInt) + MatCapInt;
+	float litI  = Metallic * (MetalMatCapInt - MatCapInt) + MatCapInt;
+	float inSh  = bLit ? 0.0 : 1.0;
+	float shI   = inSh * backI;
+	float mcI   = IsLit * (-backI * inSh + litI) + shI;
+	mc = mcI * mc;
+
+	// S356-360: lit colour -> GBufferC.rgb
+	float3 Lit = EnvBRDF * mc + MetalHL;
+	Lit = Diffuse + Lit;
+	Lit = Lit - Base;
+	Lit = PBRMask * Lit + Base;
+	G.C.rgb = Lit * AniSwitch_ShadowColorBright;
+
+	// S393-410: emissive tail
+	G.Emissive = WuwaBPFinalEmissive(E, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+
+	// S411-414, 428-432: toon shadow factor, shadow colour, shading model
+	float az = -(1.0 - SolidRatio) * SolidShadowStrength + 1.0;
+	G.A.z = (Shadow * asfloat(0x409FFFFEu) + 0.5) * az;
+	G.A.xy = WuwaBPOctEncode(N);
+	G.B.rgb = sqrt(saturate(ShadowColor));
+	G.B.a = WuwaBPShadingModelByte(LightingChannelMask, 12u);
+
+	// S415-496: packings
+	if (KuroGBufferMode == 1.0)
+	{
+		G.C.a = WuwaBPRimByteEven(ToonRimWidth);
+		G.D = float4(0.0, 0.0, 0.0, 0.0);
+		G.A.w = 1.0;
+	}
+	else
+	{
+		float rr = saturate((PBRMask * Metallic) * (min(max(Rough, 0.0), asfloat(0x3ECCBFB1u)) + -1.0) + 1.0);
+		float packedY = WuwaPackU8Lo4(rr, saturate(Metallic));
+		float mx = max(EPreSel.z, max(EPreSel.y, EPreSel.x));
+		float fft = (mx * Metallic) * FFTIntensity;
+		float fsel = (FFTIntensity >= 0.0) ? fft : (FFTIntensity * -1.0);
+		fft = saturate((0.00001 < abs(FFTIntensity)) ? fsel : fft);
+		float packedW = WuwaPackU8Lo4(saturate(SSAOIntensity), fft);
+		G.D = float4(ToonRimWidth, packedY, 0.0, packedW);
+		G.A.w = 0.0;
+		G.C.a = 0.0;
+	}
+	return G;
+}
+
+#endif // WUWA_CHARWEAPON2_USH

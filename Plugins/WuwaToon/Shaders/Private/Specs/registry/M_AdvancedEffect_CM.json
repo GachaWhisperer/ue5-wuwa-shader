@@ -1,0 +1,443 @@
+{
+ "root_material": "M_AdvancedEffect_CM",
+ "generated_by": "tools/shaderdiff/weapons/build_registry.py",
+ "contract": "Specs/registry/README.md",
+ "note": "one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose material terms are verified or provably inactive (vs_status.py: verified_binary / engine_only / gated_wpo). Translucent / unlit entries (\"resolve\": false) output Emissive + Opacity, not the toon GBuffer. research/roster/Port_Weapons_Specials.md",
+ "variants": [
+  {
+   "spec": "AdvancedEffect_CM_NoiseSecondMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6bef409a6ffe9b9523b3dbcaeed7a11936150385"
+    ],
+    "base_pass_vs_hash": [
+     "233ff8a281a3bed14881c1c017919b374e1a4339"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_6bef40 (45 runs, 737280/737280 px bit-exact on o0/o1); VS #100607 gated_wpo (E_Absorbed_Enable = [0.0] at every MI); evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 100608,
+   "vs_archive_index": [
+    100607
+   ],
+   "vs_status": {
+    "233ff8a281a3bed14881c1c017919b374e1a4339": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 7,
+   "roster_slot_uses": 8,
+   "entities": [
+    "weapon:Firstlight's Herald",
+    "weapon:Stellar Symphony",
+    "weapon:Tragicomedy"
+   ],
+   "example_mis": [
+    "MI_R5Device503Md200011Effect",
+    "MI_R5Knuckles502Md20001Effect",
+    "MI_Suisui_Niao_250000_CM",
+    "MI_Suisui_Niao_250001_CM",
+    "MI_Suisui_Niao_250003_CM",
+    "MI_Suisui_Niao_250006_CM"
+   ]
+  },
+  {
+   "spec": "AdvancedEffect_CM_NoiseSecondMask_Additive.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "4d180d57c081b33d328ab1aa025145eaa29bb112"
+    ],
+    "base_pass_vs_hash": [
+     "da9bde533b42ea0c36508ff39eeb397fe96442fa"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_4d180d (27 runs, 442368/442368 px bit-exact on o0/o1); VS #71775 gated_wpo (E_Absorbed_Enable = [0.0] at every MI); evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 71770,
+   "vs_archive_index": [
+    71775
+   ],
+   "vs_status": {
+    "da9bde533b42ea0c36508ff39eeb397fe96442fa": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Additive",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 1,
+   "entities": [
+    "weapon:Firstlight's Herald"
+   ],
+   "example_mis": [
+    "MI_Suisui_Niao_250002_CM"
+   ]
+  },
+  {
+   "spec": "AdvancedEffect_CM_NoiseMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0e2fbb03c995c90304cbfc56986fea137b9772f7"
+    ],
+    "base_pass_vs_hash": [
+     "42c7f08aeeae0cb6bbc1ab370debbcbbbd1b5117"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_0e2fbb (30 runs, 491520/491520 px bit-exact on o0/o1); VS #292985 gated_wpo (E_Absorbed_Enable = [0.0] at every MI); evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 292984,
+   "vs_archive_index": [
+    292985
+   ],
+   "vs_status": {
+    "42c7f08aeeae0cb6bbc1ab370debbcbbbd1b5117": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 2,
+   "roster_slot_uses": 2,
+   "entities": [
+    "weapon:Firstlight's Herald"
+   ],
+   "example_mis": [
+    "MI_Suisui_Niao_250004_CM",
+    "MI_Suisui_Niao_250012_CM"
+   ]
+  },
+  {
+   "spec": "AdvancedEffect_CM_NoiseSecond.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "5a50dd936d647dc19e532baf0c24989ebac21e23"
+    ],
+    "base_pass_vs_hash": [
+     "0323b63d45f18ef704a463b0da40eb06a2dff723"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_5a50dd (27 runs, 442368/442368 px bit-exact on o0/o1); VS #293603 gated_wpo (E_Absorbed_Enable = [0.0] at every MI); evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 293607,
+   "vs_archive_index": [
+    293603
+   ],
+   "vs_status": {
+    "0323b63d45f18ef704a463b0da40eb06a2dff723": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 1,
+   "entities": [
+    "weapon:Blooming Jadehaven"
+   ],
+   "example_mis": [
+    "MI_Trans_Liudong_250003_CM_2"
+   ]
+  },
+  {
+   "spec": "AdvancedEffect_CM_SecondMatcapMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "4f7af9827f78cfed92914061bb1ee4f190230660"
+    ],
+    "base_pass_vs_hash": [
+     "c57fa7cb4cd2238481d896f535e96a411967eb42"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_4f7af9 (30 runs, 491520/491520 px bit-exact on o0/o1); VS #304816 gated_wpo (E_Absorbed_Enable = [0.0] at every MI); evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 304814,
+   "vs_archive_index": [
+    304816
+   ],
+   "vs_status": {
+    "c57fa7cb4cd2238481d896f535e96a411967eb42": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 2,
+   "roster_slot_uses": 2,
+   "entities": [
+    "weapon:Blooming Jadehaven"
+   ],
+   "example_mis": [
+    "MI_Trans_Liudong_250000_CM",
+    "MI_Trans_Liudong_250001_CM"
+   ]
+  },
+  {
+   "spec": "AdvancedEffect_CM_NoiseSecondRim2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "17d5b74502e54c2ac9e5ec1a60da613edd1d9db3"
+    ],
+    "base_pass_vs_hash": [
+     "56d55002b65e0b2c6d11a11713b92f47f8bace25"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_17d5b7 (27 runs, 442368/442368 px bit-exact on o0/o1); VS #102852 gated_wpo (E_Absorbed_Enable = [0.0] at every MI); evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 232502,
+   "vs_archive_index": [
+    102852
+   ],
+   "vs_status": {
+    "56d55002b65e0b2c6d11a11713b92f47f8bace25": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 1,
+   "entities": [
+    "weapon:Woodland Aria"
+   ],
+   "example_mis": [
+    "MI_R5Gun502Md20001Effect"
+   ]
+  },
+  {
+   "spec": "AdvancedEffect_CM_NoiseSecondRim2SDissolveMask_Additive.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "caed97a8fdb4b0be4ef87094f8d8d4e46e8f1a77"
+    ],
+    "base_pass_vs_hash": [
+     "90439a3a27149e78e5123f941719368c6b5ed2ec"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_caed97 (27 runs, 442368/442368 px bit-exact on o0/o1); VS #310080 gated_wpo (E_Absorbed_Enable = [0.0] at every MI); evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 310082,
+   "vs_archive_index": [
+    310080
+   ],
+   "vs_status": {
+    "90439a3a27149e78e5123f941719368c6b5ed2ec": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Additive",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 1,
+   "entities": [
+    "weapon:Blooming Jadehaven"
+   ],
+   "example_mis": [
+    "MI_Trans_Liudong_250002_CM"
+   ]
+  },
+  {
+   "spec": "AdvancedEffect_CM_NoiseSecondDissolveMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "fb132455142c69f6c409f9c634142bd953cdfd5e"
+    ],
+    "base_pass_vs_hash": [
+     "027b9cab2ac741b0848776249f7f33070c3ce442"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_fb1324 (48 runs, 786432/786432 px bit-exact on o0/o1); VS #328163 gated_wpo (E_Absorbed_Enable = [0.0] at every MI); evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 328169,
+   "vs_archive_index": [
+    328163
+   ],
+   "vs_status": {
+    "027b9cab2ac741b0848776249f7f33070c3ce442": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 8,
+   "roster_slot_uses": 20,
+   "entities": [
+    "character:Galbrena",
+    "character:Lupa",
+    "character:Shorekeeper",
+    "skin:Always and Ever",
+    "skin:Hunt Unending",
+    "skin:Wildfire"
+   ],
+   "example_mis": [
+    "MI_ELupaFirerightMd10011_Effect_1",
+    "MI_ELupaFirerightMd10011_Effect_2",
+    "MI_EShouanrenHudieMd10011_2",
+    "MI_Trans_Liudong_80001_CM1",
+    "MI_Trans_Liudong_80002_CM",
+    "MI_Trans_Liudong_80005_CM"
+   ]
+  },
+  {
+   "spec": "AdvancedEffect_CM_NoiseSecondDissolveMask_Additive.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f90c7662644f39794fa11680491c1e2ff72fe1d7"
+    ],
+    "base_pass_vs_hash": [
+     "ccd0a4941c1ec502e30b833aff6f1dea376d8659"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_f90c76 (30 runs, 491520/491520 px bit-exact on o0/o1); VS #334865 gated_wpo (E_Absorbed_Enable = [0.0] at every MI); evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 334866,
+   "vs_archive_index": [
+    334865
+   ],
+   "vs_status": {
+    "ccd0a4941c1ec502e30b833aff6f1dea376d8659": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Additive",
+   "resolve": false,
+   "roster_mis": 2,
+   "roster_slot_uses": 4,
+   "entities": [
+    "character:Galbrena",
+    "skin:Hunt Unending"
+   ],
+   "example_mis": [
+    "MI_Trans_Liudong_80003_CM1",
+    "MI_Trans_Liudong_80004_CM1"
+   ]
+  },
+  {
+   "spec": "AdvancedEffect_CM_NoiseSecondDissolveNoTexMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0f4dbd643d7f3639ab413e8cbbe7eaae54e67a1c"
+    ],
+    "base_pass_vs_hash": [
+     "00236de389bc2024a19019375dc26ebddc244230"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_0f4dbd (33 runs, 540672/540672 px bit-exact on o0/o1); VS #326072 gated_wpo (E_Absorbed_Enable = [0.0] at every MI); evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 326073,
+   "vs_archive_index": [
+    326072
+   ],
+   "vs_status": {
+    "00236de389bc2024a19019375dc26ebddc244230": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 3,
+   "roster_slot_uses": 6,
+   "entities": [
+    "character:Lupa",
+    "skin:Wildfire"
+   ],
+   "example_mis": [
+    "MI_ELupaBiaoqiangMd10011_Effect",
+    "MI_ELupaBiaoqiangMd10011_Effect1",
+    "MI_ELupaBiaoqiangMd10011_Effect5"
+   ]
+  },
+  {
+   "spec": "AdvancedEffect_CM_Base.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "4c627f23b1d06dd2d88a6f76dd619909457dee8e"
+    ],
+    "base_pass_vs_hash": [
+     "d3f47342f93748f884f4eece4ee649ffcdfb7343"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_4c627f (27 runs, 442368/442368 px bit-exact on o0/o1); VS #81172 gated_wpo (E_Absorbed_Enable = [0.0] at every MI); evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 136291,
+   "vs_archive_index": [
+    81172
+   ],
+   "vs_status": {
+    "d3f47342f93748f884f4eece4ee649ffcdfb7343": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Suisui",
+    "skin:Halcyon Days of Harvest"
+   ],
+   "example_mis": [
+    "MI_ESuisuidaShuishanMd10011_Shanmian_Mountain_Birds"
+   ]
+  },
+  {
+   "spec": "AdvancedEffect_CM_BaseMasked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "203966d862716b27fed915995cab91cac16a5f87"
+    ],
+    "base_pass_vs_hash": [
+     "0f58bd6be4ef6b446dd69577755a8f6092ae9d3e"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_203966 (27 runs, 442368/442368 px bit-exact on o0/o1/o2/o3/o6); VS #169115 gated_wpo (E_Absorbed_Enable = [0.0] at every MI); evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 169121,
+   "vs_archive_index": [
+    169115
+   ],
+   "vs_status": {
+    "0f58bd6be4ef6b446dd69577755a8f6092ae9d3e": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 1,
+   "entities": [
+    "weapon:Firstlight's Herald"
+   ],
+   "example_mis": [
+    "MI_Suisui_Niao_250008_CM"
+   ]
+  },
+  {
+   "spec": "AdvancedEffect_CM_UV4Mask_Additive.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ab15e36ffde11701e5c3e739dca77071b45746fd"
+    ],
+    "base_pass_vs_hash": [
+     "391d180649462351b310a37c132342d9fd46a747"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_ab15e3 (33 runs, 540672/540672 px bit-exact on o0/o1); VS #191830 gated_wpo (E_Absorbed_Enable = [0.0] at every MI); evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 191832,
+   "vs_archive_index": [
+    191830
+   ],
+   "vs_status": {
+    "391d180649462351b310a37c132342d9fd46a747": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Additive",
+   "resolve": false,
+   "roster_mis": 3,
+   "roster_slot_uses": 6,
+   "entities": [
+    "character:Jingran",
+    "skin:Far Trekker"
+   ],
+   "example_mis": [
+    "MI_Add_Jingran_Shengzi_80001_CM",
+    "MI_Add_Jingran_Shengzi_80002_CM",
+    "MI_Add_Jingran_Shengzi_80003_CM"
+   ]
+  },
+  {
+   "spec": "AdvancedEffect_CM_UV4NoiseDistSecondMask_Additive.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "4acee5db7d661f5419061c4c79a45cf954849cd3"
+    ],
+    "base_pass_vs_hash": [
+     "3c74b5c46e3b0f41fe4d48c8ff6ae8bfcd04a3d1"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#verified-variants; evidence/validation/shaderdiff/weapons/results_final2.json summary.AdvCM_4acee5 (27 runs, 442368/442368 px bit-exact on o0/o1); VS #55877 gated_wpo (E_Absorbed_Enable = [0.0] at every MI); evidence/validation/shaderdiff/weapons/vs_status.json",
+   "ps_archive_index": 55880,
+   "vs_archive_index": [
+    55877
+   ],
+   "vs_status": {
+    "3c74b5c46e3b0f41fe4d48c8ff6ae8bfcd04a3d1": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Additive",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Suoming",
+    "skin:Gilded Sable"
+   ],
+   "example_mis": [
+    "MI_Suoming_Ghost_Jinsan_96000"
+   ]
+  }
+ ]
+}

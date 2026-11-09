@@ -1,0 +1,136 @@
+// WuwaToonExtraPasses.ush — emulation of Kuro's per-section extra passes (LODSectionExtraMaterialMap) that need
+// pipeline state a launcher-UE plugin cannot set (stencil-only writes, GBufferA-only writes, render-queue order).
+// research/shaders/HETPasses.md §4 (design) and research/hlsl/HET_Emulation_Sketch.ush.
+//
+//   Kuro (RenderQueue order)                        WuwaToon
+//   190 HET_Eye / HET_Face  (StencilOnlyWrite)      HETMaskMesh + HETOccluderMesh -> scene capture -> RT_WuwaHETMask
+//   190 FS_Face on the bangs section (A.z only)     FaceShadowMesh                -> scene capture -> RT_WuwaFaceShadowMask
+//       receivers drawn before 190 keep FS's A.z    WuwaFS_Apply() in the 180-queue masters, before the GBuffer store
+//   195 bangs skip HET-stencil pixels               WuwaHET_Cut() -> Opacity Mask of the bangs (HETCut master variant)
+//   300 HETA_Hair on the bangs section              translucent HETAMesh, Opacity = WuwaHETA_Opacity()
+//
+// Both mask RTs come from USceneCaptureComponent2D with CaptureSource = SCS_SceneColorSceneDepth matched to the tracked
+// main view (same as the toon depth capture): .r = mask emissive (WUWA_EXTRA_MASK_VALUE times the capture's
+// pre-exposure, tested > WUWA_EXTRA_MASK_THRESHOLD, so exposure cannot hide it), .g = .r * character mask ID (CPD 35),
+// .a = linear scene depth (cm).
+// These helpers never touch the verified base-pass / resolve maths; they only read or replace whole channels.
+// Tags: [O] observed, [I] inferred, [U] unknown (as in HETPasses.md).
+
+#pragma once
+
+// Mask emissive written by the capture-side materials and the threshold the readers use. The capture's scene colour
+// is pre-exposed; 256 survives any pre-exposure down to ~4e-6 while staying finite in RGBA16F/32F targets.
+#define WUWA_EXTRA_MASK_VALUE      256.0
+#define WUWA_EXTRA_MASK_THRESHOLD  0.001
+
+// Point fetch of a capture mask at the current pixel. The captures are resized to the tracked view rect, so the
+// view-rect UV (ScreenPosition.ViewportUV) addresses the same pixel. Load() = exact texel, no filtering across
+// silhouettes (masks behave like a stencil).
+float4 WuwaExtra_Fetch(Texture2D MaskRT, float2 ViewportUV)
+{
+	uint W, H;
+	MaskRT.GetDimensions(W, H);
+	int2 P = clamp(int2(ViewportUV * float2(W, H)), int2(0, 0), int2(int(W) - 1, int(H) - 1));
+	return MaskRT.Load(int3(P, 0));
+}
+
+float WuwaExtra_IsMask(float4 MaskSample)
+{
+	return (MaskSample.r > WUWA_EXTRA_MASK_THRESHOLD) ? 1.0 : 0.0;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Per-character mask ID (plugin-side; Kuro's stencil is global [I], HETPasses.md §5.7). CharacterID = CPD 35 of the
+// drawing primitive (UWuwaToonCharacterComponent::MaskID, unique per character in AWuwaToonEnvironment). The capture-side
+// materials write G = R * ID, so ID = round(G / R) is independent of the capture's pre-exposure. Readers only accept mask
+// texels whose ID equals their own CPD 35: one character's HET mask / FS shell never cuts or shadows another character.
+// ---------------------------------------------------------------------------------------------------------------------
+float3 WuwaExtra_EncodeMask(float CharacterID)
+{
+	return float3(WUWA_EXTRA_MASK_VALUE, WUWA_EXTRA_MASK_VALUE * max(round(CharacterID), 0.0), 0.0);
+}
+
+float WuwaExtra_IsOwnMask(float4 MaskSample, float OwnCharacterID)
+{
+	float maskID = round(MaskSample.g / max(MaskSample.r, 1e-30));
+	return WuwaExtra_IsMask(MaskSample) * ((abs(maskID - round(OwnCharacterID)) < 0.5) ? 1.0 : 0.0);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Capture side, HET mask (M_Wuwa_ToonEye_HET / M_Wuwa_ToonFace_HET in mask mode; Masked, clip 0.3333).
+// OpacityMaskFromWriteStencil = 'out float OpacityMask' of the verified WuwaToonWriteStencil_Impl (its dither clip is
+// applied inside). InvertHETMask is a calibration switch for the unresolved Eye_HET polarity [U]; the inverted value
+// keeps the same 0.3333 threshold.
+// ---------------------------------------------------------------------------------------------------------------------
+float WuwaHET_MaskOpacity(float OpacityMaskFromWriteStencil, float InvertHETMask)
+{
+	return (InvertHETMask > 0.5) ? (0.6666 - OpacityMaskFromWriteStencil) : OpacityMaskFromWriteStencil;
+}
+
+// True for orthographic views (UE ViewToClip[3][3] == 1), e.g. the light-space toon shadow capture: screen-space masks
+// captured from the main view must not be applied there.
+float WuwaExtra_IsPerspective(float ViewToClip33)
+{
+	return (ViewToClip33 < 0.5) ? 1.0 : 0.0;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 195: bangs skip visible HET pixels. Returns 1 where the bangs fragment is removed.
+//   PixelDepth   : linear depth (cm) of the bangs fragment
+//   HETMaxBehind : cut only when the HET surface lies 0..MaxBehind cm behind the bangs (our guard against cutting
+//                  other characters' hair / far geometry; Kuro's global stencil has no such guard [I]); -0.5 cm slack.
+// ---------------------------------------------------------------------------------------------------------------------
+float WuwaHET_Cut(float4 HETSample, float PixelDepth, float HETMaxBehind, float HETEnable, float OwnCharacterID)
+{
+	float mask   = WuwaExtra_IsOwnMask(HETSample, OwnCharacterID);
+	float behind = HETSample.a - PixelDepth;
+	float inGate = (behind >= -0.5 && behind <= HETMaxBehind) ? 1.0 : 0.0;
+	return mask * inGate * saturate(HETEnable);
+}
+
+float WuwaHET_CutRT(Texture2D HETMask, float2 ViewportUV, float PixelDepth, float HETMaxBehind, float HETEnable,
+	float ViewToClip33, float OwnCharacterID)
+{
+	return WuwaHET_Cut(WuwaExtra_Fetch(HETMask, ViewportUV), PixelDepth, HETMaxBehind, HETEnable, OwnCharacterID)
+		* WuwaExtra_IsPerspective(ViewToClip33);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 300: HETA opacity. The per-texel weight is the value Kuro HETA tags into GBufferC.a, saturate(MainTex.a *
+// OpacityIntensity) [O]; pass the hair base pass's G.C.a *before* WuwaToonGBufferStore (mode 0 stores exactly that, mode 1
+// the same value rounded to 8 bits with LSB 1). Its use as a blend weight is [I]; HETAOpacityScale is a calibration
+// knob [U]. Outside cut pixels the opacity is 0, so the opaque bangs are untouched.
+// ---------------------------------------------------------------------------------------------------------------------
+float WuwaHETA_Opacity(float4 HETSample, float PixelDepth, float HETMaxBehind, float HETEnable,
+	float HairOpacity, float HETAOpacityScale, float OwnCharacterID)
+{
+	float cut = WuwaHET_Cut(HETSample, PixelDepth, HETMaxBehind, HETEnable, OwnCharacterID);
+	return cut * saturate(saturate(HairOpacity) * HETAOpacityScale);
+}
+
+float WuwaHETA_OpacityRT(Texture2D HETMask, float2 ViewportUV, float PixelDepth, float HETMaxBehind, float HETEnable,
+	float HairOpacity, float HETAOpacityScale, float ViewToClip33, float OwnCharacterID)
+{
+	return WuwaHETA_Opacity(WuwaExtra_Fetch(HETMask, ViewportUV), PixelDepth, HETMaxBehind, HETEnable, HairOpacity,
+		HETAOpacityScale, OwnCharacterID) * WuwaExtra_IsPerspective(ViewToClip33);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 190: FS writes A.z = SolidShadowStrength (Face_FS chain value, 0.5 [O/I]) on every receiver pixel the shifted bangs
+// shell covers in front of. Applied by masters whose Kuro RenderQueue is below the FS pass (drawn before it), after the
+// base pass and before WuwaToonGBufferStore. Receiver normal / B / C are kept (FS PS writes B=C=D=0, so Kuro's colour
+// mask must exclude them [I]). Covered = shell present and not behind this pixel by more than FSDepthEps.
+// ---------------------------------------------------------------------------------------------------------------------
+float WuwaFS_Apply(float ReceiverAz, float4 FSSample, float PixelDepth, float FSDepthEps,
+	float FSSolidShadowStrength, float FSEnable, float OwnCharacterID)
+{
+	bool covered = (WuwaExtra_IsOwnMask(FSSample, OwnCharacterID) > 0.5) && (FSSample.a <= PixelDepth + FSDepthEps);
+	return (covered && FSEnable > 0.5) ? FSSolidShadowStrength : ReceiverAz;
+}
+
+float WuwaFS_ApplyRT(float ReceiverAz, Texture2D FSMask, float2 ViewportUV, float PixelDepth, float FSDepthEps,
+	float FSSolidShadowStrength, float FSEnable, float ViewToClip33, float OwnCharacterID)
+{
+	return WuwaFS_Apply(ReceiverAz, WuwaExtra_Fetch(FSMask, ViewportUV), PixelDepth, FSDepthEps, FSSolidShadowStrength,
+		FSEnable * WuwaExtra_IsPerspective(ViewToClip33), OwnCharacterID);
+}

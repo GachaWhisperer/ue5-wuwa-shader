@@ -1,0 +1,2786 @@
+{
+ "root_material": "M_Char_Com",
+ "generated_by": "tools/shaderdiff/roster_charcom/register_round7_common.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 7 (common): weapon / prop M_Char_Com PS (generated WuwaToonCommonBasePass_W7* entries of WuwaToonBasePass_Common.ush). One variant per verified (PS, VS set); research/roster/round7/common.md",
+ "variants": [
+  {
+   "spec": "ToonCommon_W7BodyNoRampNoVDLAlphaEm.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f3063cd89f66c2fd7649cf69f74ddc0ba5c8ddfb"
+    ],
+    "base_pass_vs_hash": [
+     "68267ed42a03089490a3ab81787fd2b7fc5f36ab"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynorampnovdlalphaem_266607 (458752/458752 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #101489 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 266607,
+   "vs_archive_index": [
+    101489
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Gun505Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": false,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": true,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoRampNoVDLAlphaEmSecondMX.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "dd3d5bc8b248833e5f377ac0c032a3cc55b229c9"
+    ],
+    "base_pass_vs_hash": [
+     "bd6ca255499395aa32d2fc68191004d33660f3b5"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynorampnovdlalphaemsecondmx_68770 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #68763 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 68770,
+   "vs_archive_index": [
+    68763
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Device507Md20001_Bear"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": false,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": true,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 4,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoRampNoVDLAlphaEmSecondObjUVMA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "7712cb11862d4205b0b91c875a8a2c246ac05a87"
+    ],
+    "base_pass_vs_hash": [
+     "23d78ab9a0f7ec3b9d66160788987654ded719c2"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynorampnovdlalphaemsecondobjuvma_46707 (655360/655360 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #46694 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 46707,
+   "vs_archive_index": [
+    46694
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Knuckles506Md20001_01"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": false,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": true,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 3,
+     "rim": false,
+     "osu": true
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoRampNoVDLBreathEffRimRTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "2c25329616d373d36ff9dcfd4e6e34914ea4f2ac"
+    ],
+    "base_pass_vs_hash": [
+     "28bc64f2f0f9707e61b9916793566721beb8a535"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynorampnovdlbreatheffrimrtwosided_112449 (655360/655360 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #112448 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 112449,
+   "vs_archive_index": [
+    112448
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EFeibiQuanzhangMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": {
+     "mask": 0,
+     "rim": true
+    }
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoRampNoVDLBreathNoNMSecondMA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "70510a78bb8ff846c4ec090e295ed4d98e28e14d"
+    ],
+    "base_pass_vs_hash": [
+     "20098b94dee88e556a0fc7220db6fe597b77de95"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynorampnovdlbreathnonmsecondma_132214 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #6449 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 132214,
+   "vs_archive_index": [
+    6449
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_EMoneFunnelMd10011_Baoshi",
+    "MI_EMoneFunnelMd10011_Touming"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "bNoNormalMap": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 3,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoRampNoVDLBreathScalarPBRSecondMATwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "63f5276ca240efb321cb8ebb38f13a8d267a8d23"
+    ],
+    "base_pass_vs_hash": [
+     "12db905318cc584fcf49f2de26d3551b0b788228"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynorampnovdlbreathscalarpbrsecondmatwosided_286644 (720896/720896 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #120134 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 286644,
+   "vs_archive_index": [
+    120134
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EMoneFunnelMd10011_Lengzhu"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": false,
+    "scalarpbr": true,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 3,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoRampNoVDLBreathScalarPBRTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "1792a9036862d0df549ae9f916f9306de4ad4a0c"
+    ],
+    "base_pass_vs_hash": [
+     "ad8374fcb0e576289b5e7aede9a202d21576e537"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynorampnovdlbreathscalarpbrtwosided_288574 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #23019 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 288574,
+   "vs_archive_index": [
+    23019
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ELupaQizhiMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": false,
+    "scalarpbr": true,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoRampNoVDLBreathSecondMR.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b26a926693aa27a99574535c39a552eb239d7816"
+    ],
+    "base_pass_vs_hash": [
+     "20098b94dee88e556a0fc7220db6fe597b77de95"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynorampnovdlbreathsecondmr_6487 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #6449 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 6487,
+   "vs_archive_index": [
+    6449
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Sword512Md20001Effcet"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 0,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoRampNoVDLBreathSecondMVTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a5a8e5fac41c67f8b058592f9d3d459ed9fe0f5f"
+    ],
+    "base_pass_vs_hash": [
+     "b50c26d0ff970cdf301df2ec1e393feaa5e5fe96"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynorampnovdlbreathsecondmvtwosided_223786 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #223790 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 223786,
+   "vs_archive_index": [
+    223790
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Knife501Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 5,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoRampNoVDLBreathSecondMXTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0760f149cd30357518e3e6a1e91d4c10c2b8418b"
+    ],
+    "base_pass_vs_hash": [
+     "20098b94dee88e556a0fc7220db6fe597b77de95"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynorampnovdlbreathsecondmxtwosided_261893 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #6449 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 261893,
+   "vs_archive_index": [
+    6449
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Device501Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 4,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoRampNoVDLBreathSecondNoiseMRTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a95153171b3154155fe622cc3481c222e5b8f175"
+    ],
+    "base_pass_vs_hash": [
+     "87f47ef3ae858255d56985c645045235712ce213"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynorampnovdlbreathsecondnoisemrtwosided_250358 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #66467 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 250358,
+   "vs_archive_index": [
+    66467
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Sword501Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": false,
+     "mask": 0,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoRampNoVDLBreathSecondNoiseRimMR.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "5d7284ef88db74f7b827b979e3af0125c9bd14dc"
+    ],
+    "base_pass_vs_hash": [
+     "db2eb0db130ce11ec56346229699e13ab31a3194"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynorampnovdlbreathsecondnoiserimmr_156479 (655360/655360 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #156510 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 156479,
+   "vs_archive_index": [
+    156510
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Knife502Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": false,
+     "mask": 0,
+     "rim": true,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoRampNoVDLNoDSAlphaEmSecondNoiseBumpMV.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "28e462b219b8c6e5dedb8a3fa496cef9f938254a"
+    ],
+    "base_pass_vs_hash": [
+     "6abbec1742c583de15cc368402c9b3023abc24a1"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynorampnovdlnodsalphaemsecondnoisebumpmv_318837 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #318850 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 318837,
+   "vs_archive_index": [
+    318850
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Knuckles505Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": false,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "bNoDoubleSpec": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": true,
+    "nomaintexa": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": true,
+     "mask": 5,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoRampTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ed411e7295a53050b81c60275efd16f9bf523ebd"
+    ],
+    "base_pass_vs_hash": [
+     "68267ed42a03089490a3ab81787fd2b7fc5f36ab"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoramptwosided_101521 (393216/393216 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #101489 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 101521,
+   "vs_archive_index": [
+    101489
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_ELuhesiTesttube01Md10011Pingai",
+    "MI_ELuhesiTesttubeMd10011Pingai"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": false,
+    "bNoVDL": false,
+    "bNoRamp": true,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCAlphaEmSecondNoiseBumpMA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6f5ba39f7f39d8e42b871e160087d69b2a2d754a"
+    ],
+    "base_pass_vs_hash": [
+     "04402300b55e2122bc57bed88451b6e3218cc81c"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcalphaemsecondnoisebumpma_260739 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #151158 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 260739,
+   "vs_archive_index": [
+    151158
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_SS1HuliBody"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": false,
+    "bNoVDL": false,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": true,
+    "nomaintexa": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": true,
+     "mask": 3,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCAlphaEmSecondNoiseMA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "54fa761211689ad8f60beaead26b632e50e85729"
+    ],
+    "base_pass_vs_hash": [
+     "04402300b55e2122bc57bed88451b6e3218cc81c"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcalphaemsecondnoisema_294042 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #151158 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 294042,
+   "vs_archive_index": [
+    151158
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_SS1HuliHead"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": false,
+    "bNoVDL": false,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": true,
+    "nomaintexa": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": false,
+     "mask": 3,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLAlphaEmEffRimX.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "bb9157b5b2439d57e336fb6a8541f812996a4c10"
+    ],
+    "base_pass_vs_hash": [
+     "e8c07a684d80881a038ef03486870f1884502697"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlalphaemeffrimx_56554 (655360/655360 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #56572 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 56554,
+   "vs_archive_index": [
+    56572
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Sword510Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": false,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": true,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": {
+     "mask": 4,
+     "rim": true
+    }
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLAlphaEmSecondMXTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "adb2e98ed55c78ab3e9f1cd294ce8611ce3652ef"
+    ],
+    "base_pass_vs_hash": [
+     "e2d4eda75558663082d5e3f152d161407c3d7b76"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlalphaemsecondmxtwosided_99969 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #99981 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 99969,
+   "vs_archive_index": [
+    99981
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Device510Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": false,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": true,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 4,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathNoDS.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "85488e46f58564bf427c46ddc11f32de9ba52144"
+    ],
+    "base_pass_vs_hash": [
+     "1e7e9dbcdc18654879f864b3020404b482cd33e4"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathnods_217411 (458752/458752 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #23355 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 217411,
+   "vs_archive_index": [
+    23355
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Device509Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "bNoDoubleSpec": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathNoDSSecondNoiseObjUVMR.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6d954932b3db204c877b16e9448ad381add04c24"
+    ],
+    "base_pass_vs_hash": [
+     "eccbc436034f91f4128bfb5bb0f1e014aa9504b7"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathnodssecondnoiseobjuvmr_51398 (655360/655360 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #10369 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 51398,
+   "vs_archive_index": [
+    10369
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ELeizhujianMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "bNoDoubleSpec": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": false,
+     "mask": 0,
+     "rim": false,
+     "osu": true
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathNoDSSecondObjUVMR.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "aebee4f45f10d11434912677481014e0ab75930e"
+    ],
+    "base_pass_vs_hash": [
+     "0cb90197b2d9d233a3bbeaac8ab0172cb6e96340"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathnodssecondobjuvmr_129108 (655360/655360 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #129065 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 129108,
+   "vs_archive_index": [
+    129065
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ELeizhudunMd10011_01"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "bNoDoubleSpec": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 0,
+     "rim": false,
+     "osu": true
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathNoNM.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "3c96cd8210d89b228bfa58d09070df38410238ea"
+    ],
+    "base_pass_vs_hash": [
+     "1e7e9dbcdc18654879f864b3020404b482cd33e4"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathnonm_119182 (458752/458752 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #23355 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 119182,
+   "vs_archive_index": [
+    23355
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Knife507Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "bNoNormalMap": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathSecondBumpRimMATwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "d8ea1fae34160a792ad16cfc0b2d62bfc100eb1e"
+    ],
+    "base_pass_vs_hash": [
+     "71db13bb2510b8748a57bc0adf776aadc749536e"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathsecondbumprimmatwoside_89317 (655360/655360 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #89295 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 89317,
+   "vs_archive_index": [
+    89295
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Sword505Md20001_Effect"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": true,
+     "mask": 3,
+     "rim": true,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathSecondFlowMATwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "35906ed6009d08db72e26b4187d23aa54a6f4184"
+    ],
+    "base_pass_vs_hash": [
+     "5e28b4de5682bf26dd69a97a01f517a95a88db5b"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathsecondflowmatwosided_211050 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #11887 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 211050,
+   "vs_archive_index": [
+    11887
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Knife506Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": true,
+     "bump": false,
+     "mask": 3,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathSecondMA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "c1858cc6720396cc86bb0a5129a5642f5304d6b6"
+    ],
+    "base_pass_vs_hash": [
+     "5e28b4de5682bf26dd69a97a01f517a95a88db5b"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathsecondma_124316 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #11887 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 124316,
+   "vs_archive_index": [
+    11887
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R5Knife507Md20001Effect_01",
+    "MI_R5Sword507Md20001Effect_02"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 3,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathSecondMR.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "d34b301b35b7ae7cda624428aed62e5a3857b8b4"
+    ],
+    "base_pass_vs_hash": [
+     "5e28b4de5682bf26dd69a97a01f517a95a88db5b"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathsecondmr_148763 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #11887 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 148763,
+   "vs_archive_index": [
+    11887
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R5Knife508Md20001",
+    "MI_R5Knuckles501Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 0,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathSecondMRTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "57c596a82505d4e53ee65700fd8ebaa0aa4fcd08"
+    ],
+    "base_pass_vs_hash": [
+     "5e28b4de5682bf26dd69a97a01f517a95a88db5b"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathsecondmrtwosided_81145 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #11887 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 81145,
+   "vs_archive_index": [
+    11887
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EQianXiaJiandaoRedMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 0,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathSecondNoiseBumpMA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "353176738ff69d600d1c9bf7a94458db83ba7ced"
+    ],
+    "base_pass_vs_hash": [
+     "7ae4bbe1aecb3c3f42d4061560ec590ce807247e"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathsecondnoisebumpma_83931 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #83950 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 83931,
+   "vs_archive_index": [
+    83950
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EXinyuehuWeaponMd10011_Suo"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": true,
+     "mask": 3,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathSecondNoiseBumpMG.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "577c8e045f04f8545a86e25b2e35a78ea7a57d9e"
+    ],
+    "base_pass_vs_hash": [
+     "7ae4bbe1aecb3c3f42d4061560ec590ce807247e"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathsecondnoisebumpmg_139136 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #83950 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 139136,
+   "vs_archive_index": [
+    83950
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Sword512Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": true,
+     "mask": 1,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathSecondNoiseBumpMR.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "73c73c4b14b1f3563895c9e16ff8e0dee2215eb7"
+    ],
+    "base_pass_vs_hash": [
+     "7ae4bbe1aecb3c3f42d4061560ec590ce807247e"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathsecondnoisebumpmr_299965 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #83950 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 299965,
+   "vs_archive_index": [
+    83950
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_ELuoselaCameraMd10011",
+    "MI_EXinyuehuWeaponMd10011_HeXin"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": true,
+     "mask": 0,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathSecondNoiseBumpMV.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "46777412e07907d725890a2693dcb236ffcf4ec7"
+    ],
+    "base_pass_vs_hash": [
+     "99ab903e937d4dd7c9e57a7201f0e8576d603d52"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathsecondnoisebumpmv_9998 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #10015 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 9998,
+   "vs_archive_index": [
+    10015
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Sword508Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": true,
+     "mask": 5,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathSecondNoiseMGTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6bc3e6a81698feacc9189efe857d5ef0c589bf6a"
+    ],
+    "base_pass_vs_hash": [
+     "7eb6d74d2c57f4f2c73d365892395f39b35e7b99"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathsecondnoisemgtwosided_334883 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #61390 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 334883,
+   "vs_archive_index": [
+    61390
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Device501Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": false,
+     "mask": 1,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathSecondNoiseMRTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "4209ceb6ab60a05ce9beef72da15cde6011dfaa7"
+    ],
+    "base_pass_vs_hash": [
+     "7eb6d74d2c57f4f2c73d365892395f39b35e7b99"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathsecondnoisemrtwosided_61375 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #61390 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 61375,
+   "vs_archive_index": [
+    61390
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Device508Md20001_Effect"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": false,
+     "mask": 0,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathSecondNoiseRimMRTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "8ebd6a611a5cef2789280e4d15760c11ec13c1ea"
+    ],
+    "base_pass_vs_hash": [
+     "99ab903e937d4dd7c9e57a7201f0e8576d603d52"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathsecondnoiserimmrtwosid_266965 (655360/655360 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #10015 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 266965,
+   "vs_archive_index": [
+    10015
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EKamolaGundaMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": false,
+     "mask": 0,
+     "rim": true,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLBreathTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "4e8bb80057c6b641a5ceb31f497abc887d1d57d4"
+    ],
+    "base_pass_vs_hash": [
+     "1e7e9dbcdc18654879f864b3020404b482cd33e4"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlbreathtwosided_245496 (458752/458752 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #23355 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 245496,
+   "vs_archive_index": [
+    23355
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 4,
+   "example_mis": [
+    "MI_EKanteleilaSanMd10011",
+    "MI_EQianXiaJiandaoBlackMd10011",
+    "MI_EXiakongMaikefengMd10011",
+    "MI_R5Device508Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLNoDSAlphaEm.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0f10d8bc728218f49f6c280569c1bcfc82fce99c"
+    ],
+    "base_pass_vs_hash": [
+     "1a854a1eb97cfe2b445fa77919c6feb55f380281"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlnodsalphaem_233576 (458752/458752 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #35700",
+   "ps_archive_index": 233576,
+   "vs_archive_index": [
+    35700
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ETaidaonvGongMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": false,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "bNoDoubleSpec": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": true,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLNoDSAlphaEmSecondNoiseMG.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "feb424a40763e8f543abbdedc2e3b071707b5d24"
+    ],
+    "base_pass_vs_hash": [
+     "04402300b55e2122bc57bed88451b6e3218cc81c"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlnodsalphaemsecondnoisemg_238690 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #151158 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 238690,
+   "vs_archive_index": [
+    151158
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ETaidaonvDaShenDaoMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": false,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "bNoDoubleSpec": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": true,
+    "nomaintexa": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": false,
+     "mask": 1,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoSkinRampCNoVDLNoNMAlphaEm.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "848096f64fc0798e33cf8414996401a389b3cdbc"
+    ],
+    "base_pass_vs_hash": [
+     "1a854a1eb97cfe2b445fa77919c6feb55f380281"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynoskinrampcnovdlnonmalphaem_80803 (458752/458752 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #35700",
+   "ps_archive_index": 80803,
+   "vs_archive_index": [
+    35700
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Knuckles506Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": false,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "bNoNormalMap": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": true,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyNoVDLBreathTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f8117e8299a9f4f5f8bf0515673df5711b360b97"
+    ],
+    "base_pass_vs_hash": [
+     "1e7e9dbcdc18654879f864b3020404b482cd33e4"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodynovdlbreathtwosided_210239 (458752/458752 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #23355 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 210239,
+   "vs_archive_index": [
+    23355
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EKanteleilaSanshuimuMd100111_San"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyRampMaskScalarPBRTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "c27b8a543df48e2925c2f25b34b23bcca963493a"
+    ],
+    "base_pass_vs_hash": [
+     "a693d7470ba5e73e5f8f85661579e8dcbf30836b"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodyrampmaskscalarpbrtwosided_283160 (524288/524288 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #283154 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 283160,
+   "vs_archive_index": [
+    283154
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EAogusitaTaiyangguanMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": false,
+    "bNoVDL": false,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": true,
+    "bNoSkinRampC": false,
+    "id": false,
+    "scalarpbr": true,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7BodyRampMaskTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "139f7ca182f1d65e0edc901349aef87ebf317067"
+    ],
+    "base_pass_vs_hash": [
+     "e32e29118be22210b8d1695e8a201c713558e806"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_bodyrampmasktwosided_185203 (393216/393216 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #19236 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 185203,
+   "vs_archive_index": [
+    19236
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EZanniSunniesMd10011Frame"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": false,
+    "bNoVDL": false,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": true,
+    "bNoSkinRampC": false,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7MTNoRampNoVDLBreathNoDSNoNMNoPBRNoMainTexA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "47fb6365ad4dc8dc7a44dd0c7d2114c0743c708c"
+    ],
+    "base_pass_vs_hash": [
+     "2830a64d78e2d8fe1e259568b0e992a4095730da"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_mtnorampnovdlbreathnodsnonmnopbrnomaintexa_114103 (524288/524288 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #114094 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 114103,
+   "vs_archive_index": [
+    114094
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ELucyXianMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "bNoPBR": true,
+    "bNoNormalMap": true,
+    "bNoDoubleSpec": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": true,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7MTNoRampNoVDLBreathNoDSNoNMNoPBRTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ee4c62e013a3fff8d9ccf822045e4431e1940011"
+    ],
+    "base_pass_vs_hash": [
+     "f3bcfcd4166061efc2bcec9737548e8e64a9cf6f"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_mtnorampnovdlbreathnodsnonmnopbrtwosided_186607 (458752/458752 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #57265 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 186607,
+   "vs_archive_index": [
+    57265
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EZhezhiMaobiHuaMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "bNoPBR": true,
+    "bNoNormalMap": true,
+    "bNoDoubleSpec": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7MTNoRampNoVDLBreathNoNMNoPBREffRimA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "4d83ecde31c1fd8875f29f8c0da65074abde6f1f"
+    ],
+    "base_pass_vs_hash": [
+     "a887ad782dd5ead290eb3471137557b1ab5e5f5c"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_mtnorampnovdlbreathnonmnopbreffrima_271638 (655360/655360 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #21055 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 271638,
+   "vs_archive_index": [
+    21055
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EZanniBijibenYeMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "bNoPBR": true,
+    "bNoNormalMap": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": {
+     "mask": 3,
+     "rim": true
+    }
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7MTNoRampNoVDLBreathNoNMNoPBREffRimR.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "2bfefee1a97cbb57bd31eddc91d971d3437ce2fa"
+    ],
+    "base_pass_vs_hash": [
+     "a887ad782dd5ead290eb3471137557b1ab5e5f5c"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_mtnorampnovdlbreathnonmnopbreffrimr_135415 (655360/655360 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #21055 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 135415,
+   "vs_archive_index": [
+    21055
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EZanniBijibenMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "bNoPBR": true,
+    "bNoNormalMap": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": {
+     "mask": 0,
+     "rim": true
+    }
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7MTNoRampNoVDLBreathNoNMNoPBRSecondMA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "fefa933e0b39fac0cb49d44d721d94b9a095d311"
+    ],
+    "base_pass_vs_hash": [
+     "693841f4389f4d2ed67a515196a2aaf9e3fd9223"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_mtnorampnovdlbreathnonmnopbrsecondma_192832 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #192795 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 192832,
+   "vs_archive_index": [
+    192795
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Knife507Md20001Effect"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "bNoPBR": true,
+    "bNoNormalMap": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 3,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7MTNoRampNoVDLBreathNoNMNoPBRSecondMRTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "cf064e9ccfcc962ded2e011decfb7c8fbe5e4a57"
+    ],
+    "base_pass_vs_hash": [
+     "693841f4389f4d2ed67a515196a2aaf9e3fd9223"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_mtnorampnovdlbreathnonmnopbrsecondmrtwosided_252702 (589824/589824 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #192795 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 252702,
+   "vs_archive_index": [
+    192795
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EDarkNanzhuWingMd1001_Wing"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "bNoPBR": true,
+    "bNoNormalMap": true,
+    "id": false,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 0,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7MTNoRampNoVDLBreathNoNMScalarPBREffRimA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "c7be2e348b2286307d322a6bfd291c26c2ef623b"
+    ],
+    "base_pass_vs_hash": [
+     "b64e3aac77ecdaa0af29e5c6424296924f122d19"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_mtnorampnovdlbreathnonmscalarpbreffrima_186780 (786432/786432 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #186775 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 186780,
+   "vs_archive_index": [
+    186775
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EZanniBijibenpifuYeMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "bNoNormalMap": true,
+    "id": false,
+    "scalarpbr": true,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": {
+     "mask": 3,
+     "rim": true
+    }
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7MTNoRampNoVDLBreathNoNMScalarPBREffRimR.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "3e713830317d3bef87b6a52414f2cc7a0073519f"
+    ],
+    "base_pass_vs_hash": [
+     "b64e3aac77ecdaa0af29e5c6424296924f122d19"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_mtnorampnovdlbreathnonmscalarpbreffrimr_258469 (786432/786432 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #186775 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 258469,
+   "vs_archive_index": [
+    186775
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EZanniBijibenpifuMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "bNoNormalMap": true,
+    "id": false,
+    "scalarpbr": true,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": {
+     "mask": 0,
+     "rim": true
+    }
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDNoRampNoVDLBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "c6168b1e3d2ecd2559037e335101f11edd87b147"
+    ],
+    "base_pass_vs_hash": [
+     "430492878489dcfa6c4fc82acaef9bee492af2b0"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidnorampnovdlbreath_308395 (524288/524288 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #33171 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 308395,
+   "vs_archive_index": [
+    33171
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Sword504Md20001Effect"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDNoRampNoVDLBreathNoNMSecondRimMA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "3c5b4dddd6cfbe81a16a9c12dda1f4adb5a7337c"
+    ],
+    "base_pass_vs_hash": [
+     "4064b9c7a080dac08daed0a0b54dd03956ffd50a"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidnorampnovdlbreathnonmsecondrimma_150027 (720896/720896 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #150029 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 150027,
+   "vs_archive_index": [
+    150029
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Sword506Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "bNoNormalMap": true,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 3,
+     "rim": true,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDNoRampNoVDLBreathSecondMA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "400722e5150dbe1ee7b4932bfd454d83d14f5572"
+    ],
+    "base_pass_vs_hash": [
+     "e4a077ceaff7cda31bd99438773b0d265ebf7c55"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidnorampnovdlbreathsecondma_327924 (655360/655360 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #327956 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 327924,
+   "vs_archive_index": [
+    327956
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Device505Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 3,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDNoRampNoVDLBreathSecondNoiseRimMA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "25b83f6e1761c744878eaeb88e93e9a060d324cc"
+    ],
+    "base_pass_vs_hash": [
+     "fc39ea7075508376e117b9bab9aa5b9f368dfdef"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidnorampnovdlbreathsecondnoiserimma_298822 (720896/720896 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #298872 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 298822,
+   "vs_archive_index": [
+    298872
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Sword506Md20001Effect"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": false,
+     "mask": 3,
+     "rim": true,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDNoRampNoVDLBreathSecondNoiseRimMR.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "35ebf4cc537d32e2c409d5801dfea946d79ab92e"
+    ],
+    "base_pass_vs_hash": [
+     "fc39ea7075508376e117b9bab9aa5b9f368dfdef"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidnorampnovdlbreathsecondnoiserimmr_322574 (720896/720896 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #298872 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 322574,
+   "vs_archive_index": [
+    298872
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Knife503Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": false,
+     "mask": 0,
+     "rim": true,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDNoRampNoVDLBreathTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "52a50f0df72b5f23b9d1bc9be3c9e5446e0772d1"
+    ],
+    "base_pass_vs_hash": [
+     "430492878489dcfa6c4fc82acaef9bee492af2b0"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidnorampnovdlbreathtwosided_33177 (524288/524288 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #33171 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 33177,
+   "vs_archive_index": [
+    33171
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Device503Md200011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDNoSkinRampCNoMainTexA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "279867084ff30ff06ae1bb3b0993343f3d9b0008"
+    ],
+    "base_pass_vs_hash": [
+     "6d92069cffe39a8d569fdec033db73db4640106e"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidnoskinrampcnomaintexa_157238 (524288/524288 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #157255 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 157238,
+   "vs_archive_index": [
+    157255
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Knife504Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": false,
+    "bNoVDL": false,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": true,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDNoSkinRampCNoMainTexASecondObjUVMATwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "bd06c0bb0cacee8c98b3ff40983419baf5a923a3"
+    ],
+    "base_pass_vs_hash": [
+     "e84e6c53423eb5002b8c3d845ed1e73bfc9332a4"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidnoskinrampcnomaintexasecondobjuvmatwosided_172311 (720896/720896 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #172320 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 172311,
+   "vs_archive_index": [
+    172320
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Knife505Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": false,
+    "bNoVDL": false,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": true,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 3,
+     "rim": false,
+     "osu": true
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDNoSkinRampCNoVDLBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f22b743f06ed395bcac3f14d929133c9c07d05e8"
+    ],
+    "base_pass_vs_hash": [
+     "8e3ace05c964afd2501fb8274a1528118b570ca7"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidnoskinrampcnovdlbreath_260691 (524288/524288 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #46827 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 260691,
+   "vs_archive_index": [
+    46827
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R5Gun501Md20001",
+    "MI_R5Sword504Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDNoSkinRampCNoVDLBreathSecondFlowMA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "4c569a11c24e5a872b8a895d3bdab40c62d90fb6"
+    ],
+    "base_pass_vs_hash": [
+     "8c05aa240c47573e4d756da3f0c4b8d418b670cf"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidnoskinrampcnovdlbreathsecondflowma_264549 (655360/655360 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #7403 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 264549,
+   "vs_archive_index": [
+    7403
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Gun503Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": true,
+     "bump": false,
+     "mask": 3,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDNoSkinRampCNoVDLBreathSecondFlowRimMATwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "5338329c2b6b4342a32428292f1a0abc2c381596"
+    ],
+    "base_pass_vs_hash": [
+     "da430f6614aeb06cad7d75f0136b126606734833"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidnoskinrampcnovdlbreathsecondflowrimmatwoside_191204 (720896/720896 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #191241 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 191204,
+   "vs_archive_index": [
+    191241
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Sword505Md20001_01"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": true,
+     "bump": false,
+     "mask": 3,
+     "rim": true,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDNoSkinRampCNoVDLBreathSecondMATwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "9e0fc709ee2c12d873eb503105b0b5d2f978a294"
+    ],
+    "base_pass_vs_hash": [
+     "8c05aa240c47573e4d756da3f0c4b8d418b670cf"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidnoskinrampcnovdlbreathsecondmatwosided_29689 (655360/655360 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #7403 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 29689,
+   "vs_archive_index": [
+    7403
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Gun502Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 3,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDNoSkinRampCNoVDLBreathSecondMBTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "2885f63a566162819de6895713314978e6df8f3a"
+    ],
+    "base_pass_vs_hash": [
+     "8c05aa240c47573e4d756da3f0c4b8d418b670cf"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidnoskinrampcnovdlbreathsecondmbtwosided_333201 (655360/655360 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #7403 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 333201,
+   "vs_archive_index": [
+    7403
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Sword503Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 2,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDNoSkinRampCNoVDLBreathSecondMGTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "c2f09f6f5732276a24a2f68a58193870ad091a75"
+    ],
+    "base_pass_vs_hash": [
+     "8c05aa240c47573e4d756da3f0c4b8d418b670cf"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidnoskinrampcnovdlbreathsecondmgtwosided_7422 (655360/655360 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #7403 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 7422,
+   "vs_archive_index": [
+    7403
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Sword502Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": false,
+     "mask": 1,
+     "rim": false,
+     "osu": false
+    },
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDNoSkinRampCNoVDLBreathTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a1b2b537b78292161b9a666a7f5c5f86af48486c"
+    ],
+    "base_pass_vs_hash": [
+     "8e3ace05c964afd2501fb8274a1528118b570ca7"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidnoskinrampcnovdlbreathtwosided_104587 (524288/524288 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #46827 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 104587,
+   "vs_archive_index": [
+    46827
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 4,
+   "example_mis": [
+    "MI_R5Device504Md20001",
+    "MI_R5Device506Md20001",
+    "MI_R5Knuckles503Md20001",
+    "MI_R5Sword505Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDRampMaskNoSkinRampCNoVDLBreathTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "078dec9a35e2be7120e4eb5e5578ae98feaa98d7"
+    ],
+    "base_pass_vs_hash": [
+     "8e3ace05c964afd2501fb8274a1528118b570ca7"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidrampmasknoskinrampcnovdlbreathtwosided_325233 (524288/524288 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #46827 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 325233,
+   "vs_archive_index": [
+    46827
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Knuckles502Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": true,
+    "bNoSkinRampC": true,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  },
+  {
+   "spec": "ToonCommon_W7TMIDRampMaskNoVDLBreathTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "72a2d72b3967bf06d9588608da76dc654e28c5b3"
+    ],
+    "base_pass_vs_hash": [
+     "8e3ace05c964afd2501fb8274a1528118b570ca7"
+    ]
+   },
+   "verified": "research/roster/round7/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/common/results_round7_common.json variants.r7c_tmidrampmasknovdlbreathtwosided_176349 (524288/524288 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #46827 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 176349,
+   "vs_archive_index": [
+    46827
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Knuckles504Md20001"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": true,
+    "bNoSkinRampC": false,
+    "id": true,
+    "scalarpbr": false,
+    "alpha": false,
+    "nomaintexa": false,
+    "sec": null,
+    "eff": null
+   },
+   "round": "7 (common)"
+  }
+ ]
+}

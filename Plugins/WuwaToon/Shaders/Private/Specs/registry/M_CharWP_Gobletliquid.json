@@ -1,0 +1,71 @@
+{
+ "root_material": "M_CharWP_Gobletliquid",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "CharWP_Gobletliquid_Liquid.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "2ffca9d7b14fe6031588e8d0c006a7da22aa73e8"
+    ],
+    "base_pass_vs_hash": [
+     "0d6c7e128196f7a41d8af5d2dd3453569b762cda"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/waterfx/results_multi_final.json summary.waterfx_2ffca9 (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #137289 ported_wpo_verified (vertex-colour-group wave WPO ported (WuwaFXGobletLiquidWPO, spec \"wpo\" block); SV_POSITION 1376256/1376256 components bit-exact (evidence/validation/shaderdiff/weapons/round3/waterfx/results_vs_wpo_waterfx_final.json, r3/waterfx_vs_wpo.py))",
+   "ps_archive_index": 246842,
+   "vs_archive_index": [
+    137289
+   ],
+   "vs_status": {
+    "0d6c7e128196f7a41d8af5d2dd3453569b762cda": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": false,
+   "roster_mis": 2,
+   "roster_slot_uses": 4,
+   "entities": [
+    "character:Luuk Herssen",
+    "skin:Clinical Gold"
+   ],
+   "example_mis": [
+    "MI_ELuhesiTesttube01Md10011Yeti",
+    "MI_ELuhesiTesttubeMd10011Yeti"
+   ],
+   "notes": "Luuk Herssen test tubes (2 MIs + skin); masked unlit, primitive dither clipped in the entry; the cube reflection is compared with an unbound (zero) cube only (2D-only renderer)"
+  },
+  {
+   "spec": "CharWP_Gobletliquid_LiquidCPDPivot.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "e54f81f6b9b805df15b4c8acfa8acb27a4920101"
+    ],
+    "base_pass_vs_hash": [
+     "0d6c7e128196f7a41d8af5d2dd3453569b762cda"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/waterfx/results_multi_final.json summary.waterfx_e54f81 (27 runs, o0 442368/442368 o1 442368/442368 o2 442368/442368 o3 442368/442368 o6 442368/442368 bit-exact); VS #137289 ported_wpo_verified (same VS as 2ffca9d7b1 (WuwaFXGobletLiquidWPO), verified with MI_ERebeccaDrinkMd10011_Liquid values too (evidence/validation/shaderdiff/weapons/round3/waterfx/results_vs_wpo_waterfx_final.json))",
+   "ps_archive_index": 137332,
+   "vs_archive_index": [
+    137289
+   ],
+   "vs_status": {
+    "0d6c7e128196f7a41d8af5d2dd3453569b762cda": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Rebecca",
+    "skin:Cyberpunk"
+   ],
+   "example_mis": [
+    "MI_ERebeccaDrinkMd10011_Liquid"
+   ],
+   "notes": "Rebecca drink (+ skin); liquid pivot = CPD 23..25; cube reflection compared with a zero cube only"
+  }
+ ]
+}

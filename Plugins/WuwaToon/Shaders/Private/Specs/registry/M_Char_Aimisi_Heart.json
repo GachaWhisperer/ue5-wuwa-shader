@@ -1,0 +1,69 @@
+{
+ "root_material": "M_Char_Aimisi_Heart",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "Char_Aimisi_Heart_Fx2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "fab1a44e7ba4614dd317c5affa2ec8690398902e"
+    ],
+    "base_pass_vs_hash": [
+     "4b8a43cafbd21f362291fd58057d6a6c747d1d7f"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/aimisi/results_multi_final.json summary.aimisi_fab1a4 (33 runs, o0 540672/540672 o1 540672/540672 o2 540672/540672 o3 540672/540672 o6 540672/540672 bit-exact); VS #229430 gated_wpo (evidence/validation/shaderdiff/weapons/round3/aimisi/vs_status_aimisi.json: hologram WPO behind \"0.0001 >= USE Hologram\", USE Hologram = 0 at MI_R2T1AimisiMd10011Fx01)",
+   "ps_archive_index": 229475,
+   "vs_archive_index": [
+    229430
+   ],
+   "vs_status": {
+    "4b8a43cafbd21f362291fd58057d6a6c747d1d7f": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Aemeath",
+    "skin:Invisible Starlight"
+   ],
+   "example_mis": [
+    "MI_R2T1AimisiMd10011Fx01"
+   ],
+   "notes": "Aemeath main mesh (+ Invisible Starlight skin); masked toon id 12, two-sided; 33 runs, o0/o1/o2/o3/o6 540672/540672 bit-exact; neg control results_aimisi_fab1a4_aimisi_f2f1fb_heart_neg.json"
+  },
+  {
+   "spec": "Char_Aimisi_Heart_FlowNoiseGrassHL.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f2f1fbd94da95574ff710416007a5bb462ab5d48"
+    ],
+    "base_pass_vs_hash": [
+     "b06329c9325ddfa2fbb8daea08b8c61ab28826ab"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/aimisi/results_multi_final.json summary.aimisi_f2f1fb (33 runs, o0 540672/540672 o1 540672/540672 o2 540672/540672 o3 540672/540672 o6 540672/540672 bit-exact); VS #269125 gated_wpo (evidence/validation/shaderdiff/weapons/round3/aimisi/vs_status_aimisi.json: hologram WPO behind \"0.0001 >= USE Hologram\", USE Hologram = 0 at MI_R2T1AimisiGDMd10011Corn01)",
+   "ps_archive_index": 269144,
+   "vs_archive_index": [
+    269125
+   ],
+   "vs_status": {
+    "b06329c9325ddfa2fbb8daea08b8c61ab28826ab": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 1,
+   "entities": [
+    "character:Aemeath"
+   ],
+   "example_mis": [
+    "MI_R2T1AimisiGDMd10011Corn01"
+   ],
+   "notes": "Aemeath GD main mesh (Corn01); masked toon id 12; 33 runs, o0/o1/o2/o3/o6 540672/540672 bit-exact; neg control results_aimisi_fab1a4_aimisi_f2f1fb_heart_neg.json"
+  }
+ ]
+}

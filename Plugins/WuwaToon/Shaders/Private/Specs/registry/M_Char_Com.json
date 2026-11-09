@@ -1,0 +1,1610 @@
+{
+ "root_material": "M_Char_Com",
+ "generated_by": "tools/shaderdiff/roster_charcom/build_registry.py",
+ "contract": "Specs/registry/README.md",
+ "note": "one variant per verified (PS, VS set); MIs whose PS/VS pair is not listed fall back to M_Wuwa_Unported. research/roster/Port_CharCom_Coverage.md",
+ "variants": [
+  {
+   "spec": "ToonHair.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "84629deae6402e266f5937204114a36c8faa72b5"
+    ],
+    "base_pass_vs_hash": [
+     "1550a346b976a4519129018ff8b95bce657156e4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.yy_hair_139253 (327680/327680 px bit-exact); VS #13181",
+   "ps_archive_index": 139253,
+   "vs_archive_index": [
+    13181
+   ],
+   "roster_mis": 72,
+   "example_mis": [
+    "MI_R2T1AogusitaMd10011Bangs",
+    "MI_R2T1AogusitaMd10011Hair",
+    "MI_R2T1BailianMd10011Bangs",
+    "MI_R2T1BailianMd10011Hair",
+    "MI_R2T1BulanteMd10011Bangs",
+    "MI_R2T1BulanteMd10011Hair"
+   ],
+   "static_switches_informational": {}
+  },
+  {
+   "spec": "ToonFace_TypeMaskRampMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "c55bb9254a07c754edaddf64a6612e0d57305d16"
+    ],
+    "base_pass_vs_hash": [
+     "1677f8d86a527667f106743b41a8e87bb98a2f3f"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.face_tm_rm_302133 (327680/327680 px bit-exact); VS #138044 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 302133,
+   "vs_archive_index": [
+    138044
+   ],
+   "roster_mis": 37,
+   "example_mis": [
+    "MI_R2T1AimisiMd10011Face",
+    "MI_R2T1AnkeMd10011Face",
+    "MI_R2T1AogusitaMd10011Face",
+    "MI_R2T1BaerMd10011Face",
+    "MI_R2T1BulanteMd10011Face",
+    "MI_R2T1BulingMd10011Face"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true
+   }
+  },
+  {
+   "spec": "ToonHair_HETA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "8eb3a8b8d48fb3c47b5cd7e18fa20dafeae981ea"
+    ],
+    "base_pass_vs_hash": [
+     "1550a346b976a4519129018ff8b95bce657156e4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.yy_heta_306636 (327680/327680 px bit-exact); VS #13181",
+   "ps_archive_index": 306636,
+   "vs_archive_index": [
+    13181
+   ],
+   "roster_mis": 37,
+   "example_mis": [
+    "MI_R2T1AogusitaMd10011Bangs_HETA",
+    "MI_R2T1BailianMd10011Bangs_HETA",
+    "MI_R2T1BulanteMd10011Bangs_HETA",
+    "MI_R2T1BulingMd10011Bangs_HETA",
+    "MI_R2T1CalbrenaMd10011Bangs_HETA",
+    "MI_R2T1ChunMd10011Bangs_HETA"
+   ],
+   "static_switches_informational": {}
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "169758993b7339c3bac9c91f8b86dfe2c01a9407"
+    ],
+    "base_pass_vs_hash": [
+     "527161541b782c5672781d899dd3f66cc359dff4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.common_tm_rm_155992 (327680/327680 px bit-exact); VS #114007 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 155992,
+   "vs_archive_index": [
+    114007
+   ],
+   "roster_mis": 24,
+   "example_mis": [
+    "MI_R2T1BailianMd10011Down",
+    "MI_R2T1BailianMd10011Up",
+    "MI_R2T1ChunMd10011Up",
+    "MI_R2T1DengDengMd10011Down",
+    "MI_R2T1FeiBiMd10011Up",
+    "MI_R2T1JianxinMd10011Up"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseStocking": false
+   }
+  },
+  {
+   "spec": "ToonCommon_NoRampNoVDLBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "5e58e32f23f582e0a5413ecbf67bb01cab9582e6"
+    ],
+    "base_pass_vs_hash": [
+     "e50e881323f0bf03ac24a6834c4b4f63f17c8f4c"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.common_noramp_118018 (327680/327680 px bit-exact); VS #63087 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 118018,
+   "vs_archive_index": [
+    63087
+   ],
+   "roster_mis": 19,
+   "example_mis": [
+    "MI_EBulanteGunMd10011Gun",
+    "MI_EBulanteGunMd10011Nail",
+    "MI_EFuludelisiMingshijianMd100111",
+    "MI_EFuluoluoWandMd10011",
+    "MI_EJingranDengMd10011",
+    "MI_ELuhesiScalpelMd10011"
+   ],
+   "static_switches_informational": {
+    "UseRampColor": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true
+   }
+  },
+  {
+   "spec": "ToonCommon_NoSkinRampCNoVDLBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "de2cb58e888c1b43ea04c4020045244c62f1f803"
+    ],
+    "base_pass_vs_hash": [
+     "1e7e9dbcdc18654879f864b3020404b482cd33e4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.common_noskinrampc_novdl_breath_80721 (393216/393216 px bit-exact); VS #23355 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 80721,
+   "vs_archive_index": [
+    23355
+   ],
+   "roster_mis": 11,
+   "example_mis": [
+    "MI_EAimisiWeaponMd10011_Peijian",
+    "MI_ECalbrenaBulletMd10011",
+    "MI_ECalbrenaShotgunMd10011I_Qiangti",
+    "MI_ECalbrenaXuegaoMd10011",
+    "MI_EKamolaGunxiaoMd10011",
+    "MI_ELuhesiSickleMd10011_R_Daotou"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true,
+    "UseRampColor": true,
+    "UseSecond": true,
+    "UseDoubleSpecular": true
+   }
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampC.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "5a02e5af1898ef73bf813423fd9b61454b7a2f00"
+    ],
+    "base_pass_vs_hash": [
+     "1a854a1eb97cfe2b445fa77919c6feb55f380281"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.common_299247 (327680/327680 px bit-exact); VS #35700",
+   "ps_archive_index": 299247,
+   "vs_archive_index": [
+    35700
+   ],
+   "roster_mis": 10,
+   "example_mis": [
+    "MI_R2T1ChangLiMd10011Cloth",
+    "MI_R2T1ChangLiMd20011Cloth",
+    "MI_R2T1JinxiMd20011Up",
+    "MI_R2T1KatixiyaMd10011Down",
+    "MI_R2T1LupaMd10011Cloak",
+    "MI_R2T1LupaMd10011Down"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false
+   }
+  },
+  {
+   "spec": "ToonCommon_NoRampNoVDLBreathTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "1ed4c8adb77715ac1a363ce624ddb60dc2680096"
+    ],
+    "base_pass_vs_hash": [
+     "e50e881323f0bf03ac24a6834c4b4f63f17c8f4c"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.common_noramp_79737 (327680/327680 px bit-exact); VS #63087 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 79737,
+   "vs_archive_index": [
+    63087
+   ],
+   "roster_mis": 8,
+   "example_mis": [
+    "MI_EFuludelisiDajianMd10011",
+    "MI_ELuokekeXiangziMd10011",
+    "MI_ELupaBiaoqiangMd10011",
+    "MI_EQiushuiMd10011",
+    "MI_EYounuoYuegongMd10011",
+    "MI_EZanniZhedieyiMd10011"
+   ],
+   "static_switches_informational": {
+    "UseRampColor": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true
+   }
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "456b7130fefba9bb0d5b89fdf42cf68b20437e30"
+    ],
+    "base_pass_vs_hash": [
+     "45c47dcd61b023d8ee2e2f2cdf5dfc6a52ce65d0"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.common_tm_rm_breath_25708 (327680/327680 px bit-exact); VS #25709 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 25708,
+   "vs_archive_index": [
+    25709
+   ],
+   "roster_mis": 8,
+   "example_mis": [
+    "MI_ECalbrenaDaheihuaMd10011",
+    "MI_R2T1BulingMd10011Down",
+    "MI_R2T1FuludelisiMd10011Up",
+    "MI_R2T1FuluoluoMd10011Up",
+    "MI_R2T1KakaluoMd10011Up_3",
+    "MI_R2T1QianXiaMd10011Up"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseBreathLight": true,
+    "UseStocking": false
+   }
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskXingHen.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b78ae1dea4a0af4e4cf278a37765b0db2829368a"
+    ],
+    "base_pass_vs_hash": [
+     "2ddb37ec601d963d9c5ddd96439350d5c3435662"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.common_tm_rm_xinghen_68245 (524288/524288 px bit-exact); VS #9766 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 68245,
+   "vs_archive_index": [
+    9766
+   ],
+   "roster_mis": 8,
+   "example_mis": [
+    "MI_R2T1BulingMd10011Up",
+    "MI_R2T1ChangLiMd20011Down",
+    "MI_R2T1LuokekeMd10011Down",
+    "MI_R2T1LupaMd10011Up",
+    "MI_R2T1MicaiMd10011Up",
+    "MI_R2T1QiuyuanMd10011Down"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseXingHen": true,
+    "UseStocking": false,
+    "UseMatCap": true,
+    "UseRotate180UV": true
+   }
+  },
+  {
+   "spec": "ToonCommon_DownRampMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "85bcbd452bc6b42a968b5b84dde34eb9b556389d"
+    ],
+    "base_pass_vs_hash": [
+     "aa5d3c25df5aee71239091eeb5cd9b6b0d6cb603"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.common_down_rm_53947 (327680/327680 px bit-exact); VS #53953 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 53947,
+   "vs_archive_index": [
+    53953
+   ],
+   "roster_mis": 8,
+   "example_mis": [
+    "MI_R2T1ChangLiMd10011Down",
+    "MI_R2T1KamolaMd20011Up",
+    "MI_R2T1KanteleilaMd10011Down",
+    "MI_R2T1KanteleilaMd10011Up",
+    "MI_R2T1KatixiyaMd10011Up",
+    "MI_R2T1SanhuaMd20011Body"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": true
+   }
+  },
+  {
+   "spec": "ToonFace.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "dc6adefb9fd366b78f64923258f0198cb0859b3f"
+    ],
+    "base_pass_vs_hash": [
+     "5701fd012ceaa146cb6a480ae94653031b69698e"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.yy_face_198747 (327680/327680 px bit-exact); VS #35570",
+   "ps_archive_index": 198747,
+   "vs_archive_index": [
+    35570
+   ],
+   "roster_mis": 6,
+   "example_mis": [
+    "MI_R2T1BailianMd10011Face",
+    "MI_R2T1ChunMd10011Face",
+    "MI_R2T1DengDengMd10011Face",
+    "MI_R2T1QiushuiMd10011Face",
+    "MI_R2T1YangyangMd10011Face",
+    "MI_R2T1YinLinMd10011Face"
+   ],
+   "static_switches_informational": {}
+  },
+  {
+   "spec": "ToonCommon_BodyUp.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "1bf33416b3d31f71108fb69bf21d30ecb5877253"
+    ],
+    "base_pass_vs_hash": [
+     "1a854a1eb97cfe2b445fa77919c6feb55f380281"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.yy_body_215096 (327680/327680 px bit-exact); VS #35700",
+   "ps_archive_index": 215096,
+   "vs_archive_index": [
+    35700
+   ],
+   "roster_mis": 6,
+   "example_mis": [
+    "MI_R2T1JiyanMd10011Down",
+    "MI_R2T1KakaluoMd10011Skirt",
+    "MI_R2T1LingyangMd10011Down",
+    "MI_R2T1QiuyuanMd10011Item",
+    "MI_R2T1YangyangMd10011Body",
+    "MI_R2T1YangyangMd10011Up"
+   ],
+   "static_switches_informational": {}
+  },
+  {
+   "spec": "ToonHair_AllRampColor.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ad480eb3bbddb11d673fc91084f3b744c1dfc932"
+    ],
+    "base_pass_vs_hash": [
+     "1550a346b976a4519129018ff8b95bce657156e4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.hair_allramp_285695 (327680/327680 px bit-exact); VS #13181",
+   "ps_archive_index": 285695,
+   "vs_archive_index": [
+    13181
+   ],
+   "roster_mis": 4,
+   "example_mis": [
+    "MI_R2T1AnkeMd10011Bangs",
+    "MI_R2T1AnkeMd10011Hair",
+    "MI_R2T1JinxiMd10011Bangs",
+    "MI_R2T1SanhuaMd10011Bangs"
+   ],
+   "static_switches_informational": {
+    "UseAllRampColor": true
+   }
+  },
+  {
+   "spec": "ToonHair_HETA_AllRampColor.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "d25bba852dc1e9a657aced6aa84e7c943ccbcaa6"
+    ],
+    "base_pass_vs_hash": [
+     "1550a346b976a4519129018ff8b95bce657156e4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.heta_allramp_120430 (327680/327680 px bit-exact); VS #13181",
+   "ps_archive_index": 120430,
+   "vs_archive_index": [
+    13181
+   ],
+   "roster_mis": 3,
+   "example_mis": [
+    "MI_R2T1AnkeMd10011Bangs_HETA",
+    "MI_R2T1JinxiMd10011Bangs_HETA",
+    "MI_R2T1SanhuaMd10011Hair_HETA"
+   ],
+   "static_switches_informational": {
+    "UseAllRampColor": true,
+    "IsHairHET": true
+   }
+  },
+  {
+   "spec": "ToonFace_TypeMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f88c270d69aafd589c0af719f4fd4c64ec0078fe"
+    ],
+    "base_pass_vs_hash": [
+     "1677f8d86a527667f106743b41a8e87bb98a2f3f"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.face_tm_190833 (327680/327680 px bit-exact); VS #138044 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 190833,
+   "vs_archive_index": [
+    138044
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1JueyuanMd10011Face",
+    "MI_R2T1MicaiMd10011Face"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true
+   }
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskXingHenBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "3ebca9e44b67ad5cb17f1dca0e00576f89d3b452"
+    ],
+    "base_pass_vs_hash": [
+     "56720049443333f708bbf70e2b5b56cd4f20c4d2"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.common_tm_rm_xinghen_breath_160507 (524288/524288 px bit-exact); VS #83602 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 160507,
+   "vs_archive_index": [
+    83602
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1YounuoMd10011Down",
+    "MI_R2T1ZanniMd10011Up3"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseXingHen": true,
+    "UseBreathLight": true,
+    "UseStocking": false
+   }
+  },
+  {
+   "spec": "ToonHair_HairShadow.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "499379cc2ab97c613a626634b8eba77889b7b2af"
+    ],
+    "base_pass_vs_hash": [
+     "1550a346b976a4519129018ff8b95bce657156e4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.hair_hairshadow_193861 (393216/393216 px bit-exact); VS #13181",
+   "ps_archive_index": 193861,
+   "vs_archive_index": [
+    13181
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1XiangLiYaoMd10011Bangs",
+    "MI_R2T1XiangLiYaoMd10011Hair"
+   ],
+   "static_switches_informational": {
+    "UseHairShadow": true,
+    "UseHairVCGradient": true
+   }
+  },
+  {
+   "spec": "ToonCommon_NoRampNoVDLBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "96af565fc1c09285019c0802a85ee10d31729764"
+    ],
+    "base_pass_vs_hash": [
+     "e50e881323f0bf03ac24a6834c4b4f63f17c8f4c"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_113442 (327680/327680 px bit-exact); VS #63087 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 113442,
+   "vs_archive_index": [
+    63087
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_ERebeccaDrinkMd10011",
+    "MI_ERebeccadogMd10011"
+   ],
+   "static_switches_informational": {
+    "UseRampColor": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true
+   }
+  },
+  {
+   "spec": "ToonCommon_Down.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "5ee35f41c6b503c99c512f0ddafaeeec610e8df6"
+    ],
+    "base_pass_vs_hash": [
+     "aa5d3c25df5aee71239091eeb5cd9b6b0d6cb603"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.yy_down_85731 (327680/327680 px bit-exact); VS #53953 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 85731,
+   "vs_archive_index": [
+    53953
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1YangyangMd10011Down"
+   ],
+   "static_switches_informational": {}
+  },
+  {
+   "spec": "ToonHair_HETA_RimVertexA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "40256086c2d849bd3d7e3fbba3be3dba073e6d34"
+    ],
+    "base_pass_vs_hash": [
+     "1550a346b976a4519129018ff8b95bce657156e4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.heta_rimvertexa_171466 (393216/393216 px bit-exact); VS #13181",
+   "ps_archive_index": 171466,
+   "vs_archive_index": [
+    13181
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1FeiBiMd10011Bangs_HETA"
+   ],
+   "static_switches_informational": {
+    "IsHairHET": true,
+    "UseRimVertexA": true,
+    "UseHairVCGradient": true,
+    "UseSphereGradient": true
+   }
+  },
+  {
+   "spec": "ToonHair_HETA_HairShadow.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f9d9e44654e48f9fd30c4b8d5111b1c57a45d149"
+    ],
+    "base_pass_vs_hash": [
+     "1550a346b976a4519129018ff8b95bce657156e4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.heta_hairshadow_13236 (393216/393216 px bit-exact); VS #13181",
+   "ps_archive_index": 13236,
+   "vs_archive_index": [
+    13181
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1XiangLiYaoMd10011Bangs_HETA"
+   ],
+   "static_switches_informational": {
+    "IsHairHET": true,
+    "UseHairShadow": true,
+    "UseHairVCGradient": true
+   }
+  },
+  {
+   "spec": "ToonHair_TwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "419a4e4e96ebce70172d1c48b9b2565fdad16a70"
+    ],
+    "base_pass_vs_hash": [
+     "1550a346b976a4519129018ff8b95bce657156e4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.hair_twosided_231784 (393216/393216 px bit-exact); VS #13181",
+   "ps_archive_index": 231784,
+   "vs_archive_index": [
+    13181
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1BaerMd10011Hair"
+   ],
+   "static_switches_informational": {
+    "TwoSided": true
+   }
+  },
+  {
+   "spec": "ToonHair_HETA_TwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "33517ee9a8d828362be702298518a10dc7c1e520"
+    ],
+    "base_pass_vs_hash": [
+     "1550a346b976a4519129018ff8b95bce657156e4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.heta_twosided_296234 (393216/393216 px bit-exact); VS #13181",
+   "ps_archive_index": 296234,
+   "vs_archive_index": [
+    13181
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1BaerMd10011Hair_HETA"
+   ],
+   "static_switches_informational": {
+    "IsHairHET": true,
+    "TwoSided": true
+   }
+  },
+  {
+   "spec": "ToonCommon_NoRampNoVDLBreathTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a83757cb1fbf8dd52ab4db6e5554b56c426412d5"
+    ],
+    "base_pass_vs_hash": [
+     "e50e881323f0bf03ac24a6834c4b4f63f17c8f4c"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_322419 (327680/327680 px bit-exact); VS #63087 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 322419,
+   "vs_archive_index": [
+    63087
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ELuoselaBagMd10011"
+   ],
+   "static_switches_informational": {
+    "UseRampColor": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true
+   }
+  },
+  {
+   "spec": "ToonCommon_BodyUpAllRampColor.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "92418e7f9516d42f50686758577291ceeed7dff0"
+    ],
+    "base_pass_vs_hash": [
+     "1a854a1eb97cfe2b445fa77919c6feb55f380281"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_bodyup_allramp_37287 (393216/393216 px bit-exact); VS #35700",
+   "ps_archive_index": 37287,
+   "vs_archive_index": [
+    35700
+   ],
+   "roster_mis": 3,
+   "example_mis": [
+    "MI_R2T1AnkeMd10011Down",
+    "MI_R2T1AnkeMd10011Upper",
+    "MI_R2T1JinxiMd10011Skirt"
+   ],
+   "static_switches_informational": {
+    "UseAllRampColor": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_BodyUpBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "1d07c45a9eb5e0944203477185a7d4acff4e69b4"
+    ],
+    "base_pass_vs_hash": [
+     "1e7e9dbcdc18654879f864b3020404b482cd33e4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_bodyup_breath_95037 (458752/458752 px bit-exact); VS #23355 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 95037,
+   "vs_archive_index": [
+    23355
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1KakaluoMd10011Down"
+   ],
+   "static_switches_informational": {
+    "UseBreathLight": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoPBR.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a9ce56dcef3ea55c02204bcd36857224a4ef7a10"
+    ],
+    "base_pass_vs_hash": [
+     "ac600e7c3f8481e34a30bbeccc30e5dcf80f9293"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_bodyup_nopbr_144444 (393216/393216 px bit-exact); VS #71689 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 144444,
+   "vs_archive_index": [
+    71689
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1SanhuaMd10011Body"
+   ],
+   "static_switches_informational": {
+    "UsePBR": false
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_BodyUpRampMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "534a13ef9d8adcc173fac3ffe6014666c6e48202"
+    ],
+    "base_pass_vs_hash": [
+     "e32e29118be22210b8d1695e8a201c713558e806"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_bodyup_rampmask_46584 (393216/393216 px bit-exact); VS #19236 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 46584,
+   "vs_archive_index": [
+    19236
+   ],
+   "roster_mis": 3,
+   "example_mis": [
+    "MI_R2T1KamolaMd20011Down",
+    "MI_R2T1QiushuiMd10011Cloth",
+    "MI_R2T1XiakongMd10011Cloth"
+   ],
+   "static_switches_informational": {
+    "UseRampMask": true,
+    "UseTypeMask": false
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_BodyUpTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "bb7193ffee9b7a5b1ad36272824095972e1d69bd"
+    ],
+    "base_pass_vs_hash": [
+     "1a854a1eb97cfe2b445fa77919c6feb55f380281"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_bodyup_twosided_43068 (393216/393216 px bit-exact); VS #35700",
+   "ps_archive_index": 43068,
+   "vs_archive_index": [
+    35700
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1BaerMd10011Up"
+   ],
+   "static_switches_informational": {
+    "TwoSided": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_DownNoSkinRampCTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "257ca5ca78116929351819929dc21cbd9b0908a8"
+    ],
+    "base_pass_vs_hash": [
+     "aa5d3c25df5aee71239091eeb5cd9b6b0d6cb603"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_down_noskinrampc_twosided_106984 (393216/393216 px bit-exact); VS #53953 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 106984,
+   "vs_archive_index": [
+    53953
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1FuluoluoMd10011Down"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseSkinAllRampColor": false,
+    "TwoSided": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_DownRampMaskAniSwitchShadow.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f52a9192140ac4d16497d7650809e9901767d52c"
+    ],
+    "base_pass_vs_hash": [
+     "aa5d3c25df5aee71239091eeb5cd9b6b0d6cb603"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_downrm_ani_262959 (524288/524288 px bit-exact); VS #53953 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 262959,
+   "vs_archive_index": [
+    53953
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1YinLinMd10011Up"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": true,
+    "UseAniSwitchShadow": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_DownRampMaskBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "e2eff6e1ccded3004a95cfbd8713907c16e31363"
+    ],
+    "base_pass_vs_hash": [
+     "7ad932846870d294031afd4e35ef68b3f805ae54"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_downrm_breath_140148 (458752/458752 px bit-exact); VS #136196 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 140148,
+   "vs_archive_index": [
+    136196
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1KanteleilaMd10011Cloth",
+    "MI_R2T1ShouanrenMd10011Down"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": true,
+    "UseBreathLight": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_DownRampMaskNoSkinRampC.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "9cbb201f4919ae17b0af87d990febf769d0d461b"
+    ],
+    "base_pass_vs_hash": [
+     "aa5d3c25df5aee71239091eeb5cd9b6b0d6cb603"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_downrm_noskinrampc_183237 (393216/393216 px bit-exact); VS #53953 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 183237,
+   "vs_archive_index": [
+    53953
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1ZhezhiMd10011Down"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": true,
+    "UseSkinAllRampColor": false
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_DownRampMaskNoVDLBreathHET.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "3e15ba4156082aaf242b80ad0ca91c518b153dd1"
+    ],
+    "base_pass_vs_hash": [
+     "7ad932846870d294031afd4e35ef68b3f805ae54"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_downrm_novdl_breath_het_212568 (458752/458752 px bit-exact); VS #136196 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 212568,
+   "vs_archive_index": [
+    136196
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1ChunMd10011Down"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": true,
+    "UseBreathLight": true,
+    "UseVDLShadowoffset": false,
+    "IsHairHET": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_DownRampMaskXingHen.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "61a686389f10fc523465ecb31b89daeb2b86578b"
+    ],
+    "base_pass_vs_hash": [
+     "efd173dac41a4742f4d0aa07d4eeb6a3fcbeb457"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_downrm_xinghen_179242 (524288/524288 px bit-exact); VS #6015 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 179242,
+   "vs_archive_index": [
+    6015
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1XiakongMd10011Up"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": true,
+    "UseXingHen": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_DownRampMaskXingHenNoRotate.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "cc9965ff7942edb813b24a6983f5b0a8d6599e88"
+    ],
+    "base_pass_vs_hash": [
+     "0f703395b93440d8dc091c4f7e278b61f006ef76"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_downrm_xinghen_norot_291279 (524288/524288 px bit-exact); VS #291235 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 291279,
+   "vs_archive_index": [
+    291235
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1FeiBiMd10011Down"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": true,
+    "UseXingHen": true,
+    "UseRotate180UV": false
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b5452b816ccc300f0c5193385d7822194a1374d8"
+    ],
+    "base_pass_vs_hash": [
+     "1e7e9dbcdc18654879f864b3020404b482cd33e4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_noskinrampc_breath_23388 (458752/458752 px bit-exact); VS #23355 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 23388,
+   "vs_archive_index": [
+    23355
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1XiangLiYaoMd10011Down"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "UseBreathLight": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCBreathTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6c2cf9763a80f20052e09341a2090a7451469cb1"
+    ],
+    "base_pass_vs_hash": [
+     "1e7e9dbcdc18654879f864b3020404b482cd33e4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_noskinrampc_breath_twosided_62064 (458752/458752 px bit-exact); VS #23355 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 62064,
+   "vs_archive_index": [
+    23355
+   ],
+   "roster_mis": 4,
+   "example_mis": [
+    "MI_R2T1AimisiGDMd10011Body",
+    "MI_R2T1AimisiGDMd10011Hand",
+    "MI_R2T1AimisiGDMd10011Head2",
+    "MI_R2T1AimisiGDMd10011Leg"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "UseBreathLight": true,
+    "TwoSided": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCNoDoubleSpec.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a034034a445e569d3556fa1ffd12fd59999896b8"
+    ],
+    "base_pass_vs_hash": [
+     "1a854a1eb97cfe2b445fa77919c6feb55f380281"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_noskinrampc_nods_190072 (393216/393216 px bit-exact); VS #35700",
+   "ps_archive_index": 190072,
+   "vs_archive_index": [
+    35700
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1LuokekeMd10011Up"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "UseDoubleSpecular": false
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f3204fa8887081801cc2ffc5b822750194acca0e"
+    ],
+    "base_pass_vs_hash": [
+     "1a854a1eb97cfe2b445fa77919c6feb55f380281"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_noskinrampc_twosided_35748 (393216/393216 px bit-exact); VS #35700",
+   "ps_archive_index": 35748,
+   "vs_archive_index": [
+    35700
+   ],
+   "roster_mis": 3,
+   "example_mis": [
+    "MI_R2T1AimisiGDMd10011Wing",
+    "MI_R2T1BaerMd10011Down",
+    "MI_R2T1BaerMd10011Hand"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "TwoSided": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_TypeMaskAniSwitchShadow.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "569e7ad39483b10e4cffbf8a48aa3c32a8f2fa2e"
+    ],
+    "base_pass_vs_hash": [
+     "527161541b782c5672781d899dd3f66cc359dff4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_tm_ani_170739 (524288/524288 px bit-exact); VS #114007 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 170739,
+   "vs_archive_index": [
+    114007
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1AnkeMd10011Body"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": false,
+    "UseAniSwitchShadow": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_TypeMaskNoSkinRampC.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6de511f77a2bd0d88a917c8521d0238cacd9eca7"
+    ],
+    "base_pass_vs_hash": [
+     "527161541b782c5672781d899dd3f66cc359dff4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_tm_noskinrampc_292074 (393216/393216 px bit-exact); VS #114007 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 292074,
+   "vs_archive_index": [
+    114007
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1LuokekeMd10011Hat"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": false,
+    "UseSkinAllRampColor": false
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskBreathAllRampColor.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "298c3049dae97a5d5a98a400d254ef75590de0fe"
+    ],
+    "base_pass_vs_hash": [
+     "45c47dcd61b023d8ee2e2f2cdf5dfc6a52ce65d0"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_tmrm_breath_allramp_314618 (458752/458752 px bit-exact); VS #25709 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 314618,
+   "vs_archive_index": [
+    25709
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1JinxiMd10011Down"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseBreathLight": true,
+    "UseAllRampColor": true,
+    "UseSkinAllRampColor": false
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskBreathAniSwitchShadow.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "1fe75b08a2c87e44c2bc4f546c166570a794a297"
+    ],
+    "base_pass_vs_hash": [
+     "45c47dcd61b023d8ee2e2f2cdf5dfc6a52ce65d0"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_tmrm_breath_ani_295986 (589824/589824 px bit-exact); VS #25709 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 295986,
+   "vs_archive_index": [
+    25709
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1YinLinMd10011Down"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseBreathLight": true,
+    "UseAniSwitchShadow": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskBreathNoDoubleSpec.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b01cb4bde7c8cd547e90cbf40eeb98996d852db9"
+    ],
+    "base_pass_vs_hash": [
+     "45c47dcd61b023d8ee2e2f2cdf5dfc6a52ce65d0"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_tmrm_breath_nods_214913 (458752/458752 px bit-exact); VS #25709 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 214913,
+   "vs_archive_index": [
+    25709
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1JianxinMd10011Down"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseBreathLight": true,
+    "UseDoubleSpecular": false
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskNoSkinRampC.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0b283cb761f0b1dee89f560fdc9a875e200d69da"
+    ],
+    "base_pass_vs_hash": [
+     "527161541b782c5672781d899dd3f66cc359dff4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_tmrm_noskinrampc_113993 (393216/393216 px bit-exact); VS #114007 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 113993,
+   "vs_archive_index": [
+    114007
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1BulanteMd10011Down",
+    "MI_R2T1DengDengMd10011Up"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseSkinAllRampColor": false
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "771953dff831218f58a05cc40f142f645bd09daa"
+    ],
+    "base_pass_vs_hash": [
+     "527161541b782c5672781d899dd3f66cc359dff4"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_tmrm_twosided_124506 (393216/393216 px bit-exact); VS #114007 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 124506,
+   "vs_archive_index": [
+    114007
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1BaerMd10011Body"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "TwoSided": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskXingHenNoDoubleSpec.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "c96c6905388ac08f234139273fabc2bd1cebbdb7"
+    ],
+    "base_pass_vs_hash": [
+     "2ddb37ec601d963d9c5ddd96439350d5c3435662"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_tmrm_xinghen_nods_9798 (524288/524288 px bit-exact); VS #9766 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 9798,
+   "vs_archive_index": [
+    9766
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1BulanteMd10011Star"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseXingHen": true,
+    "UseDoubleSpecular": false
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskXingHenNoSkinRampC.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ad104c1cc11ca8ce3a9754660f8a335e0f289fcd"
+    ],
+    "base_pass_vs_hash": [
+     "2ddb37ec601d963d9c5ddd96439350d5c3435662"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_common_tmrm_xinghen_noskinrampc_140544 (524288/524288 px bit-exact); VS #9766 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 140544,
+   "vs_archive_index": [
+    9766
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1AogusitaMd10011Up"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseXingHen": true,
+    "UseSkinAllRampColor": false
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonFace_TypeMaskNoFaceRamp.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "9fbd2011e84ac66d2e583288a04e49dd1c8932f5"
+    ],
+    "base_pass_vs_hash": [
+     "1677f8d86a527667f106743b41a8e87bb98a2f3f"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_face_tm_nofaceramp_178582 (458752/458752 px bit-exact); VS #138044 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 178582,
+   "vs_archive_index": [
+    138044
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1FuluoluoMd10011Face"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseFaceRamp": false
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonFace_TypeMaskRampMaskAllRampColor.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ac4bef49289e4f2d12dc5822b0fbe4157e8a4154"
+    ],
+    "base_pass_vs_hash": [
+     "1677f8d86a527667f106743b41a8e87bb98a2f3f"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_face_tmrm_allramp_138074 (393216/393216 px bit-exact); VS #138044 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 138074,
+   "vs_archive_index": [
+    138044
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1JinxiMd10011Face"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseAllRampColor": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonFace_TypeMaskRampMaskMainTexA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f102a3a65f2e24960fefc446fa2b1e24a210bf38"
+    ],
+    "base_pass_vs_hash": [
+     "1677f8d86a527667f106743b41a8e87bb98a2f3f"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_face_tmrm_maintexa_146683 (393216/393216 px bit-exact); VS #138044 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 146683,
+   "vs_archive_index": [
+    138044
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1PlayerMaleMd20011Face",
+    "MI_R2T1XiangLiYaoMd10011Face"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseMainTexA": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonFace_TypeMaskRampMaskMainTexAAlphaEmission.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "c3f11b63f5f5737101e7f3ee1d85ae6ac4756b22"
+    ],
+    "base_pass_vs_hash": [
+     "1677f8d86a527667f106743b41a8e87bb98a2f3f"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_face_tmrm_maintexa_alphaem_244739 (393216/393216 px bit-exact); VS #138044 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 244739,
+   "vs_archive_index": [
+    138044
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1FuludelisiMd10011Face"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseMainTexA": true,
+    "UseAlphaBlendMode": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonFace_TypeMaskRampMaskMainTexABreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "c9bdd5dad1a39eeb27fad6af0f77e270e67e991f"
+    ],
+    "base_pass_vs_hash": [
+     "e7a4e3417d9417d5148eec5dcc8b9a0514250584"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_face_tmrm_maintexa_breath_304666 (458752/458752 px bit-exact); VS #304674 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 304666,
+   "vs_archive_index": [
+    304674
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1LinnaeaMd10011Face"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseMainTexA": true,
+    "UseBreathLight": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonHair_AllRampColorNormalMap.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ea5a1f05b07f27d81e393d8e8dcbb9e3867a388c"
+    ],
+    "base_pass_vs_hash": [
+     "3378619451b36d9d4af1ae90277a4bc8a6afeeb1"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_hair_allramp_normalmap_44932 (393216/393216 px bit-exact); VS #24163 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 44932,
+   "vs_archive_index": [
+    24163
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1JinxiMd10011Hair"
+   ],
+   "static_switches_informational": {
+    "UseAllRampColor": true,
+    "UseNormalMap": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonHair_AniSwitchShadow.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "921004755871bbfcdf233f0d30d3a602d20ef0ab"
+    ],
+    "base_pass_vs_hash": [
+     "3378619451b36d9d4af1ae90277a4bc8a6afeeb1"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_hair_ani_178463 (524288/524288 px bit-exact); VS #24163 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 178463,
+   "vs_archive_index": [
+    24163
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1JinxiMd20011Bangs",
+    "MI_R2T1JinxiMd20011Hair"
+   ],
+   "static_switches_informational": {
+    "UseAniSwitchShadow": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonHair_NormalMap.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0f6428d34c9ff19e47a16272ad898ec1e0dee8bb"
+    ],
+    "base_pass_vs_hash": [
+     "3378619451b36d9d4af1ae90277a4bc8a6afeeb1"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_hair_normalmap_253534 (393216/393216 px bit-exact); VS #24163 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 253534,
+   "vs_archive_index": [
+    24163
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1ChangLiMd10011Bangs",
+    "MI_R2T1ChangLiMd20011Bangs"
+   ],
+   "static_switches_informational": {
+    "UseNormalMap": true,
+    "UseHairVCGradient": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonHair_HETA_AniSwitchShadow.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b38f26f7952399df6340d3c4aadaaf4dca16d645"
+    ],
+    "base_pass_vs_hash": [
+     "3378619451b36d9d4af1ae90277a4bc8a6afeeb1"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_heta_ani_24196 (524288/524288 px bit-exact); VS #24163 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 24196,
+   "vs_archive_index": [
+    24163
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1JinxiMd20011Bangs_HETA"
+   ],
+   "static_switches_informational": {
+    "IsHairHET": true,
+    "UseAniSwitchShadow": true
+   },
+   "round": 4
+  },
+  {
+   "spec": "ToonHair_HETA_NormalMap.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f22e797a208e24f015468edee204e6343d590b86"
+    ],
+    "base_pass_vs_hash": [
+     "3378619451b36d9d4af1ae90277a4bc8a6afeeb1"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4; evidence/validation/shaderdiff/roster_charcom/round4/results_round4.json variants.r4_heta_normalmap_306280 (393216/393216 px bit-exact); VS #24163 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 306280,
+   "vs_archive_index": [
+    24163
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1ChangLiMd10011Bangs_HETA",
+    "MI_R2T1ChangLiMd20011Bangs_HETA"
+   ],
+   "static_switches_informational": {
+    "IsHairHET": true,
+    "UseNormalMap": true,
+    "UseHairVCGradient": true
+   },
+   "round": 4
+  }
+ ]
+}

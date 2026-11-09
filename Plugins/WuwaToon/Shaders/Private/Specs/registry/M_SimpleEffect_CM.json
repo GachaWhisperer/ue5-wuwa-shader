@@ -1,0 +1,278 @@
+{
+ "root_material": "M_SimpleEffect_CM",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "SimpleEffect_CM_NoiseSecondDissolveMask_Additive.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "1ce139a621f36b7d5a6fc374fd7d309c62b8cc3e"
+    ],
+    "base_pass_vs_hash": [
+     "a9e8444851fad99ff82e78090b76343335c9e893"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/simplefx/results_multi_final.json summary.simplefx_1ce139 (51 runs, o0 835584/835584 o1 835584/835584 bit-exact); VS #26722 engine_only (no Material UB: VS declares only View(309) / TranslucentBasePass(260) / Primitive(45) and the 1-row GPU-skin passthrough VF buffer read by integer ops (evidence/validation/shaderdiff/weapons/round3/simplefx/vs_status_simplefx.json))",
+   "ps_archive_index": 26718,
+   "vs_archive_index": [
+    26722
+   ],
+   "vs_status": {
+    "a9e8444851fad99ff82e78090b76343335c9e893": "engine_only"
+   },
+   "blend_mode": "BLEND_Additive",
+   "resolve": false,
+   "roster_mis": 5,
+   "roster_slot_uses": 28,
+   "entities": [
+    "character:Galbrena",
+    "character:Rover: Aero",
+    "character:Rover: Electro",
+    "skin:Hunt Unending",
+    "skin:Perpetual Spark",
+    "skin:Wandering Traveler",
+    "weapon:Woodland Aria"
+   ],
+   "example_mis": [
+    "MI_Add_Qimeila_80045_CM",
+    "MI_Add_Windnanzhu_Eye_80022_CM",
+    "MI_Add_Windnanzhu_Eye_80024_CM",
+    "MI_R5Gun502Md20001Effect01",
+    "MI_R5Gun502Md20001Effect02"
+   ],
+   "notes": "M_SimpleEffect_CM; entry WuwaFXSimpleEffect_NoiseSecondDissolveMask; MIs MI_Add_Qimeila_80045_CM, MI_Add_Windnanzhu_Eye_80022_CM, MI_Add_Windnanzhu_Eye_80024_CM, MI_R5Gun502Md20001Effect01, MI_R5Gun502Md20001Effect02 (28 slot uses)"
+  },
+  {
+   "spec": "SimpleEffect_CM_NoiseSecondDissolveMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "84ca3bf522699616e784691bfd80c773fd83ade8"
+    ],
+    "base_pass_vs_hash": [
+     "8f521f3c13c8a4a110312ff54de0f306d42bc2c4"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/simplefx/results_multi_final.json summary.simplefx_84ca3b (48 runs, o0 786432/786432 o1 786432/786432 bit-exact); VS #9523 engine_only (engine_only (round 1); no Material UB: CB0[260]/CB1[309]/CB2[45] + 1-row GPU-skin VF buffer (integer reads only))",
+   "ps_archive_index": 48154,
+   "vs_archive_index": [
+    9523
+   ],
+   "vs_status": {
+    "8f521f3c13c8a4a110312ff54de0f306d42bc2c4": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 4,
+   "roster_slot_uses": 28,
+   "entities": [
+    "character:Galbrena",
+    "character:Rover: Aero",
+    "character:Rover: Electro",
+    "character:Rover: Havoc",
+    "skin:Hunt Unending",
+    "skin:Perpetual Spark",
+    "skin:Wandering Traveler",
+    "weapon:Woodland Aria"
+   ],
+   "example_mis": [
+    "MI_R5Gun502Md20001Effect03",
+    "MI_Trans_Anzhu_Wing_80008_CM",
+    "MI_Trans_Qimeila_80047_CM",
+    "MI_Trans_Windnanzhu_Eye_80023_CM"
+   ],
+   "notes": "M_SimpleEffect_CM; entry WuwaFXSimpleEffect_NoiseSecondDissolveMask; MIs MI_R5Gun502Md20001Effect03, MI_Trans_Anzhu_Wing_80008_CM, MI_Trans_Qimeila_80047_CM, MI_Trans_Windnanzhu_Eye_80023_CM (28 slot uses)"
+  },
+  {
+   "spec": "SimpleEffect_CM_SecondMask_Additive.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a2c8218f00fec1b2dae75bea5ce610414cd809a3"
+    ],
+    "base_pass_vs_hash": [
+     "a9e8444851fad99ff82e78090b76343335c9e893"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/simplefx/results_multi_final.json summary.simplefx_a2c821 (42 runs, o0 688128/688128 o1 688128/688128 bit-exact); VS #26722 engine_only (no Material UB: VS declares only View(309) / TranslucentBasePass(260) / Primitive(45) and the 1-row GPU-skin passthrough VF buffer read by integer ops (evidence/validation/shaderdiff/weapons/round3/simplefx/vs_status_simplefx.json))",
+   "ps_archive_index": 98679,
+   "vs_archive_index": [
+    26722
+   ],
+   "vs_status": {
+    "a9e8444851fad99ff82e78090b76343335c9e893": "engine_only"
+   },
+   "blend_mode": "BLEND_Additive",
+   "resolve": false,
+   "roster_mis": 2,
+   "roster_slot_uses": 4,
+   "entities": [
+    "character:Iuno",
+    "skin:The Unmeasured One"
+   ],
+   "example_mis": [
+    "EYounuoYuegongFxMd10011_VFX_1",
+    "EYounuoYuegongFxMd10011_VFX_4"
+   ],
+   "notes": "M_SimpleEffect_CM; entry WuwaFXSimpleEffect_SecondMask; MIs EYounuoYuegongFxMd10011_VFX_1, EYounuoYuegongFxMd10011_VFX_4 (4 slot uses)"
+  },
+  {
+   "spec": "SimpleEffect_CM_NoiseDissolveMask_Masked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "40b5b9a78cce70275f37d2cedf6100f7046f6080"
+    ],
+    "base_pass_vs_hash": [
+     "7691e4f65f3809c832b21509da2a1189967244ad"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/simplefx/results_multi_final.json summary.simplefx_40b5b9 (48 runs, o0 786432/786432 o1 786432/786432 o2 786432/786432 o3 786432/786432 o6 786432/786432 bit-exact); VS #20179 engine_only (no Material UB: VS declares only View(309) / TranslucentBasePass(260) / Primitive(45) and the 1-row GPU-skin passthrough VF buffer read by integer ops (evidence/validation/shaderdiff/weapons/round3/simplefx/vs_status_simplefx.json))",
+   "ps_archive_index": 204250,
+   "vs_archive_index": [
+    20179
+   ],
+   "vs_status": {
+    "7691e4f65f3809c832b21509da2a1189967244ad": "engine_only"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 26,
+   "entities": [
+    "character:Rover: Aero",
+    "character:Rover: Electro",
+    "character:Rover: Havoc",
+    "skin:Perpetual Spark",
+    "skin:Wandering Traveler"
+   ],
+   "example_mis": [
+    "MI_Mask_Anzhu_Wing_80014_CM"
+   ],
+   "notes": "M_SimpleEffect_CM; entry WuwaFXSimpleEffect_NoiseDissolveMaskMasked; MIs MI_Mask_Anzhu_Wing_80014_CM (26 slot uses)"
+  },
+  {
+   "spec": "SimpleEffect_CM_NoiseDissolveMask_Additive.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "fe1c584587ffbc7458963d9fb0f6c84a0193afeb"
+    ],
+    "base_pass_vs_hash": [
+     "a9e8444851fad99ff82e78090b76343335c9e893"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/simplefx/results_multi_final.json summary.simplefx_fe1c58 (39 runs, o0 638976/638976 o1 638976/638976 bit-exact); VS #26722 engine_only (no Material UB: VS declares only View(309) / TranslucentBasePass(260) / Primitive(45) and the 1-row GPU-skin passthrough VF buffer read by integer ops (evidence/validation/shaderdiff/weapons/round3/simplefx/vs_status_simplefx.json))",
+   "ps_archive_index": 276986,
+   "vs_archive_index": [
+    26722
+   ],
+   "vs_status": {
+    "a9e8444851fad99ff82e78090b76343335c9e893": "engine_only"
+   },
+   "blend_mode": "BLEND_Additive",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Galbrena",
+    "skin:Hunt Unending"
+   ],
+   "example_mis": [
+    "MI_Add_Qimeila_80046_CM"
+   ],
+   "notes": "M_SimpleEffect_CM; entry WuwaFXSimpleEffect_NoiseDissolveMask; MIs MI_Add_Qimeila_80046_CM (2 slot uses)"
+  },
+  {
+   "spec": "SimpleEffect_CM_Base_Additive.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "17abf12e40b094f04aa55dbd4660e1bf3f5f26b1"
+    ],
+    "base_pass_vs_hash": [
+     "a9e8444851fad99ff82e78090b76343335c9e893"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/simplefx/results_multi_final.json summary.simplefx_17abf1 (39 runs, o0 638976/638976 o1 638976/638976 bit-exact); VS #26722 engine_only (no Material UB: VS declares only View(309) / TranslucentBasePass(260) / Primitive(45) and the 1-row GPU-skin passthrough VF buffer read by integer ops (evidence/validation/shaderdiff/weapons/round3/simplefx/vs_status_simplefx.json))",
+   "ps_archive_index": 182525,
+   "vs_archive_index": [
+    26722
+   ],
+   "vs_status": {
+    "a9e8444851fad99ff82e78090b76343335c9e893": "engine_only"
+   },
+   "blend_mode": "BLEND_Additive",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Jianxin",
+    "skin:One with Everything"
+   ],
+   "example_mis": [
+    "MI_Add_Jianxin_Zhuzi_80016_CM"
+   ],
+   "notes": "M_SimpleEffect_CM; entry WuwaFXSimpleEffect_Base; MIs MI_Add_Jianxin_Zhuzi_80016_CM (2 slot uses)"
+  },
+  {
+   "spec": "SimpleEffect_CM_NoiseSecondMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "c672456ff394e78db1224828ae4b62f9446c870d"
+    ],
+    "base_pass_vs_hash": [
+     "8f521f3c13c8a4a110312ff54de0f306d42bc2c4"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/simplefx/results_multi_final.json summary.simplefx_c67245 (39 runs, o0 638976/638976 o1 638976/638976 bit-exact); VS #9523 engine_only (engine_only (round 1); no Material UB: CB0[260]/CB1[309]/CB2[45] + 1-row GPU-skin VF buffer (integer reads only))",
+   "ps_archive_index": 216493,
+   "vs_archive_index": [
+    9523
+   ],
+   "vs_status": {
+    "8f521f3c13c8a4a110312ff54de0f306d42bc2c4": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Iuno",
+    "skin:The Unmeasured One"
+   ],
+   "example_mis": [
+    "EYounuoYuegongFxMd10011_VFX_2"
+   ],
+   "notes": "M_SimpleEffect_CM; entry WuwaFXSimpleEffect_NoiseSecondMask; MIs EYounuoYuegongFxMd10011_VFX_2 (2 slot uses)"
+  },
+  {
+   "spec": "SimpleEffect_CM_NoiseSecondMask_Additive.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "373effca5f22fbf88f2a0be5705446e8c4669ad5"
+    ],
+    "base_pass_vs_hash": [
+     "a9e8444851fad99ff82e78090b76343335c9e893"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/simplefx/results_multi_final.json summary.simplefx_373eff (39 runs, o0 638976/638976 o1 638976/638976 bit-exact); VS #26722 engine_only (no Material UB: VS declares only View(309) / TranslucentBasePass(260) / Primitive(45) and the 1-row GPU-skin passthrough VF buffer read by integer ops (evidence/validation/shaderdiff/weapons/round3/simplefx/vs_status_simplefx.json))",
+   "ps_archive_index": 215093,
+   "vs_archive_index": [
+    26722
+   ],
+   "vs_status": {
+    "a9e8444851fad99ff82e78090b76343335c9e893": "engine_only"
+   },
+   "blend_mode": "BLEND_Additive",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Iuno",
+    "skin:The Unmeasured One"
+   ],
+   "example_mis": [
+    "EYounuoYuegongFxMd10011_VFX_3"
+   ],
+   "notes": "M_SimpleEffect_CM; entry WuwaFXSimpleEffect_NoiseSecondMask; MIs EYounuoYuegongFxMd10011_VFX_3 (2 slot uses)"
+  }
+ ]
+}

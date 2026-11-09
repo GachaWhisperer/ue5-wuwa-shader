@@ -1,0 +1,56 @@
+{
+ "root_material": "M_CharV2_Com",
+ "_doc": "Round-7 M_CharV2_Com base-pass variants (research/roster/round7/singletons.md, V2 prop 87519bc1); merged with M_CharV2_Com.json / M_CharV2_Com_HairFace.json / M_CharV2_Com_R5.json / M_CharV2_Com_R6.json by root_material. Match by base_pass_ps_hash only (VS hash listed; verified per entry). The forward-translucent entry is a \"resolve\": false spec whose material part is verified.",
+ "variants": [
+  {
+   "spec": "ToonBodyV2_PropTransNoPBRSecondBump2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "87519bc1b469357eadaf5ac80863899b462d8176"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "8e198801f22181a07405d0bdd7ee68bc10bc4145"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Translucent"
+   ],
+   "mis": [
+    "MI_ELuoselaFilmMd10011_Tou_Inst"
+   ],
+   "slot_uses": 4,
+   "entities": 2,
+   "verified": "research/roster/round7/singletons.md#v2prop_87519bc1",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round7/singletons/v2prop/results_trans_r7.json",
+    "kind": "material part (transpiled original, material registers overwritten by the port)",
+    "runs": 48,
+    "o0": "786432/786432 bit-exact",
+    "identity_control": "786432/786432 bit-exact",
+    "negative_controls": {
+     "neg_87519bc1_secrot": "665443/786432 bit-exact (detected)",
+     "neg_87519bc1_bump_1ulp": "786430/786432 bit-exact (detected)",
+     "neg_87519bc1_opacityint": "368215/786432 bit-exact (detected)",
+     "neg_87519bc1_sss_1ulp": "784796/786432 bit-exact (detected)",
+     "neg_87519bc1_shadowproc_1ulp": "760779/786432 bit-exact (detected)",
+     "neg_87519bc1_linkrow": "782478/786432 bit-exact (detected)",
+     "neg_87519bc1_swap_ao_shadow": "146893/786432 bit-exact (detected)",
+     "neg_87519bc1_twosided_normal": "407416/786432 bit-exact (detected)",
+     "neg_87519bc1_maskguard_le0 (results_trans_r7_neg_maskguard.json, pow-edge + mi + rand_a sets)": "222536/245760 bit-exact (detected only in the pow_edge sets)"
+    },
+    "vs": "evidence/validation/shaderdiff/roster_charcom/round7/singletons/v2prop/vs_equiv_r7.json",
+    "independent_recheck": {
+     "file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/recheck/r7prop/results_trans_r7prop_twopass.json",
+     "tool": "tools/shaderdiff/roster_charcom/recheck_twopass_r7.py --tool r7prop (round-7 trans agent, two-pass method)",
+     "port": "786432/786432 bit-exact",
+     "identity": "786432/786432 bit-exact",
+     "isolation": "786432/786432 bit-exact"
+    }
+   },
+   "notes": "VERIFICATION: material part bit-exact; engine tail replaced by UE translucency lighting (approximation). The port (WuwaToonBodyV2PropTransNoPBRSecondBump2SBasePass, WuwaToonBasePass_V2Props.ush) returns the material values (Emissive, Opacity, toon lit colour, and the Kuro toon-lighting inputs shadow colour / shadow / AO / normal); bit-exact through the whole original o0 with those registers overwritten (identity control and negative controls above). Not ported (engine tail): primitive fade, vertex / volumetric height fog, emissive scale and OOB stripes, Kuro forward toon lighting (screen shadow mask / CSM, local-light list, translucency volume), pre-exposure. In UE the spec is \"resolve\": false with the lit-translucent template (DefaultLit, BLEND_Translucent, TwoSided): Emissive -> Emissive Color, Opacity -> Opacity, OutBaseColor -> Base Color, lit by UE translucency lighting; the Kuro primitive fade is not applied. VS: 8e198801 (#283259) = the verified V2 face VS c9e8451f, and with the face -> hair packing remap the V2 hair VS 36679c04, on TEXCOORD0 / TEXCOORD2 / SV_POSITION (symbolic equivalence after slot renaming and removal of its vertex height-fog block L290-892, which no compared output depends on; vs_equiv_r7.json); WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2."
+  }
+ ]
+}

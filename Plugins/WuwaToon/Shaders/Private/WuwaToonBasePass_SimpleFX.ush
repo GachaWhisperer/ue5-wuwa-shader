@@ -1,0 +1,565 @@
+// WuwaToonBasePass_SimpleFX.ush — Kuro "SimpleEffect" material family on character / weapon meshes:
+//   M_SimpleEffect_CM, M_SimpleEffect_SK (unlit translucent / additive / masked effect shells) and M_SimpleEffect_Depth_CM.
+//
+// The three roots compile the same graph as a reduced M_AdvancedEffect_CM (WuwaToonBasePass_WeaponFX.ush,
+// WuwaFXAdvancedEffectCM_Impl): Second / Noise / Base / Mask / Dissolve layers with the same UV channel select, screen-UV
+// lerp, rotator, EffectTime panner, noise distortion, refine and dissolve edge colour; no Fresnel rim, no matcap and no screen
+// fade; the colour tail is the light colour + Niagara grey shift + MPC effect grading + selection colour WITHOUT the
+// View[286].y saturation step (the M_Refraction_CM form). M_SimpleEffect_SK differs from _CM only by an unused TEXCOORD1
+// interpolant (same PS code). Each compiled PS hash is one generated entry below (asm line refs in the comments).
+// research/roster/Port_Weapons_Specials.md (round 3), tools/shaderdiff/weapons/r3/wv_simplefx.py.
+//
+// CPU uniform expressions (spec kind "uniform_expression"): the layer rotations cos/sin(Rotation * 2pi) are preshaders
+// (<Layer>_RotCos / _RotSin), as in the AdvancedEffect port.
+#ifndef WUWA_SIMPLEFX_USH
+#define WUWA_SIMPLEFX_USH
+
+#include "WuwaToonBasePass_WeaponFX.ush"   // WuwaFXClock / WuwaFXUVSel / WuwaFXRotate / WuwaFXClampLerp / WuwaFXRefine, FWuwaFXOutput (read-only)
+
+// =====================================================================================================================
+// M_SimpleEffect_* graph; compile-time options = the static switches compiled into each PS hash:
+//   bSecond   Second layer (t: Second) composited with Base (else C = Base + Base_bAddSecond)
+//   bNoise    Noise distortion (t: Noise, .xy) of the Second / Base / Dissolve / Mask UVs
+//   bDissolve Dissolve layer (t: Dissolve) with edge colour; with bMask the dissolve value lerps toward the mask
+//   bMask     Mask layer (t: Mask, SampleLevel at MipBias - 1) multiplying the opacity
+//   bUV4      4-channel UV select dot(<Layer>_UVSwitch, (UV0, UV1, UV2, UV3)) (maps compiled with TEXCOORD0 + TEXCOORD1);
+//             else lerp(UV0, UV1, <Layer>_UVSwitch.y)
+//   bMasked   BLEND_Masked (PS 40b5b9a78c): Opacity = opacity mask without the final saturate (engine clip 0.6663,
+//             spec opacity_mask_clip_value), the Kuro primitive dither is clipped here
+//   bDepthDither M_SimpleEffect_Depth_CM (PS ad17e37275): opacity * DitherTemporalAA-style depth dither (engine 64x64 noise
+//             texture + (x + 2y + TemporalAAParams.x) mod 5 pattern, DepthDitherFactor), then min with the portal dissolve
+//             term (world / local / actor-space half-space test against PortalCenter / PortalAxis, screen-space sine wave
+//             scaled by E_Tex_UseSecondNoiseMask, base 0.667); no saturate between the E_Dither step and the depth dither
+// Without bNoise the original adds the preshader constants (<k> * 0) to the UVs (0 or -0): no effect on the sampled value.
+// =====================================================================================================================
+FWuwaFXOutput WuwaFXSimpleEffect_Impl(const bool bSecond, const bool bNoise, const bool bDissolve, const bool bMask, const bool bUV4,
+	const bool bMasked, const bool bDepthDither,
+	Texture2D Noise, SamplerState NoiseSampler, Texture2D Second, SamplerState SecondSampler,
+	Texture2D Base, SamplerState BaseSampler, Texture2D Mask, SamplerState MaskSampler,
+	Texture2D Dissolve, SamplerState DissolveSampler,
+	float2 UV0, float2 UV1, float2 UV2, float2 UV3, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime,
+	float3 KuroViewLightColorA, float3 KuroViewLightColorB,
+	float UseSpecificTime, float EffectTime, float EffectTimeScale,
+	float4 Second_UVSwitch, float Second_bScreenUV, float Second_RotCos, float Second_RotSin, float4 Second_UV, float4 Second_UV_Offset,
+	float Second_bClamp, float4 Second_Contorl,
+	float4 Noise_UVSwitch, float Noise_bScreenUV, float Noise_RotCos, float Noise_RotSin, float4 Noise_UV, float Noise_Offset, float Noise_Strength,
+	float4 Base_UVSwitch, float Base_bScreenUV, float Base_RotCos, float Base_RotSin, float4 Base_UV, float4 Base_UV_Offset,
+	float Base_bClamp, float Base_NoiseStrength, float Base_bClampAfterNoise, float4 Base_EmissiveSwitch, float Base_bUseChannelAsEmissive,
+	float4 Base_Refine, float Base_Emissive_Add, float Base_bAddSecond, float4 Base_ColorTint, float4 Base_AlphaSwitch, float Base_Alpha_Multiply,
+	float4 Dissolve_UVSwitch, float Dissolve_bScreenUV, float Dissolve_RotCos, float Dissolve_RotSin, float4 Dissolve_UV,
+	float DIssolve_TimeOffset, float Dissolve_bClamp, float Dissolve_NoiseStrength, float Dissolve_UOffset, float Dissolve_VOffset,
+	float4 Dissolve_ChannelSwitch, float Dissolve_MaskLerp, float Dissolve_Invert, float Dissolve_Smooth, float Dissolve_Dissolve,
+	float4 Dissolve_EdgeColor,
+	float4 Mask_UVSwitch, float Mask_bScreenUV, float Mask_RotCos, float Mask_RotSin, float4 Mask_UV, float4 Mask_UV_Offset,
+	float Mask_bClamp, float Mask_NoiseStrength, float4 Mask_AlphaSwitch, float Mask_Invert, float Mask_Alpha_Multiply,
+	float LightColorStrength, float4 NiagaraShiftLowGrayColor, float4 NiagaraShiftHighGrayColor, float NiagaraShiftColorParam,
+	float4 SelectionColor, float E_Dither_DitherValue, float E_Dither_UseDither,
+	float MPC_KuroEffectColorGradingDesaturate, float3 MPC_KuroEffectColorGradingTint, float MaterialTextureMipBias,
+	float KuroPrimDitherEnable, float KuroPrimDitherFade,
+	Texture2D DitherNoise, SamplerState DitherNoiseSampler, float TemporalAAParamsX, float3 WorldPosition, float4x4 KuroPrimWorldToLocal,
+	float3 KuroPrimActorWorldPosition, float UseLocalSpace, float UseActorSpace, float3 PortalCenter, float3 PortalAxisN,
+	float UsePortalDissolve, float E_Tex_UseSecondNoiseMask, float DepthDitherFactor)
+{
+	FWuwaFXOutput X;
+	float2 Pix = SvPositionXY - ViewRectMin;
+	float2 Inv = ViewSizeAndInvSize.zw;
+
+	// Second UV, clock (1ce139a6 l.7-29)
+	float2 suv = 0.0;
+	if (bSecond)
+		suv = WuwaFXRotate(WuwaFXUVSel(bUV4, Second_UVSwitch, UV0, UV1, UV2, UV3, Second_bScreenUV, Pix, Inv), Second_RotCos, Second_RotSin);
+	float t = WuwaFXClock(GameTime, UseSpecificTime, EffectTime);
+	float T = t * EffectTimeScale;
+	if (bSecond)
+	{
+		float ts = EffectTimeScale * t + 1.0;
+		ts = Second_bClamp * (1.0 - ts) + ts;
+		suv = suv * Second_UV.xy + ts * Second_UV.zw;
+		suv = suv + Second_UV_Offset.xy;
+	}
+
+	// noise (l.30-39)
+	float2 nz = 0.0;
+	if (bNoise)
+	{
+		float2 nuv = WuwaFXRotate(WuwaFXUVSel(bUV4, Noise_UVSwitch, UV0, UV1, UV2, UV3, Noise_bScreenUV, Pix, Inv), Noise_RotCos, Noise_RotSin);
+		nuv = nuv * Noise_UV.xy + T * Noise_UV.zw;
+		nz = (Noise.SampleBias(NoiseSampler, nuv, MaterialTextureMipBias).xy + Noise_Offset) * Noise_Strength;
+	}
+
+	// Second layer (l.40-48)
+	float3 S = 0.0, Sk = 0.0;
+	if (bSecond)
+	{
+		if (bNoise)
+			suv = Second_Contorl.z * nz + suv;
+		suv = WuwaFXClampLerp(suv, Second_bClamp);
+		S = Second.SampleBias(SecondSampler, suv, MaterialTextureMipBias).rgb;
+		S = Second_Contorl.x * (dot(S, float3(asfloat(0x3E99999Au), asfloat(0x3F170A3Du), asfloat(0x3DE147AEu))) - S) + S;
+		Sk = S * Second_Contorl.y;
+	}
+
+	// Base layer (l.49-82)
+	float2 buv = WuwaFXRotate(WuwaFXUVSel(bUV4, Base_UVSwitch, UV0, UV1, UV2, UV3, Base_bScreenUV, Pix, Inv), Base_RotCos, Base_RotSin);
+	float tb = Base_bClamp * -T + T;
+	buv = buv * Base_UV.xy + tb * Base_UV.zw;
+	buv = buv + Base_UV_Offset.xy;
+	if (bNoise)
+	{
+		float2 bn = nz * Base_NoiseStrength;
+		buv = bn * (1.0 - Base_bClampAfterNoise) + buv;
+		buv = WuwaFXClampLerp(buv, Base_bClamp);
+		buv = bn * Base_bClampAfterNoise + buv;
+	}
+	else
+	{
+		buv = WuwaFXClampLerp(buv, Base_bClamp);
+	}
+	float4 Bs = Base.SampleBias(BaseSampler, buv, MaterialTextureMipBias);
+	float3 Bc = Base_bUseChannelAsEmissive * (dot(Bs, Base_EmissiveSwitch) - Bs.rgb) + Bs.rgb;
+	Bc = WuwaFXRefine(Bc, Base_Refine, Base_Emissive_Add);
+	float3 C;
+	if (bSecond)
+	{
+		float3 SB = Sk * Bc;
+		C = S * Second_Contorl.y + Bc;
+		C = -Sk * Bc + C;
+		C = Base_bAddSecond * C + SB;
+	}
+	else
+	{
+		C = Bc + Base_bAddSecond;
+	}
+
+	// mask (l.104-125)
+	float m = 1.0, mm = 1.0;
+	if (bMask)
+	{
+		float2 muv = WuwaFXRotate(WuwaFXUVSel(bUV4, Mask_UVSwitch, UV0, UV1, UV2, UV3, Mask_bScreenUV, Pix, Inv), Mask_RotCos, Mask_RotSin);
+		float tm = Mask_bClamp * -T + T;
+		muv = muv * Mask_UV.xy + tm * Mask_UV.zw;
+		muv = muv + Mask_UV_Offset.xy;
+		if (bNoise)
+			muv = nz * Mask_NoiseStrength + muv;
+		muv = WuwaFXClampLerp(muv, Mask_bClamp);
+		m = dot(Mask.SampleLevel(MaskSampler, muv, MaterialTextureMipBias - 1.0), Mask_AlphaSwitch);
+		m = Mask_Invert * (m * -2.0 + 1.0) + m;
+		mm = m * Mask_Alpha_Multiply;
+	}
+
+	// dissolve with edge colour (l.83-103, 126-138)
+	float d = 0.0;
+	float3 E;
+	if (bDissolve)
+	{
+		float2 duv = WuwaFXRotate(WuwaFXUVSel(bUV4, Dissolve_UVSwitch, UV0, UV1, UV2, UV3, Dissolve_bScreenUV, Pix, Inv), Dissolve_RotCos, Dissolve_RotSin);
+		float td = -EffectTimeScale * t + DIssolve_TimeOffset;
+		td = Dissolve_bClamp * td + T;
+		duv = duv * Dissolve_UV.xy + td * Dissolve_UV.zw;
+		if (bNoise)
+			duv = nz * Dissolve_NoiseStrength + duv;
+		duv = WuwaFXClampLerp(duv, Dissolve_bClamp);
+		duv = duv + float2(Dissolve_UOffset, Dissolve_VOffset);
+		d = dot(Dissolve.SampleBias(DissolveSampler, duv, MaterialTextureMipBias), Dissolve_ChannelSwitch);
+		if (bMask)
+			d = Dissolve_MaskLerp * (Mask_Alpha_Multiply * m - d) + d;
+		else
+			d = Dissolve_MaskLerp * (1.0 - d) + d;
+		d = Dissolve_Invert * (d * -2.0 + 1.0) + d;
+		float dd = Dissolve_Dissolve * (-Dissolve_Smooth + -1.0) + Dissolve_Smooth;
+		d = d * Dissolve_Smooth - dd;
+		float edge = 1.0 - min(abs(d + -1.0), 1.0);
+		E = C * Base_ColorTint.rgb + edge * Dissolve_EdgeColor.rgb;
+	}
+	else
+	{
+		E = C * Base_ColorTint.rgb;
+	}
+
+	// colour tail (l.139-153): light colour, Niagara grey shift, MPC effect grading, selection colour (no View[286].y step)
+	float3 Lc = (KuroViewLightColorA - KuroViewLightColorB) * 0.5 + KuroViewLightColorB;
+	E = LightColorStrength * (E * Lc - E) + E;
+	float g = dot(E, float3(asfloat(0x3DE147AEu), asfloat(0x3F170A3Du), asfloat(0x3E99999Au)));
+	float3 Sh = saturate(g) * (NiagaraShiftLowGrayColor.rgb - NiagaraShiftHighGrayColor.rgb) + NiagaraShiftHighGrayColor.rgb;
+	E = NiagaraShiftColorParam * (Sh * g - E) + E;
+	float gl = dot(E, float3(asfloat(0x3E991687u), asfloat(0x3F1645A2u), asfloat(0x3DE978D5u)));
+	E = (gl - E) * MPC_KuroEffectColorGradingDesaturate + E;
+	float3 Eg = E * MPC_KuroEffectColorGradingTint;
+	X.Emissive = SelectionColor.a * (-E * MPC_KuroEffectColorGradingTint + SelectionColor.rgb) + Eg;
+
+	// opacity (l.154-159): base alpha [* mask] [* saturate(dissolve)], dither value
+	float op = dot(Bs, Base_AlphaSwitch) * Base_Alpha_Multiply;
+	if (bMask)
+		op = mm * op;
+	if (bDissolve)
+		op = saturate(d) * op;
+	op = E_Dither_UseDither * (E_Dither_DitherValue * op - op) + op;
+	if (bDepthDither)
+	{
+		// portal dissolve term (ad17e37275 l.26-58)
+		float3 P = mul(float4(WorldPosition, 1.0), KuroPrimWorldToLocal).xyz;
+		P = UseLocalSpace * (P - WorldPosition) + WorldPosition;
+		P = UseActorSpace * ((WorldPosition - KuroPrimActorWorldPosition) - P) + P;
+		P = P - PortalCenter;
+		P = P / sqrt(dot(P, P));
+		bool behind = (0.0 >= dot(PortalAxisN, P));
+		float pd = min(1.0 - UsePortalDissolve, 1.0);
+		float2 su = -Pix * Inv + 1.0;
+		float wv = su.y + su.y;
+		float wu = su.x * 2.0 + asfloat(0xBD4CCCCDu);                      // -0.05
+		wu = -GameTime * asfloat(0x3E99999Au) + wu;                          // 0.3
+		wu = Pix.y * Inv.y + wu;
+		wu = sin(wu * asfloat(0x40C90FDBu));                                 // 2 pi
+		wv = -GameTime * asfloat(0x3E99999Au) + wv;
+		wv = sin(wv * asfloat(0x40490FDBu));                                 // pi
+		float w = abs(wv * wu) * su.y + -1.0;
+		w = E_Tex_UseSecondNoiseMask * w + 1.0;
+		float pt = behind ? 0.0 : (pd + -1.0);
+		pt = w * pt + asfloat(0x3F2AC083u);                                  // 0.667
+		// depth dither (l.65-79): ((noise.x + (x + 2y + TAA) mod 5) / 6 + op * DepthDitherFactor - 0.5 >= 0) ? op : 0
+		uint2 q = (uint2)(Pix + TemporalAAParamsX);
+		uint qi = (q.x + (q.y << 1)) % 5u;
+		float n = DitherNoise.SampleBias(DitherNoiseSampler, Pix * asfloat(0x3C800000u), MaterialTextureMipBias).x;
+		float k = (n + (float)qi) * asfloat(0x3E2AAAABu);
+		k = op * DepthDitherFactor + k;
+		op = op * ((k + -0.5 >= 0.0) ? 1.0 : 0.0);
+		X.Opacity = saturate(min(op, pt));
+	}
+	else if (bMasked)
+	{
+		// BLEND_Masked (40b5b9a78c l.130-148): Opacity Mask = op (engine clip: op - 0.6663 < 0, OpacityMaskClipValue 0.6663);
+		// the Kuro primitive dither (min'ed with it in the original) is clipped here.
+		X.Opacity = op;
+		clip(WuwaPrimDitherClip(KuroPrimDitherEnable, KuroPrimDitherFade, SvPositionXY));
+	}
+	else
+	{
+		X.Opacity = saturate(op);
+	}
+	return X;
+}
+
+// ---- GENERATED SimpleEffect entries (tools/shaderdiff/weapons/r3/simplefx_gen_entries.py) - do not edit by hand ----
+// NoiseSecondDissolveMask: M_SimpleEffect_CM PS 1ce139a621 (#26718) additive / 84ca3bf522 (#48154) translucent; M_SimpleEffect_SK PS 69b25af507 (#211996) translucent
+FWuwaFXOutput WuwaFXSimpleEffect_NoiseSecondDissolveMask(
+	Texture2D Noise, SamplerState NoiseSampler, Texture2D Second, SamplerState SecondSampler, Texture2D Base,
+	SamplerState BaseSampler, Texture2D Mask, SamplerState MaskSampler, Texture2D Dissolve, SamplerState DissolveSampler,
+	float2 UV0, float2 UV1, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime,
+	float3 KuroViewLightColorA, float3 KuroViewLightColorB, float UseSpecificTime, float EffectTime, float EffectTimeScale,
+	float4 Second_UVSwitch, float Second_bScreenUV, float Second_RotCos, float Second_RotSin, float4 Second_UV,
+	float4 Second_UV_Offset, float Second_bClamp, float4 Second_Contorl, float4 Noise_UVSwitch, float Noise_bScreenUV,
+	float Noise_RotCos, float Noise_RotSin, float4 Noise_UV, float Noise_Offset, float Noise_Strength,
+	float4 Base_UVSwitch, float Base_bScreenUV, float Base_RotCos, float Base_RotSin, float4 Base_UV,
+	float4 Base_UV_Offset, float Base_bClamp, float Base_NoiseStrength, float Base_bClampAfterNoise,
+	float4 Base_EmissiveSwitch, float Base_bUseChannelAsEmissive, float4 Base_Refine, float Base_Emissive_Add,
+	float Base_bAddSecond, float4 Base_ColorTint, float4 Base_AlphaSwitch, float Base_Alpha_Multiply,
+	float4 Dissolve_UVSwitch, float Dissolve_bScreenUV, float Dissolve_RotCos, float Dissolve_RotSin, float4 Dissolve_UV,
+	float DIssolve_TimeOffset, float Dissolve_bClamp, float Dissolve_NoiseStrength, float Dissolve_UOffset,
+	float Dissolve_VOffset, float4 Dissolve_ChannelSwitch, float Dissolve_MaskLerp, float Dissolve_Invert,
+	float Dissolve_Smooth, float Dissolve_Dissolve, float4 Dissolve_EdgeColor, float4 Mask_UVSwitch, float Mask_bScreenUV,
+	float Mask_RotCos, float Mask_RotSin, float4 Mask_UV, float4 Mask_UV_Offset, float Mask_bClamp,
+	float Mask_NoiseStrength, float4 Mask_AlphaSwitch, float Mask_Invert, float Mask_Alpha_Multiply,
+	float LightColorStrength, float4 NiagaraShiftLowGrayColor, float4 NiagaraShiftHighGrayColor,
+	float NiagaraShiftColorParam, float4 SelectionColor, float E_Dither_DitherValue, float E_Dither_UseDither,
+	float MPC_KuroEffectColorGradingDesaturate, float3 MPC_KuroEffectColorGradingTint, float MaterialTextureMipBias)
+{
+	return WuwaFXSimpleEffect_Impl(true, true, true, true, false, false, false, Noise, NoiseSampler, Second,
+		SecondSampler, Base, BaseSampler, Mask, MaskSampler, Dissolve, DissolveSampler, UV0, UV1, (float2)0, (float2)0,
+		SvPositionXY, ViewRectMin, ViewSizeAndInvSize, GameTime, KuroViewLightColorA, KuroViewLightColorB, UseSpecificTime,
+		EffectTime, EffectTimeScale, Second_UVSwitch, Second_bScreenUV, Second_RotCos, Second_RotSin, Second_UV,
+		Second_UV_Offset, Second_bClamp, Second_Contorl, Noise_UVSwitch, Noise_bScreenUV, Noise_RotCos, Noise_RotSin,
+		Noise_UV, Noise_Offset, Noise_Strength, Base_UVSwitch, Base_bScreenUV, Base_RotCos, Base_RotSin, Base_UV,
+		Base_UV_Offset, Base_bClamp, Base_NoiseStrength, Base_bClampAfterNoise, Base_EmissiveSwitch,
+		Base_bUseChannelAsEmissive, Base_Refine, Base_Emissive_Add, Base_bAddSecond, Base_ColorTint, Base_AlphaSwitch,
+		Base_Alpha_Multiply, Dissolve_UVSwitch, Dissolve_bScreenUV, Dissolve_RotCos, Dissolve_RotSin, Dissolve_UV,
+		DIssolve_TimeOffset, Dissolve_bClamp, Dissolve_NoiseStrength, Dissolve_UOffset, Dissolve_VOffset,
+		Dissolve_ChannelSwitch, Dissolve_MaskLerp, Dissolve_Invert, Dissolve_Smooth, Dissolve_Dissolve, Dissolve_EdgeColor,
+		Mask_UVSwitch, Mask_bScreenUV, Mask_RotCos, Mask_RotSin, Mask_UV, Mask_UV_Offset, Mask_bClamp, Mask_NoiseStrength,
+		Mask_AlphaSwitch, Mask_Invert, Mask_Alpha_Multiply, LightColorStrength, NiagaraShiftLowGrayColor,
+		NiagaraShiftHighGrayColor, NiagaraShiftColorParam, SelectionColor, E_Dither_DitherValue, E_Dither_UseDither,
+		MPC_KuroEffectColorGradingDesaturate, MPC_KuroEffectColorGradingTint, MaterialTextureMipBias, 0.0, 0.0, Base,
+		BaseSampler, 0.0, (float3)0, (float4x4)0, (float3)0, 0.0, 0.0, (float3)0, (float3)0, 0.0, 0.0, 0.0);
+}
+
+// NoiseSecondMask: M_SimpleEffect_CM PS c672456ff3 (#216493) translucent / 373effca5f (#215093) additive; M_SimpleEffect_SK PS ebdc20c2cf (#245478) additive
+FWuwaFXOutput WuwaFXSimpleEffect_NoiseSecondMask(
+	Texture2D Noise, SamplerState NoiseSampler, Texture2D Second, SamplerState SecondSampler, Texture2D Base,
+	SamplerState BaseSampler, Texture2D Mask, SamplerState MaskSampler, float2 UV0, float2 UV1, float2 SvPositionXY,
+	float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime, float3 KuroViewLightColorA, float3 KuroViewLightColorB,
+	float UseSpecificTime, float EffectTime, float EffectTimeScale, float4 Second_UVSwitch, float Second_bScreenUV,
+	float Second_RotCos, float Second_RotSin, float4 Second_UV, float4 Second_UV_Offset, float Second_bClamp,
+	float4 Second_Contorl, float4 Noise_UVSwitch, float Noise_bScreenUV, float Noise_RotCos, float Noise_RotSin,
+	float4 Noise_UV, float Noise_Offset, float Noise_Strength, float4 Base_UVSwitch, float Base_bScreenUV,
+	float Base_RotCos, float Base_RotSin, float4 Base_UV, float4 Base_UV_Offset, float Base_bClamp,
+	float Base_NoiseStrength, float Base_bClampAfterNoise, float4 Base_EmissiveSwitch, float Base_bUseChannelAsEmissive,
+	float4 Base_Refine, float Base_Emissive_Add, float Base_bAddSecond, float4 Base_ColorTint, float4 Base_AlphaSwitch,
+	float Base_Alpha_Multiply, float4 Mask_UVSwitch, float Mask_bScreenUV, float Mask_RotCos, float Mask_RotSin,
+	float4 Mask_UV, float4 Mask_UV_Offset, float Mask_bClamp, float Mask_NoiseStrength, float4 Mask_AlphaSwitch,
+	float Mask_Invert, float Mask_Alpha_Multiply, float LightColorStrength, float4 NiagaraShiftLowGrayColor,
+	float4 NiagaraShiftHighGrayColor, float NiagaraShiftColorParam, float4 SelectionColor, float E_Dither_DitherValue,
+	float E_Dither_UseDither, float MPC_KuroEffectColorGradingDesaturate, float3 MPC_KuroEffectColorGradingTint,
+	float MaterialTextureMipBias)
+{
+	return WuwaFXSimpleEffect_Impl(true, true, false, true, false, false, false, Noise, NoiseSampler, Second,
+		SecondSampler, Base, BaseSampler, Mask, MaskSampler, Base, BaseSampler, UV0, UV1, (float2)0, (float2)0, SvPositionXY,
+		ViewRectMin, ViewSizeAndInvSize, GameTime, KuroViewLightColorA, KuroViewLightColorB, UseSpecificTime, EffectTime,
+		EffectTimeScale, Second_UVSwitch, Second_bScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset,
+		Second_bClamp, Second_Contorl, Noise_UVSwitch, Noise_bScreenUV, Noise_RotCos, Noise_RotSin, Noise_UV, Noise_Offset,
+		Noise_Strength, Base_UVSwitch, Base_bScreenUV, Base_RotCos, Base_RotSin, Base_UV, Base_UV_Offset, Base_bClamp,
+		Base_NoiseStrength, Base_bClampAfterNoise, Base_EmissiveSwitch, Base_bUseChannelAsEmissive, Base_Refine,
+		Base_Emissive_Add, Base_bAddSecond, Base_ColorTint, Base_AlphaSwitch, Base_Alpha_Multiply, (float4)0, 0.0, 0.0, 0.0,
+		(float4)0, 0.0, 0.0, 0.0, 0.0, 0.0, (float4)0, 0.0, 0.0, 0.0, 0.0, (float4)0, Mask_UVSwitch, Mask_bScreenUV,
+		Mask_RotCos, Mask_RotSin, Mask_UV, Mask_UV_Offset, Mask_bClamp, Mask_NoiseStrength, Mask_AlphaSwitch, Mask_Invert,
+		Mask_Alpha_Multiply, LightColorStrength, NiagaraShiftLowGrayColor, NiagaraShiftHighGrayColor, NiagaraShiftColorParam,
+		SelectionColor, E_Dither_DitherValue, E_Dither_UseDither, MPC_KuroEffectColorGradingDesaturate,
+		MPC_KuroEffectColorGradingTint, MaterialTextureMipBias, 0.0, 0.0, Base, BaseSampler, 0.0, (float3)0, (float4x4)0,
+		(float3)0, 0.0, 0.0, (float3)0, (float3)0, 0.0, 0.0, 0.0);
+}
+
+// SecondMask: M_SimpleEffect_CM PS a2c8218f00 (#98679) additive
+FWuwaFXOutput WuwaFXSimpleEffect_SecondMask(
+	Texture2D Second, SamplerState SecondSampler, Texture2D Base, SamplerState BaseSampler, Texture2D Mask,
+	SamplerState MaskSampler, float2 UV0, float2 UV1, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize,
+	float GameTime, float3 KuroViewLightColorA, float3 KuroViewLightColorB, float UseSpecificTime, float EffectTime,
+	float EffectTimeScale, float4 Second_UVSwitch, float Second_bScreenUV, float Second_RotCos, float Second_RotSin,
+	float4 Second_UV, float4 Second_UV_Offset, float Second_bClamp, float4 Second_Contorl, float4 Base_UVSwitch,
+	float Base_bScreenUV, float Base_RotCos, float Base_RotSin, float4 Base_UV, float4 Base_UV_Offset, float Base_bClamp,
+	float4 Base_EmissiveSwitch, float Base_bUseChannelAsEmissive, float4 Base_Refine, float Base_Emissive_Add,
+	float Base_bAddSecond, float4 Base_ColorTint, float4 Base_AlphaSwitch, float Base_Alpha_Multiply, float4 Mask_UVSwitch,
+	float Mask_bScreenUV, float Mask_RotCos, float Mask_RotSin, float4 Mask_UV, float4 Mask_UV_Offset, float Mask_bClamp,
+	float4 Mask_AlphaSwitch, float Mask_Invert, float Mask_Alpha_Multiply, float LightColorStrength,
+	float4 NiagaraShiftLowGrayColor, float4 NiagaraShiftHighGrayColor, float NiagaraShiftColorParam, float4 SelectionColor,
+	float E_Dither_DitherValue, float E_Dither_UseDither, float MPC_KuroEffectColorGradingDesaturate,
+	float3 MPC_KuroEffectColorGradingTint, float MaterialTextureMipBias)
+{
+	return WuwaFXSimpleEffect_Impl(true, false, false, true, false, false, false, Base, BaseSampler, Second,
+		SecondSampler, Base, BaseSampler, Mask, MaskSampler, Base, BaseSampler, UV0, UV1, (float2)0, (float2)0, SvPositionXY,
+		ViewRectMin, ViewSizeAndInvSize, GameTime, KuroViewLightColorA, KuroViewLightColorB, UseSpecificTime, EffectTime,
+		EffectTimeScale, Second_UVSwitch, Second_bScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset,
+		Second_bClamp, Second_Contorl, (float4)0, 0.0, 0.0, 0.0, (float4)0, 0.0, 0.0, Base_UVSwitch, Base_bScreenUV,
+		Base_RotCos, Base_RotSin, Base_UV, Base_UV_Offset, Base_bClamp, 0.0, 0.0, Base_EmissiveSwitch,
+		Base_bUseChannelAsEmissive, Base_Refine, Base_Emissive_Add, Base_bAddSecond, Base_ColorTint, Base_AlphaSwitch,
+		Base_Alpha_Multiply, (float4)0, 0.0, 0.0, 0.0, (float4)0, 0.0, 0.0, 0.0, 0.0, 0.0, (float4)0, 0.0, 0.0, 0.0, 0.0,
+		(float4)0, Mask_UVSwitch, Mask_bScreenUV, Mask_RotCos, Mask_RotSin, Mask_UV, Mask_UV_Offset, Mask_bClamp, 0.0,
+		Mask_AlphaSwitch, Mask_Invert, Mask_Alpha_Multiply, LightColorStrength, NiagaraShiftLowGrayColor,
+		NiagaraShiftHighGrayColor, NiagaraShiftColorParam, SelectionColor, E_Dither_DitherValue, E_Dither_UseDither,
+		MPC_KuroEffectColorGradingDesaturate, MPC_KuroEffectColorGradingTint, MaterialTextureMipBias, 0.0, 0.0, Base,
+		BaseSampler, 0.0, (float3)0, (float4x4)0, (float3)0, 0.0, 0.0, (float3)0, (float3)0, 0.0, 0.0, 0.0);
+}
+
+// SecondDissolveMask: M_SimpleEffect_SK PS 1bdae07ff4 (#252993) translucent
+FWuwaFXOutput WuwaFXSimpleEffect_SecondDissolveMask(
+	Texture2D Second, SamplerState SecondSampler, Texture2D Base, SamplerState BaseSampler, Texture2D Mask,
+	SamplerState MaskSampler, Texture2D Dissolve, SamplerState DissolveSampler, float2 UV0, float2 UV1,
+	float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime, float3 KuroViewLightColorA,
+	float3 KuroViewLightColorB, float UseSpecificTime, float EffectTime, float EffectTimeScale, float4 Second_UVSwitch,
+	float Second_bScreenUV, float Second_RotCos, float Second_RotSin, float4 Second_UV, float4 Second_UV_Offset,
+	float Second_bClamp, float4 Second_Contorl, float4 Base_UVSwitch, float Base_bScreenUV, float Base_RotCos,
+	float Base_RotSin, float4 Base_UV, float4 Base_UV_Offset, float Base_bClamp, float4 Base_EmissiveSwitch,
+	float Base_bUseChannelAsEmissive, float4 Base_Refine, float Base_Emissive_Add, float Base_bAddSecond,
+	float4 Base_ColorTint, float4 Base_AlphaSwitch, float Base_Alpha_Multiply, float4 Dissolve_UVSwitch,
+	float Dissolve_bScreenUV, float Dissolve_RotCos, float Dissolve_RotSin, float4 Dissolve_UV, float DIssolve_TimeOffset,
+	float Dissolve_bClamp, float Dissolve_UOffset, float Dissolve_VOffset, float4 Dissolve_ChannelSwitch,
+	float Dissolve_MaskLerp, float Dissolve_Invert, float Dissolve_Smooth, float Dissolve_Dissolve,
+	float4 Dissolve_EdgeColor, float4 Mask_UVSwitch, float Mask_bScreenUV, float Mask_RotCos, float Mask_RotSin,
+	float4 Mask_UV, float4 Mask_UV_Offset, float Mask_bClamp, float4 Mask_AlphaSwitch, float Mask_Invert,
+	float Mask_Alpha_Multiply, float LightColorStrength, float4 NiagaraShiftLowGrayColor, float4 NiagaraShiftHighGrayColor,
+	float NiagaraShiftColorParam, float4 SelectionColor, float E_Dither_DitherValue, float E_Dither_UseDither,
+	float MPC_KuroEffectColorGradingDesaturate, float3 MPC_KuroEffectColorGradingTint, float MaterialTextureMipBias)
+{
+	return WuwaFXSimpleEffect_Impl(true, false, true, true, false, false, false, Base, BaseSampler, Second, SecondSampler,
+		Base, BaseSampler, Mask, MaskSampler, Dissolve, DissolveSampler, UV0, UV1, (float2)0, (float2)0, SvPositionXY,
+		ViewRectMin, ViewSizeAndInvSize, GameTime, KuroViewLightColorA, KuroViewLightColorB, UseSpecificTime, EffectTime,
+		EffectTimeScale, Second_UVSwitch, Second_bScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset,
+		Second_bClamp, Second_Contorl, (float4)0, 0.0, 0.0, 0.0, (float4)0, 0.0, 0.0, Base_UVSwitch, Base_bScreenUV,
+		Base_RotCos, Base_RotSin, Base_UV, Base_UV_Offset, Base_bClamp, 0.0, 0.0, Base_EmissiveSwitch,
+		Base_bUseChannelAsEmissive, Base_Refine, Base_Emissive_Add, Base_bAddSecond, Base_ColorTint, Base_AlphaSwitch,
+		Base_Alpha_Multiply, Dissolve_UVSwitch, Dissolve_bScreenUV, Dissolve_RotCos, Dissolve_RotSin, Dissolve_UV,
+		DIssolve_TimeOffset, Dissolve_bClamp, 0.0, Dissolve_UOffset, Dissolve_VOffset, Dissolve_ChannelSwitch,
+		Dissolve_MaskLerp, Dissolve_Invert, Dissolve_Smooth, Dissolve_Dissolve, Dissolve_EdgeColor, Mask_UVSwitch,
+		Mask_bScreenUV, Mask_RotCos, Mask_RotSin, Mask_UV, Mask_UV_Offset, Mask_bClamp, 0.0, Mask_AlphaSwitch, Mask_Invert,
+		Mask_Alpha_Multiply, LightColorStrength, NiagaraShiftLowGrayColor, NiagaraShiftHighGrayColor, NiagaraShiftColorParam,
+		SelectionColor, E_Dither_DitherValue, E_Dither_UseDither, MPC_KuroEffectColorGradingDesaturate,
+		MPC_KuroEffectColorGradingTint, MaterialTextureMipBias, 0.0, 0.0, Base, BaseSampler, 0.0, (float3)0, (float4x4)0,
+		(float3)0, 0.0, 0.0, (float3)0, (float3)0, 0.0, 0.0, 0.0);
+}
+
+// NoiseDissolveMask: M_SimpleEffect_CM PS fe1c584587 (#276986) additive
+FWuwaFXOutput WuwaFXSimpleEffect_NoiseDissolveMask(
+	Texture2D Noise, SamplerState NoiseSampler, Texture2D Base, SamplerState BaseSampler, Texture2D Mask,
+	SamplerState MaskSampler, Texture2D Dissolve, SamplerState DissolveSampler, float2 UV0, float2 UV1,
+	float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime, float3 KuroViewLightColorA,
+	float3 KuroViewLightColorB, float UseSpecificTime, float EffectTime, float EffectTimeScale, float4 Noise_UVSwitch,
+	float Noise_bScreenUV, float Noise_RotCos, float Noise_RotSin, float4 Noise_UV, float Noise_Offset,
+	float Noise_Strength, float4 Base_UVSwitch, float Base_bScreenUV, float Base_RotCos, float Base_RotSin, float4 Base_UV,
+	float4 Base_UV_Offset, float Base_bClamp, float Base_NoiseStrength, float Base_bClampAfterNoise,
+	float4 Base_EmissiveSwitch, float Base_bUseChannelAsEmissive, float4 Base_Refine, float Base_Emissive_Add,
+	float Base_bAddSecond, float4 Base_ColorTint, float4 Base_AlphaSwitch, float Base_Alpha_Multiply,
+	float4 Dissolve_UVSwitch, float Dissolve_bScreenUV, float Dissolve_RotCos, float Dissolve_RotSin, float4 Dissolve_UV,
+	float DIssolve_TimeOffset, float Dissolve_bClamp, float Dissolve_NoiseStrength, float Dissolve_UOffset,
+	float Dissolve_VOffset, float4 Dissolve_ChannelSwitch, float Dissolve_MaskLerp, float Dissolve_Invert,
+	float Dissolve_Smooth, float Dissolve_Dissolve, float4 Dissolve_EdgeColor, float4 Mask_UVSwitch, float Mask_bScreenUV,
+	float Mask_RotCos, float Mask_RotSin, float4 Mask_UV, float4 Mask_UV_Offset, float Mask_bClamp,
+	float Mask_NoiseStrength, float4 Mask_AlphaSwitch, float Mask_Invert, float Mask_Alpha_Multiply,
+	float LightColorStrength, float4 NiagaraShiftLowGrayColor, float4 NiagaraShiftHighGrayColor,
+	float NiagaraShiftColorParam, float4 SelectionColor, float E_Dither_DitherValue, float E_Dither_UseDither,
+	float MPC_KuroEffectColorGradingDesaturate, float3 MPC_KuroEffectColorGradingTint, float MaterialTextureMipBias)
+{
+	return WuwaFXSimpleEffect_Impl(false, true, true, true, false, false, false, Noise, NoiseSampler, Base, BaseSampler,
+		Base, BaseSampler, Mask, MaskSampler, Dissolve, DissolveSampler, UV0, UV1, (float2)0, (float2)0, SvPositionXY,
+		ViewRectMin, ViewSizeAndInvSize, GameTime, KuroViewLightColorA, KuroViewLightColorB, UseSpecificTime, EffectTime,
+		EffectTimeScale, (float4)0, 0.0, 0.0, 0.0, (float4)0, (float4)0, 0.0, (float4)0, Noise_UVSwitch, Noise_bScreenUV,
+		Noise_RotCos, Noise_RotSin, Noise_UV, Noise_Offset, Noise_Strength, Base_UVSwitch, Base_bScreenUV, Base_RotCos,
+		Base_RotSin, Base_UV, Base_UV_Offset, Base_bClamp, Base_NoiseStrength, Base_bClampAfterNoise, Base_EmissiveSwitch,
+		Base_bUseChannelAsEmissive, Base_Refine, Base_Emissive_Add, Base_bAddSecond, Base_ColorTint, Base_AlphaSwitch,
+		Base_Alpha_Multiply, Dissolve_UVSwitch, Dissolve_bScreenUV, Dissolve_RotCos, Dissolve_RotSin, Dissolve_UV,
+		DIssolve_TimeOffset, Dissolve_bClamp, Dissolve_NoiseStrength, Dissolve_UOffset, Dissolve_VOffset,
+		Dissolve_ChannelSwitch, Dissolve_MaskLerp, Dissolve_Invert, Dissolve_Smooth, Dissolve_Dissolve, Dissolve_EdgeColor,
+		Mask_UVSwitch, Mask_bScreenUV, Mask_RotCos, Mask_RotSin, Mask_UV, Mask_UV_Offset, Mask_bClamp, Mask_NoiseStrength,
+		Mask_AlphaSwitch, Mask_Invert, Mask_Alpha_Multiply, LightColorStrength, NiagaraShiftLowGrayColor,
+		NiagaraShiftHighGrayColor, NiagaraShiftColorParam, SelectionColor, E_Dither_DitherValue, E_Dither_UseDither,
+		MPC_KuroEffectColorGradingDesaturate, MPC_KuroEffectColorGradingTint, MaterialTextureMipBias, 0.0, 0.0, Base,
+		BaseSampler, 0.0, (float3)0, (float4x4)0, (float3)0, 0.0, 0.0, (float3)0, (float3)0, 0.0, 0.0, 0.0);
+}
+
+// NoiseDissolveMaskMasked: M_SimpleEffect_CM PS 40b5b9a78c (#204250) BLEND_Masked unlit (clip 0.6663)
+FWuwaFXOutput WuwaFXSimpleEffect_NoiseDissolveMaskMasked(
+	Texture2D Noise, SamplerState NoiseSampler, Texture2D Base, SamplerState BaseSampler, Texture2D Mask,
+	SamplerState MaskSampler, Texture2D Dissolve, SamplerState DissolveSampler, float2 UV0, float2 UV1,
+	float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime, float3 KuroViewLightColorA,
+	float3 KuroViewLightColorB, float UseSpecificTime, float EffectTime, float EffectTimeScale, float4 Noise_UVSwitch,
+	float Noise_bScreenUV, float Noise_RotCos, float Noise_RotSin, float4 Noise_UV, float Noise_Offset,
+	float Noise_Strength, float4 Base_UVSwitch, float Base_bScreenUV, float Base_RotCos, float Base_RotSin, float4 Base_UV,
+	float4 Base_UV_Offset, float Base_bClamp, float Base_NoiseStrength, float Base_bClampAfterNoise,
+	float4 Base_EmissiveSwitch, float Base_bUseChannelAsEmissive, float4 Base_Refine, float Base_Emissive_Add,
+	float Base_bAddSecond, float4 Base_ColorTint, float4 Base_AlphaSwitch, float Base_Alpha_Multiply,
+	float4 Dissolve_UVSwitch, float Dissolve_bScreenUV, float Dissolve_RotCos, float Dissolve_RotSin, float4 Dissolve_UV,
+	float DIssolve_TimeOffset, float Dissolve_bClamp, float Dissolve_NoiseStrength, float Dissolve_UOffset,
+	float Dissolve_VOffset, float4 Dissolve_ChannelSwitch, float Dissolve_MaskLerp, float Dissolve_Invert,
+	float Dissolve_Smooth, float Dissolve_Dissolve, float4 Dissolve_EdgeColor, float4 Mask_UVSwitch, float Mask_bScreenUV,
+	float Mask_RotCos, float Mask_RotSin, float4 Mask_UV, float4 Mask_UV_Offset, float Mask_bClamp,
+	float Mask_NoiseStrength, float4 Mask_AlphaSwitch, float Mask_Invert, float Mask_Alpha_Multiply,
+	float LightColorStrength, float4 NiagaraShiftLowGrayColor, float4 NiagaraShiftHighGrayColor,
+	float NiagaraShiftColorParam, float4 SelectionColor, float E_Dither_DitherValue, float E_Dither_UseDither,
+	float MPC_KuroEffectColorGradingDesaturate, float3 MPC_KuroEffectColorGradingTint, float MaterialTextureMipBias,
+	float KuroPrimDitherEnable, float KuroPrimDitherFade)
+{
+	return WuwaFXSimpleEffect_Impl(false, true, true, true, false, true, false, Noise, NoiseSampler, Base, BaseSampler,
+		Base, BaseSampler, Mask, MaskSampler, Dissolve, DissolveSampler, UV0, UV1, (float2)0, (float2)0, SvPositionXY,
+		ViewRectMin, ViewSizeAndInvSize, GameTime, KuroViewLightColorA, KuroViewLightColorB, UseSpecificTime, EffectTime,
+		EffectTimeScale, (float4)0, 0.0, 0.0, 0.0, (float4)0, (float4)0, 0.0, (float4)0, Noise_UVSwitch, Noise_bScreenUV,
+		Noise_RotCos, Noise_RotSin, Noise_UV, Noise_Offset, Noise_Strength, Base_UVSwitch, Base_bScreenUV, Base_RotCos,
+		Base_RotSin, Base_UV, Base_UV_Offset, Base_bClamp, Base_NoiseStrength, Base_bClampAfterNoise, Base_EmissiveSwitch,
+		Base_bUseChannelAsEmissive, Base_Refine, Base_Emissive_Add, Base_bAddSecond, Base_ColorTint, Base_AlphaSwitch,
+		Base_Alpha_Multiply, Dissolve_UVSwitch, Dissolve_bScreenUV, Dissolve_RotCos, Dissolve_RotSin, Dissolve_UV,
+		DIssolve_TimeOffset, Dissolve_bClamp, Dissolve_NoiseStrength, Dissolve_UOffset, Dissolve_VOffset,
+		Dissolve_ChannelSwitch, Dissolve_MaskLerp, Dissolve_Invert, Dissolve_Smooth, Dissolve_Dissolve, Dissolve_EdgeColor,
+		Mask_UVSwitch, Mask_bScreenUV, Mask_RotCos, Mask_RotSin, Mask_UV, Mask_UV_Offset, Mask_bClamp, Mask_NoiseStrength,
+		Mask_AlphaSwitch, Mask_Invert, Mask_Alpha_Multiply, LightColorStrength, NiagaraShiftLowGrayColor,
+		NiagaraShiftHighGrayColor, NiagaraShiftColorParam, SelectionColor, E_Dither_DitherValue, E_Dither_UseDither,
+		MPC_KuroEffectColorGradingDesaturate, MPC_KuroEffectColorGradingTint, MaterialTextureMipBias, KuroPrimDitherEnable,
+		KuroPrimDitherFade, Base, BaseSampler, 0.0, (float3)0, (float4x4)0, (float3)0, 0.0, 0.0, (float3)0, (float3)0, 0.0,
+		0.0, 0.0);
+}
+
+// Base: M_SimpleEffect_CM PS 17abf12e40 (#182525) additive
+FWuwaFXOutput WuwaFXSimpleEffect_Base(
+	Texture2D Base, SamplerState BaseSampler, float2 UV0, float2 UV1, float2 SvPositionXY, float2 ViewRectMin,
+	float4 ViewSizeAndInvSize, float GameTime, float3 KuroViewLightColorA, float3 KuroViewLightColorB,
+	float UseSpecificTime, float EffectTime, float EffectTimeScale, float4 Base_UVSwitch, float Base_bScreenUV,
+	float Base_RotCos, float Base_RotSin, float4 Base_UV, float4 Base_UV_Offset, float Base_bClamp,
+	float4 Base_EmissiveSwitch, float Base_bUseChannelAsEmissive, float4 Base_Refine, float Base_Emissive_Add,
+	float Base_bAddSecond, float4 Base_ColorTint, float4 Base_AlphaSwitch, float Base_Alpha_Multiply,
+	float LightColorStrength, float4 NiagaraShiftLowGrayColor, float4 NiagaraShiftHighGrayColor,
+	float NiagaraShiftColorParam, float4 SelectionColor, float E_Dither_DitherValue, float E_Dither_UseDither,
+	float MPC_KuroEffectColorGradingDesaturate, float3 MPC_KuroEffectColorGradingTint, float MaterialTextureMipBias)
+{
+	return WuwaFXSimpleEffect_Impl(false, false, false, false, false, false, false, Base, BaseSampler, Base, BaseSampler,
+		Base, BaseSampler, Base, BaseSampler, Base, BaseSampler, UV0, UV1, (float2)0, (float2)0, SvPositionXY, ViewRectMin,
+		ViewSizeAndInvSize, GameTime, KuroViewLightColorA, KuroViewLightColorB, UseSpecificTime, EffectTime, EffectTimeScale,
+		(float4)0, 0.0, 0.0, 0.0, (float4)0, (float4)0, 0.0, (float4)0, (float4)0, 0.0, 0.0, 0.0, (float4)0, 0.0, 0.0,
+		Base_UVSwitch, Base_bScreenUV, Base_RotCos, Base_RotSin, Base_UV, Base_UV_Offset, Base_bClamp, 0.0, 0.0,
+		Base_EmissiveSwitch, Base_bUseChannelAsEmissive, Base_Refine, Base_Emissive_Add, Base_bAddSecond, Base_ColorTint,
+		Base_AlphaSwitch, Base_Alpha_Multiply, (float4)0, 0.0, 0.0, 0.0, (float4)0, 0.0, 0.0, 0.0, 0.0, 0.0, (float4)0, 0.0,
+		0.0, 0.0, 0.0, (float4)0, (float4)0, 0.0, 0.0, 0.0, (float4)0, (float4)0, 0.0, 0.0, (float4)0, 0.0, 0.0,
+		LightColorStrength, NiagaraShiftLowGrayColor, NiagaraShiftHighGrayColor, NiagaraShiftColorParam, SelectionColor,
+		E_Dither_DitherValue, E_Dither_UseDither, MPC_KuroEffectColorGradingDesaturate, MPC_KuroEffectColorGradingTint,
+		MaterialTextureMipBias, 0.0, 0.0, Base, BaseSampler, 0.0, (float3)0, (float4x4)0, (float3)0, 0.0, 0.0, (float3)0,
+		(float3)0, 0.0, 0.0, 0.0);
+}
+
+// UV4Dissolve: M_SimpleEffect_SK PS 5c609e94e0 (#151012) additive
+FWuwaFXOutput WuwaFXSimpleEffect_UV4Dissolve(
+	Texture2D Base, SamplerState BaseSampler, Texture2D Dissolve, SamplerState DissolveSampler, float2 UV0, float2 UV1,
+	float2 UV2, float2 UV3, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime,
+	float3 KuroViewLightColorA, float3 KuroViewLightColorB, float UseSpecificTime, float EffectTime, float EffectTimeScale,
+	float4 Base_UVSwitch, float Base_bScreenUV, float Base_RotCos, float Base_RotSin, float4 Base_UV,
+	float4 Base_UV_Offset, float Base_bClamp, float4 Base_EmissiveSwitch, float Base_bUseChannelAsEmissive,
+	float4 Base_Refine, float Base_Emissive_Add, float Base_bAddSecond, float4 Base_ColorTint, float4 Base_AlphaSwitch,
+	float Base_Alpha_Multiply, float4 Dissolve_UVSwitch, float Dissolve_bScreenUV, float Dissolve_RotCos,
+	float Dissolve_RotSin, float4 Dissolve_UV, float DIssolve_TimeOffset, float Dissolve_bClamp, float Dissolve_UOffset,
+	float Dissolve_VOffset, float4 Dissolve_ChannelSwitch, float Dissolve_MaskLerp, float Dissolve_Invert,
+	float Dissolve_Smooth, float Dissolve_Dissolve, float4 Dissolve_EdgeColor, float LightColorStrength,
+	float4 NiagaraShiftLowGrayColor, float4 NiagaraShiftHighGrayColor, float NiagaraShiftColorParam, float4 SelectionColor,
+	float E_Dither_DitherValue, float E_Dither_UseDither, float MPC_KuroEffectColorGradingDesaturate,
+	float3 MPC_KuroEffectColorGradingTint, float MaterialTextureMipBias)
+{
+	return WuwaFXSimpleEffect_Impl(false, false, true, false, true, false, false, Base, BaseSampler, Base, BaseSampler,
+		Base, BaseSampler, Base, BaseSampler, Dissolve, DissolveSampler, UV0, UV1, UV2, UV3, SvPositionXY, ViewRectMin,
+		ViewSizeAndInvSize, GameTime, KuroViewLightColorA, KuroViewLightColorB, UseSpecificTime, EffectTime, EffectTimeScale,
+		(float4)0, 0.0, 0.0, 0.0, (float4)0, (float4)0, 0.0, (float4)0, (float4)0, 0.0, 0.0, 0.0, (float4)0, 0.0, 0.0,
+		Base_UVSwitch, Base_bScreenUV, Base_RotCos, Base_RotSin, Base_UV, Base_UV_Offset, Base_bClamp, 0.0, 0.0,
+		Base_EmissiveSwitch, Base_bUseChannelAsEmissive, Base_Refine, Base_Emissive_Add, Base_bAddSecond, Base_ColorTint,
+		Base_AlphaSwitch, Base_Alpha_Multiply, Dissolve_UVSwitch, Dissolve_bScreenUV, Dissolve_RotCos, Dissolve_RotSin,
+		Dissolve_UV, DIssolve_TimeOffset, Dissolve_bClamp, 0.0, Dissolve_UOffset, Dissolve_VOffset, Dissolve_ChannelSwitch,
+		Dissolve_MaskLerp, Dissolve_Invert, Dissolve_Smooth, Dissolve_Dissolve, Dissolve_EdgeColor, (float4)0, 0.0, 0.0, 0.0,
+		(float4)0, (float4)0, 0.0, 0.0, (float4)0, 0.0, 0.0, LightColorStrength, NiagaraShiftLowGrayColor,
+		NiagaraShiftHighGrayColor, NiagaraShiftColorParam, SelectionColor, E_Dither_DitherValue, E_Dither_UseDither,
+		MPC_KuroEffectColorGradingDesaturate, MPC_KuroEffectColorGradingTint, MaterialTextureMipBias, 0.0, 0.0, Base,
+		BaseSampler, 0.0, (float3)0, (float4x4)0, (float3)0, 0.0, 0.0, (float3)0, (float3)0, 0.0, 0.0, 0.0);
+}
+
+// DepthUV4NoiseSecondDissolve: M_SimpleEffect_Depth_CM PS ad17e37275 (#95763) translucent: depth dither + portal dissolve
+FWuwaFXOutput WuwaFXSimpleEffect_DepthUV4NoiseSecondDissolve(
+	Texture2D Noise, SamplerState NoiseSampler, Texture2D Second, SamplerState SecondSampler, Texture2D Base,
+	SamplerState BaseSampler, Texture2D Dissolve, SamplerState DissolveSampler, float2 UV0, float2 UV1, float2 UV2,
+	float2 UV3, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime,
+	float3 KuroViewLightColorA, float3 KuroViewLightColorB, float UseSpecificTime, float EffectTime, float EffectTimeScale,
+	float4 Second_UVSwitch, float Second_bScreenUV, float Second_RotCos, float Second_RotSin, float4 Second_UV,
+	float4 Second_UV_Offset, float Second_bClamp, float4 Second_Contorl, float4 Noise_UVSwitch, float Noise_bScreenUV,
+	float Noise_RotCos, float Noise_RotSin, float4 Noise_UV, float Noise_Offset, float Noise_Strength,
+	float4 Base_UVSwitch, float Base_bScreenUV, float Base_RotCos, float Base_RotSin, float4 Base_UV,
+	float4 Base_UV_Offset, float Base_bClamp, float Base_NoiseStrength, float Base_bClampAfterNoise,
+	float4 Base_EmissiveSwitch, float Base_bUseChannelAsEmissive, float4 Base_Refine, float Base_Emissive_Add,
+	float Base_bAddSecond, float4 Base_ColorTint, float4 Base_AlphaSwitch, float Base_Alpha_Multiply,
+	float4 Dissolve_UVSwitch, float Dissolve_bScreenUV, float Dissolve_RotCos, float Dissolve_RotSin, float4 Dissolve_UV,
+	float DIssolve_TimeOffset, float Dissolve_bClamp, float Dissolve_NoiseStrength, float Dissolve_UOffset,
+	float Dissolve_VOffset, float4 Dissolve_ChannelSwitch, float Dissolve_MaskLerp, float Dissolve_Invert,
+	float Dissolve_Smooth, float Dissolve_Dissolve, float4 Dissolve_EdgeColor, float LightColorStrength,
+	float4 NiagaraShiftLowGrayColor, float4 NiagaraShiftHighGrayColor, float NiagaraShiftColorParam, float4 SelectionColor,
+	float E_Dither_DitherValue, float E_Dither_UseDither, float MPC_KuroEffectColorGradingDesaturate,
+	float3 MPC_KuroEffectColorGradingTint, float MaterialTextureMipBias, Texture2D DitherNoise,
+	SamplerState DitherNoiseSampler, float TemporalAAParamsX, float3 WorldPosition, float4x4 KuroPrimWorldToLocal,
+	float3 KuroPrimActorWorldPosition, float UseLocalSpace, float UseActorSpace, float3 PortalCenter, float3 PortalAxisN,
+	float UsePortalDissolve, float E_Tex_UseSecondNoiseMask, float DepthDitherFactor)
+{
+	return WuwaFXSimpleEffect_Impl(true, true, true, false, true, false, true, Noise, NoiseSampler, Second, SecondSampler,
+		Base, BaseSampler, Base, BaseSampler, Dissolve, DissolveSampler, UV0, UV1, UV2, UV3, SvPositionXY, ViewRectMin,
+		ViewSizeAndInvSize, GameTime, KuroViewLightColorA, KuroViewLightColorB, UseSpecificTime, EffectTime, EffectTimeScale,
+		Second_UVSwitch, Second_bScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset, Second_bClamp,
+		Second_Contorl, Noise_UVSwitch, Noise_bScreenUV, Noise_RotCos, Noise_RotSin, Noise_UV, Noise_Offset, Noise_Strength,
+		Base_UVSwitch, Base_bScreenUV, Base_RotCos, Base_RotSin, Base_UV, Base_UV_Offset, Base_bClamp, Base_NoiseStrength,
+		Base_bClampAfterNoise, Base_EmissiveSwitch, Base_bUseChannelAsEmissive, Base_Refine, Base_Emissive_Add,
+		Base_bAddSecond, Base_ColorTint, Base_AlphaSwitch, Base_Alpha_Multiply, Dissolve_UVSwitch, Dissolve_bScreenUV,
+		Dissolve_RotCos, Dissolve_RotSin, Dissolve_UV, DIssolve_TimeOffset, Dissolve_bClamp, Dissolve_NoiseStrength,
+		Dissolve_UOffset, Dissolve_VOffset, Dissolve_ChannelSwitch, Dissolve_MaskLerp, Dissolve_Invert, Dissolve_Smooth,
+		Dissolve_Dissolve, Dissolve_EdgeColor, (float4)0, 0.0, 0.0, 0.0, (float4)0, (float4)0, 0.0, 0.0, (float4)0, 0.0, 0.0,
+		LightColorStrength, NiagaraShiftLowGrayColor, NiagaraShiftHighGrayColor, NiagaraShiftColorParam, SelectionColor,
+		E_Dither_DitherValue, E_Dither_UseDither, MPC_KuroEffectColorGradingDesaturate, MPC_KuroEffectColorGradingTint,
+		MaterialTextureMipBias, 0.0, 0.0, DitherNoise, DitherNoiseSampler, TemporalAAParamsX, WorldPosition,
+		KuroPrimWorldToLocal, KuroPrimActorWorldPosition, UseLocalSpace, UseActorSpace, PortalCenter, PortalAxisN,
+		UsePortalDissolve, E_Tex_UseSecondNoiseMask, DepthDitherFactor);
+}
+// ---- END GENERATED ----
+
+#endif // WUWA_SIMPLEFX_USH

@@ -1,0 +1,33 @@
+# Unreal build / cache products
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
+.vs/
+.vscode/
+.idea/
+*.sln
+*.VC.db
+__pycache__/
+*.pyc
+
+# Local agent / editor MCP config
+.mcp.json
+.codex/
+
+# Game-derived content is never distributed: recovered characters, skins, weapons, shared game textures,
+# per-character showcase blueprints, validation levels, and per-character material dumps.
+Content/WuWa/Characters/
+Content/WuWa/Skins/
+Content/WuWa/Weapons/
+Content/WuWa/Shared/
+Content/WuWa/Showcase/
+Content/WuWa/_Probe/
+Content/WuWa/Validation/**/*.umap
+Content/Developers/
+Content/Collections/
+Plugins/WuwaToon/Shaders/Private/Specs/Roster/
+Plugins/WuwaToon/Shaders/Private/Specs/*_MIs.json
+Plugins/WuwaToon/Shaders/Private/Specs/*_ExtraMaterials.json

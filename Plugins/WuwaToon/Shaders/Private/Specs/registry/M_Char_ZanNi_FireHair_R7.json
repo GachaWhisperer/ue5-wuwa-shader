@@ -1,0 +1,39 @@
+{
+ "root_material": "M_Char_ZanNi_FireHair",
+ "generated_by": "round 7 singletons (research/roster/round7/singletons.md); hand-written from the saved results below",
+ "contract": "Specs/registry/README.md",
+ "note": "split file of M_Char_ZanNi_FireHair (round-3 M_Char_ZanNi_FireHair.json untouched); the importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "Char_ZanNi_FireHair_TwoSidedShadowLordFireCoreEffect.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "72c723cd7320d1f6c451e8ad22a6b87ae9180a21"
+    ],
+    "base_pass_vs_hash": [
+     "1759e87905941ec100878a00a6e3a35681b5d725"
+    ]
+   },
+   "verified": "research/roster/round7/singletons.md#zanifire-head; evidence/validation/shaderdiff/roster_charcom/round7/singletons/zani/results_zani_72c723_r7_final.json summary.zani_72c723 (42 runs, 3 seeds, o0/o1/o2/o3/o6 688128/688128 bit-exact, 0 discard mismatches; negatives results_zani_72c723_r7_neg_{rim1ulp,noeffect,fmod1ulp}.json detected); VS #201753 ported_wpo_verified: identical to the round-3 verified VS #27986 up to Material-CB row numbers with identical preshader expressions (evidence/validation/shaderdiff/roster_charcom/round7/singletons/zani/vs_struct_zani_r7.json) and SV_POSITION 786432/786432 bit-exact against WuwaToonZaniFireHairWPO with the head MI values (evidence/validation/shaderdiff/roster_charcom/round7/singletons/zani/results_vs_wpo_toon_zani_r7.json; neg 1 ulp: results_vs_wpo_toon_zani_r7_neg1ulp.json); E_Hologram / E_Motion WPO block gated off (USE Hologram = 0, E_Motion_Offset.w = 0); TEXCOORD2 = #27986 form, symbolically identical to Body VS #35700 (weapons/round3/zani/vs_status_zani.json)",
+   "ps_archive_index": 201781,
+   "vs_archive_index": [
+    201753
+   ],
+   "vs_status": {
+    "1759e87905941ec100878a00a6e3a35681b5d725": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Galbrena",
+    "skin:Hunt Unending"
+   ],
+   "example_mis": [
+    "MI_ECalbrenaChimeraMd10011Head"
+   ],
+   "notes": "MIs: MI_ECalbrenaChimeraMd10011Head (Galbrena chimera head; UseFireHair + UseFresnelFireCoreMask + UseShadowLordMaterial + UseSecond / UseEffectMaterial / UseRim / UseNoise)"
+  }
+ ]
+}

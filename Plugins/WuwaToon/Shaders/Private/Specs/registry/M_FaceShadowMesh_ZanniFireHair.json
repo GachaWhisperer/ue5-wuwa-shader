@@ -1,0 +1,41 @@
+{
+ "root_material": "M_FaceShadowMesh_ZanniFireHair",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "FaceShadowMesh_ZanniFireHair_Masked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "cdada70f0bfe578f468a7b3b4d1a2490811ff41c"
+    ],
+    "base_pass_vs_hash": [
+     "b66fd84e8651ba35d17765cc00922bd71e0e838d"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/zani/results_multi_final.json summary.zani_cdada7 (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #299867 ported_wpo_verified (VS #299867 fire WPO + PositionOffset / VertexNormalExpand ported as WuwaToonZaniFireFaceShadowWPO: SV_POSITION and TEXCOORD10 (stock tangent) bit-exact (round3/zani/results_vs_wpo_toon_zani.json, neg: results_vs_wpo_toon_zani_neg1ulp.json))",
+   "ps_archive_index": 299871,
+   "vs_archive_index": [
+    299867
+   ],
+   "vs_status": {
+    "b66fd84e8651ba35d17765cc00922bd71e0e838d": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 2,
+   "roster_slot_uses": 4,
+   "entities": [
+    "character:Zani",
+    "skin:Daybreak Horizon",
+    "skin:Downtown Repose"
+   ],
+   "example_mis": [
+    "MI_R2T1ZanniMd10011Bangs1_Shadow",
+    "MI_R2T1ZanniMd20011Bangs1_Shadow"
+   ],
+   "notes": "MIs: MI_R2T1ZanniMd10011Bangs1_Shadow, MI_R2T1ZanniMd20011Bangs1_Shadow"
+  }
+ ]
+}

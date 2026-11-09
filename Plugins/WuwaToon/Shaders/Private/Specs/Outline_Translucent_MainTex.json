@@ -1,0 +1,460 @@
+{
+ "name": "Outline_Translucent_MainTex",
+ "entry": "WuwaToonOutlineTranslucentBasePass_MainTex",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_OutlineTranslucent.ush",
+ "kuro_shading_model": "Kuro forward translucent base pass (lit: ambient View[299] + CB3 local-light loop, fog, pre-exposure)",
+ "kuro_asm": "PS __105645 (Mone Down/Alpha/Glass_OL, Linnaea Alpha_OL, Luhesi test tubes; VS __272265 / __105649 == VS-B) and PS __133206 (MI_ERebeccaDrinkMd10011_OL; VS __133216 == VS-A), forward translucent",
+ "blend_mode": "BLEND_Translucent",
+ "two_sided": false,
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "material emissive (before the engine tail: max(.,0), View[285] scale, OOB)"
+  },
+  "Opacity": {
+   "type": "float",
+   "kuro": "material opacity (o0.a before the Kuro primitive fade)"
+  },
+  "BaseColor": {
+   "type": "float3",
+   "kuro": "material base colour (lit by Kuro ambient View[299] and the forward light loop)"
+  }
+ },
+ "inputs": [
+  {
+   "name": "MainTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "MainTex",
+   "default": "T_DefaultColorBlack_D"
+  },
+  {
+   "name": "MainTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "MainTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MainTexSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "OutlineColorTint",
+   "type": "float3",
+   "kind": "vector",
+   "param": "OutlineColorTint",
+   "channels": "rgb",
+   "default": [
+    0.5,
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "name": "BaseColorTint",
+   "type": "float3",
+   "kind": "vector",
+   "param": "BaseColorTint",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "UV3Y",
+   "type": "float",
+   "kind": "uv",
+   "index": 3,
+   "channel": "y",
+   "note": "Kuro \"UV4\" (TEXCOORD1.w)"
+  },
+  {
+   "name": "SvPositionXY",
+   "type": "float2",
+   "kind": "svposition",
+   "ue_expr": "Parameters.SvPosition.xy"
+  },
+  {
+   "name": "ViewRectMin",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewRectMin.xy",
+   "kuro": "Kuro View[134].xy"
+  },
+  {
+   "name": "ViewSizeAndInvSize",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewSizeAndInvSize",
+   "kuro": "Kuro View[135]"
+  },
+  {
+   "name": "E_Outline_EmissionColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "E_Outline_EmissionColor",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Outline_EmissionIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Outline_EmissionIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "note": "engine selection tint; not in Material CachedExpressionData, compiled default 0",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Link_UseSplitScreen",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Link_UseSplitScreen",
+   "default": 0.0
+  },
+  {
+   "name": "E_Link_AngleLinePosLineDis",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Link_AngleLinePosLineDis",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.33,
+    0.0
+   ]
+  },
+  {
+   "name": "E_LinkPos",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_LinkPos",
+   "default": 0.0
+  },
+  {
+   "name": "E_LinkCos1",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Link_AngleLinePosLineDis"
+   ],
+   "expr": "cos(E_Link_AngleLinePosLineDis[0] / 360.0 * 6.2831855)",
+   "ue_nodes": "Cosine[Period 0](Multiply(Divide(Mask(R)(VectorParameter \"E_Link_AngleLinePosLineDis\"), 360), 6.2831855 = 0x40C90FDB))",
+   "default": 1.0,
+   "note": "float32 x / 360 (true division), * 0x40C90FDB, then CRT cosf (Kuro preshader)"
+  },
+  {
+   "name": "E_LinkNegSin1",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Link_AngleLinePosLineDis"
+   ],
+   "expr": "-sin(E_Link_AngleLinePosLineDis[0] / 360.0 * 6.2831855)",
+   "ue_nodes": "Sine[Period 0](Multiply(Divide(Mask(R)(VectorParameter \"E_Link_AngleLinePosLineDis\"), 360), 6.2831855 = 0x40C90FDB)) * -1",
+   "default": -0.0,
+   "note": "float32 x / 360 (true division), * 0x40C90FDB, then CRT sinf (Kuro preshader)"
+  },
+  {
+   "name": "E_LinkCos2",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Link_AngleLinePosLineDis"
+   ],
+   "expr": "cos(E_Link_AngleLinePosLineDis[3] / 360.0 * 6.2831855)",
+   "ue_nodes": "Cosine[Period 0](Multiply(Divide(Mask(A)(VectorParameter \"E_Link_AngleLinePosLineDis\"), 360), 6.2831855 = 0x40C90FDB))",
+   "default": 1.0,
+   "note": "float32 x / 360 (true division), * 0x40C90FDB, then CRT cosf (Kuro preshader)"
+  },
+  {
+   "name": "E_LinkNegSin2",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Link_AngleLinePosLineDis"
+   ],
+   "expr": "-sin(E_Link_AngleLinePosLineDis[3] / 360.0 * 6.2831855)",
+   "ue_nodes": "Sine[Period 0](Multiply(Divide(Mask(A)(VectorParameter \"E_Link_AngleLinePosLineDis\"), 360), 6.2831855 = 0x40C90FDB)) * -1",
+   "default": -0.0,
+   "note": "float32 x / 360 (true division), * 0x40C90FDB, then CRT sinf (Kuro preshader)"
+  },
+  {
+   "name": "DownTran_Offset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "DownTran_Offset",
+   "default": 0.0
+  },
+  {
+   "name": "DownTran_Power",
+   "type": "float",
+   "kind": "scalar",
+   "param": "DownTran_Power",
+   "default": 0.0
+  },
+  {
+   "name": "Use_Transparent",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Use_Transparent",
+   "default": 0.0
+  },
+  {
+   "name": "BaseColor",
+   "type": "float3",
+   "kind": "output"
+  }
+ ],
+ "custom_node_code": "float3 BaseColor; FWuwaFXOutput X = WuwaToonOutlineTranslucentBasePass_MainTex(MainTex, MainTexSampler, UV0, OutlineColorTint, BaseColorTint, MaterialTextureMipBias, UV3Y, SvPositionXY, ViewRectMin, ViewSizeAndInvSize, E_Outline_EmissionColor, E_Outline_EmissionIntensity, SelectionColor, E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis, E_LinkPos, E_LinkCos1, E_LinkNegSin1, E_LinkCos2, E_LinkNegSin2, DownTran_Offset, DownTran_Power, Use_Transparent, BaseColor);\nOutBaseColor = BaseColor;\nOutOpacity = X.Opacity;\nreturn X.Emissive;",
+ "input_kinds": {
+  "texture": "Texture2D material parameter `param` (Texture Object pin); `default` = parent Material default texture",
+  "sampler": "sampler paired with `texture`; ue_expr is the HLSL name inside the Custom node",
+  "scalar|vector": "material parameter `param` (Kuro name), `default` = compiled/Material default; vector `channels` used",
+  "uv": "TextureCoordinate `index` (optional `channel`)",
+  "vertexcolor": "VertexColor (optional `channel`)",
+  "worldnormal|worldtangent": "raw interpolated TangentToWorld rows (`channel` sign/bitangent), ue_expr given",
+  "worldposition": "`space` absolute (LWC demoted) or translated",
+  "cameravector": "Parameters.CameraVector",
+  "svposition": "pixel position",
+  "interpolator": "value produced in the VS by `source` (vertex_interpolators)",
+  "cpd": "CustomPrimitiveData `index` (list = assembled vector), filled by UWuwaToonCharacterComponent",
+  "mpc": "Material Parameter Collection `mpc` / `mpc_param` (Kuro asset default in `default`)",
+  "toonlight": "ToonShadowLightData CB1 row `index` (float4); no recovered default (see note on [1].w bits)",
+  "view": "View uniform field (ue_expr) or Kuro-only View member (ue_expr null, `kuro` row, explicit default)",
+  "primitive": "Primitive data (ue_expr) or Kuro-only Primitive member (ue_expr null, explicit default)",
+  "output": "out parameter, exposed as an additional Custom node output"
+ },
+ "wpo": {
+  "entry": "WuwaToonOutlineWPO_B",
+  "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_Outline.ush",
+  "returns": "float3",
+  "inputs": [
+   {
+    "name": "UV1",
+    "type": "float2",
+    "kind": "uv",
+    "index": 1
+   },
+   {
+    "name": "VertexColor",
+    "type": "float4",
+    "kind": "vertexcolor"
+   },
+   {
+    "name": "VertexTangentWS",
+    "type": "float3",
+    "kind": "worldtangent",
+    "stage": "vs",
+    "ue_expr": "Parameters.TangentToWorld[0]"
+   },
+   {
+    "name": "VertexBitangentWS",
+    "type": "float3",
+    "kind": "worldtangent",
+    "channel": "bitangent",
+    "stage": "vs",
+    "ue_expr": "Parameters.TangentToWorld[1]"
+   },
+   {
+    "name": "VertexNormalWS",
+    "type": "float3",
+    "kind": "worldnormal",
+    "stage": "vs",
+    "ue_expr": "Parameters.TangentToWorld[2]"
+   },
+   {
+    "name": "ObjectAxisScale",
+    "type": "float3",
+    "kind": "primitive",
+    "ue_expr": "GetPrimitiveData(Parameters).NonUniformScale.xyz"
+   },
+   {
+    "name": "TranslatedWorldPosition",
+    "type": "float3",
+    "kind": "worldposition",
+    "space": "translated",
+    "ue_expr": "GetTranslatedWorldPosition(Parameters)",
+    "note": "VS: excluding material offsets"
+   },
+   {
+    "name": "TranslatedWorldCameraOrigin",
+    "type": "float3",
+    "kind": "view",
+    "ue_expr": "ResolvedView.TranslatedWorldCameraOrigin",
+    "kuro": "Kuro View[67] WorldCameraOrigin (absolute)"
+   },
+   {
+    "name": "TranslatedWorldToClip",
+    "type": "float4x4",
+    "kind": "view",
+    "ue_expr": "ResolvedView.TranslatedWorldToClip",
+    "kuro": "Kuro View[0..3]; 3x3 == Kuro WorldToClip View[4..6]"
+   },
+   {
+    "name": "ClipToTranslatedWorld",
+    "type": "float4x4",
+    "kind": "view",
+    "ue_expr": "ResolvedView.ClipToTranslatedWorld",
+    "kuro": "with PreViewTranslation rebuilds Kuro ClipToWorld View[8..11]"
+   },
+   {
+    "name": "PreViewTranslation",
+    "type": "float3",
+    "kind": "view",
+    "ue_expr": "WSHackToFloat(ResolvedView.PreViewTranslation)",
+    "kuro": "Kuro View[70]"
+   },
+   {
+    "name": "ClipToView00",
+    "type": "float",
+    "kind": "view",
+    "ue_expr": "ResolvedView.ClipToView[0][0]",
+    "kuro": "Kuro View[36].x"
+   },
+   {
+    "name": "ClipToView11",
+    "type": "float",
+    "kind": "view",
+    "ue_expr": "ResolvedView.ClipToView[1][1]",
+    "kuro": "Kuro View[37].y"
+   },
+   {
+    "name": "ViewSizeAndInvSize",
+    "type": "float4",
+    "kind": "view",
+    "ue_expr": "ResolvedView.ViewSizeAndInvSize",
+    "kuro": "Kuro View[135]"
+   },
+   {
+    "name": "KuroOutlinePixelScale",
+    "type": "float",
+    "kind": "view",
+    "kuro": "View[280].y (outline minimum-width scale in pixels)",
+    "ue_expr": null,
+    "default": 1.0,
+    "unknown": true
+   },
+   {
+    "name": "VertexGMinWidthFactor",
+    "type": "float",
+    "kind": "scalar",
+    "param": "VertexGMinWidthFactor",
+    "default": 0.0
+   },
+   {
+    "name": "OutlineClipWidth",
+    "type": "float",
+    "kind": "scalar",
+    "param": "OutlineClipWidth",
+    "default": 0.7
+   },
+   {
+    "name": "OutlineHoldDistance",
+    "type": "float",
+    "kind": "scalar",
+    "param": "OutlineHoldDistance",
+    "default": 0.5
+   },
+   {
+    "name": "InnerOutlineMulti",
+    "type": "float",
+    "kind": "scalar",
+    "param": "InnerOutlineMulti",
+    "default": 500.0
+   },
+   {
+    "name": "InnerOutlineOffset",
+    "type": "float",
+    "kind": "scalar",
+    "param": "InnerOutlineOffset",
+    "default": 0.5
+   },
+   {
+    "name": "KuroEnablePrimitiveOffset",
+    "type": "float",
+    "kind": "view",
+    "kuro": "View[308].x (gates Primitive[44] vertex offset)",
+    "ue_expr": null,
+    "default": 0.0,
+    "unknown": true
+   },
+   {
+    "name": "KuroPrimitiveOffset",
+    "type": "float4",
+    "kind": "primitive",
+    "kuro": "Primitive[44] (xyz world offset, w > 0 enables)",
+    "ue_expr": null,
+    "default": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "unknown": true
+   }
+  ],
+  "custom_node_code": "return WuwaToonOutlineWPO_B(UV1, VertexColor, VertexTangentWS, VertexBitangentWS, VertexNormalWS, ObjectAxisScale, TranslatedWorldPosition, TranslatedWorldCameraOrigin, TranslatedWorldToClip, ClipToTranslatedWorld, PreViewTranslation, ClipToView00, ClipToView11, ViewSizeAndInvSize, KuroOutlinePixelScale, VertexGMinWidthFactor, OutlineClipWidth, OutlineHoldDistance, InnerOutlineMulti, InnerOutlineOffset, KuroEnablePrimitiveOffset, KuroPrimitiveOffset);",
+  "space": "world-space offset vector (UE World Position Offset); positions fed in translated world"
+ },
+ "raster": {
+  "kuro": "bIsBackFace / BackFace=True: inverted hull, front faces culled (pipeline state, not in DXBC)",
+  "ue_emulation": "UE materials cannot cull front faces; use a flipped-winding outline mesh section, or two_sided with a front-face discard (kind frontface) — not part of the decompiled PS"
+ },
+ "resolve": false,
+ "resolve_note": "Kuro draws these outlines in the forward translucent pass (one o0, no toon GBuffer, no toon resolve). The port returns the MATERIAL part only (BaseColor, Emissive, Opacity), verified bit-exact through the whole original o0 by splicing it into a 1:1 transpile of the original (tools/shaderdiff/roster_eyeoutline/outline_tdiff.py). The engine tail is NOT ported: Kuro primitive fade (Primitive[43]), vertex/volumetric fog, emissive max/scale/OOB, the ambient term BaseColor * View[299] (Kuro-only View member) and Kuro's forward local-light loop (wrapped half-Lambert toon lights, 9 float4 per light) - UE's own translucency lighting and fog replace them (approximation, not bit-exact).",
+ "ue_material": {
+  "contract": "entry returns FWuwaFXOutput {float3 Emissive; float Opacity;} plus out float3 BaseColor - no toon GBuffer, no WuwaToonResolve",
+  "shading_model": "MSM_DefaultLit",
+  "blend_mode": "BLEND_Translucent",
+  "two_sided": false,
+  "translucency_lighting_mode": "TLM_SurfacePerPixelLighting (closest UE equivalent of Kuro forward lighting; not bit-exact)",
+  "connect": {
+   "BaseColor": "BaseColor",
+   "EmissiveColor": "X.Emissive",
+   "Opacity": "X.Opacity"
+  },
+  "opacity_mask_clip_value": null,
+  "note": "Kuro inverted-hull outline drawn translucent: cull front faces (flipped-winding section) as for the opaque outlines"
+ },
+ "generated_by": "tools/shaderdiff/roster_eyeoutline/outline_specs.py",
+ "roster_variant": {
+  "base_spec": "Outline_B_MainTex.json",
+  "static_switches": {
+   "UseMainTex": true,
+   "BlendMode": "BLEND_Translucent"
+  },
+  "notes": "WPO: VS __272265 / __105649 SV_POSITION == VS-B __114157 and VS __133216 == VS-A __207702 (symbolic, vertex-fog loop removed); the registry pairs the A-family VS with Outline_Translucent_MainTex_A.",
+  "round": "4 (eye/outline)"
+ }
+}

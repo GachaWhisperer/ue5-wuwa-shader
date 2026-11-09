@@ -1,0 +1,1310 @@
+{
+ "name": "Char_ZanNi_FireHair_OneSidedHETAShadowLord",
+ "entry": "WuwaToonZaniFireHairBasePass_OneSidedHETAShadowLord",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_ZaniFire.ush",
+ "kuro_shading_model": "MSM_ToonHair (GBufferB id 15, 12 on tail vertices)",
+ "kuro_asm": "M_Char_ZanNi_FireHair PS faa84b7e77 (#94449) / VS 0d6678f2ab (#56022); UseFireHair, one-sided normal, IsHairHET, UseShadowLordMaterial",
+ "kuro_root_material": "M_Char_ZanNi_FireHair",
+ "blend_mode": "BLEND_Masked",
+ "two_sided": true,
+ "resolve": true,
+ "resolve_note": "toon GBuffer through WuwaToonResolve. M_Char_ZanNi_FireHair packing: A = (oct(N), 0.95, skin >= 0.5 ? 0.666 : 0 | mode 1: 1), B = (sqrt(saturate(FireRimColor)), id 15, or 12 on tail vertices VertexColor.y <= 0), C = (lit fire colour, MainTex.a * OpacityIntensity | mode 1: rim byte), D = (ToonRimWidth, 0, 0, 0 | mode 1: 0). Masked: route OpacityMask to the material Opacity Mask (clip 0.3333, Kuro folds it into mad(mask, heta, -0.3333)); the Kuro primitive dither is clipped inside. IsHairHET: C.a = VertexColor.a (mode 0) / odd byte of VertexColor.a (mode 1). UseShadowLordMaterial: C.rgb += UseShadowLordMaterialDynamic * ShadowLord colour.",
+ "vs_note": "VS 0d6678f2ab (#56022): the fire-hair World Position Offset (FlowTex noise, per-group sine / expand, tangent sine) is ported as the \"wpo\" entry and verified bit-exact on SV_POSITION with the stream-output VS harness (tools/shaderdiff/weapons/r3/zani_vs_wpo_toon.py); its E_Hologram / E_Motion WPO block is gated off at every roster MI (USE Hologram = 0, E_Motion_Offset.w = 0) and not ported. TEXCOORD2 (light direction + motion mask) is symbolically identical to the verified Body VS #35700 (r3/zani_vs_status.py).",
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "o0.rgb SceneColor (o0.a = 0)"
+  },
+  "A": {
+   "type": "float4",
+   "kuro": "o1 GBufferA: xy oct normal, z toon shadow factor, w flag"
+  },
+  "B": {
+   "type": "float4",
+   "kuro": "o2 GBufferB: rgb sqrt(shadow colour), a (LightingChannelMask<<5 | ShadingModelId)/255"
+  },
+  "C": {
+   "type": "float4",
+   "kuro": "o3 GBufferC: rgb lit colour, a MainTex.a*OpacityIntensity / rim byte"
+  },
+  "D": {
+   "type": "float4",
+   "kuro": "o6 \"GBufferD\": x ToonRimWidth, y packed nibble, z 0, w packed AO|FFT"
+  },
+  "OpacityMask": {
+   "type": "float",
+   "kuro": "masked clip input, clip value 0.3333"
+  }
+ },
+ "inputs": [
+  {
+   "name": "DissolveTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "DissolveTex",
+   "default": "T_Tile_20002",
+   "note": "reference MI MI_R2T1ZanniMd20011Bangs_HETA2: {'ObjectName': \"Texture2D'T_Tile_20002'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/Tile/T_Tile_20002.1'}"
+  },
+  {
+   "name": "DissolveTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "DissolveTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "DissolveTexSampler"
+  },
+  {
+   "name": "TypeMask",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "TypeMask",
+   "default": "T_R2T1ZanniMd10011Bangs1_ID",
+   "note": "reference MI MI_R2T1ZanniMd20011Bangs_HETA2: {'ObjectName': \"Texture2D'T_R2T1ZanniMd10011Bangs1_ID'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleXL/Zanni/R2T1ZanniMd10011/Model/T_R2T1ZanniMd10011Bangs1_ID.0'}"
+  },
+  {
+   "name": "TypeMaskSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "TypeMask",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "TypeMaskSampler"
+  },
+  {
+   "name": "MainTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "MainTex",
+   "default": "T_R2T1ZanniMd10011Bangs1_D",
+   "note": "reference MI MI_R2T1ZanniMd20011Bangs_HETA2: {'ObjectName': \"Texture2D'T_R2T1ZanniMd10011Bangs1_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleXL/Zanni/R2T1ZanniMd10011/Model/T_R2T1ZanniMd10011Bangs1_D.1'}"
+  },
+  {
+   "name": "MainTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "MainTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MainTexSampler"
+  },
+  {
+   "name": "FlowTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "FlowTex",
+   "default": "T_Tile_21001",
+   "note": "reference MI MI_R2T1ZanniMd20011Bangs_HETA2: {'ObjectName': \"Texture2D'T_Tile_21001'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/Tile/T_Tile_21001.1'}"
+  },
+  {
+   "name": "FlowTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "FlowTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "FlowTexSampler"
+  },
+  {
+   "name": "DitherTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "DitherTex",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "DitherTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "DitherTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "DitherTexSampler"
+  },
+  {
+   "name": "ShadowLordTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "ShadowLordTex",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "ShadowLordTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "ShadowLordTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "ShadowLordTexSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "UV2",
+   "type": "float2",
+   "kind": "uv",
+   "index": 2
+  },
+  {
+   "name": "UV3",
+   "type": "float2",
+   "kind": "uv",
+   "index": 3
+  },
+  {
+   "name": "VertexColor",
+   "type": "float4",
+   "kind": "vertexcolor",
+   "ue_expr": "Parameters.VertexColor",
+   "kuro": "COLOR0"
+  },
+  {
+   "name": "WorldNormal",
+   "type": "float3",
+   "kind": "worldnormal",
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "WorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "absolute",
+   "ue_expr": "WSHackToFloat(GetWorldPosition(Parameters))"
+  },
+  {
+   "name": "CameraVector",
+   "type": "float3",
+   "kind": "cameravector",
+   "ue_expr": "Parameters.CameraVector"
+  },
+  {
+   "name": "SvPositionXY",
+   "type": "float2",
+   "kind": "svposition",
+   "ue_expr": "Parameters.SvPosition.xy"
+  },
+  {
+   "name": "ViewRectMin",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewRectMin.xy",
+   "kuro": "View[134].xy"
+  },
+  {
+   "name": "TemporalAAParamsX",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.TemporalAAParams.x",
+   "kuro": "View[158].x (TAA sample index)"
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  },
+  {
+   "name": "LightDirVS",
+   "type": "float3",
+   "kind": "interpolator",
+   "source": "WuwaToonBaseVS_LightDir",
+   "note": "Kuro TEXCOORD2.xyz (Body/Hair-VS layout)"
+  },
+  {
+   "name": "MotionEmissiveMask",
+   "type": "float",
+   "kind": "interpolator",
+   "source": "WuwaToonBaseVS_WPO:MotionEmissiveMask",
+   "note": "Kuro TEXCOORD2.w (E_Motion mask written by the base VS)"
+  },
+  {
+   "name": "TimeBiasAmount",
+   "type": "float",
+   "kind": "scalar",
+   "param": "TimeBiasAmount",
+   "default": 1.0
+  },
+  {
+   "name": "SpeedControl",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SpeedControl",
+   "default": 1.0
+  },
+  {
+   "name": "RandomAmount",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RandomAmount",
+   "default": 1.2300000190734863
+  },
+  {
+   "name": "DissolveTexSW",
+   "type": "float4",
+   "kind": "vector",
+   "param": "DissolveTexSW",
+   "channels": "rgba",
+   "default": [
+    5.0,
+    2.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Tail_DissolveTexSWAndBlackContril",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Tail_DissolveTexSWAndBlackContril",
+   "channels": "rgba",
+   "default": [
+    8.0,
+    1.5,
+    0.800000011920929,
+    0.10000000149011612
+   ]
+  },
+  {
+   "name": "Group_DissolveTexSpeed",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Group_DissolveTexSpeed",
+   "channels": "rgba",
+   "default": [
+    -1.2000000476837158,
+    -1.5,
+    -2.0,
+    -1.5
+   ]
+  },
+  {
+   "name": "Group_DissolvePos",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Group_DissolvePos",
+   "channels": "rgba",
+   "default": [
+    -0.30000001192092896,
+    -0.3100000023841858,
+    -0.30000001192092896,
+    -0.30000001192092896
+   ]
+  },
+  {
+   "name": "Group_ColorMaskExtra",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Group_ColorMaskExtra",
+   "channels": "rgba",
+   "default": [
+    0.25,
+    0.20000000298023224,
+    0.05000000074505806,
+    0.30000001192092896
+   ]
+  },
+  {
+   "name": "Group_DissolveUVStrength",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Group_DissolveUVStrength",
+   "channels": "rgba",
+   "default": [
+    -0.30000001192092896,
+    -0.3100000023841858,
+    -0.30000001192092896,
+    -0.30000001192092896
+   ]
+  },
+  {
+   "name": "Group_IDNoiseUVStrength",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Group_IDNoiseUVStrength",
+   "channels": "rgba",
+   "default": [
+    -0.30000001192092896,
+    -0.3100000023841858,
+    -0.30000001192092896,
+    -0.30000001192092896
+   ]
+  },
+  {
+   "name": "Group_IDButtomNoiseStrength",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Group_IDButtomNoiseStrength",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Group_BlackColorRange",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Group_BlackColorRange",
+   "channels": "rgba",
+   "default": [
+    0.800000011920929,
+    0.800000011920929,
+    0.800000011920929,
+    0.800000011920929
+   ]
+  },
+  {
+   "name": "DiffuseNoiseUVControl",
+   "type": "float4",
+   "kind": "vector",
+   "param": "DiffuseNoiseUVControl",
+   "channels": "rgba",
+   "default": [
+    -0.10000000149011612,
+    0.10000000149011612,
+    0.05000000074505806,
+    1.0
+   ]
+  },
+  {
+   "name": "BaseColorTint",
+   "type": "float4",
+   "kind": "vector",
+   "param": "BaseColorTint",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Tail_ColorMaskExtra",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Tail_ColorMaskExtra",
+   "default": 0.0
+  },
+  {
+   "name": "ColorTopTint",
+   "type": "float4",
+   "kind": "vector",
+   "param": "ColorTopTint",
+   "channels": "rgba",
+   "default": [
+    0.05729199945926666,
+    0.0452909991145134,
+    0.019395999610424042,
+    1.0
+   ]
+  },
+  {
+   "name": "ColorMidTint",
+   "type": "float4",
+   "kind": "vector",
+   "param": "ColorMidTint",
+   "channels": "rgba",
+   "default": [
+    0.31770798563957214,
+    0.1954520046710968,
+    0.08108200132846832,
+    1.0
+   ]
+  },
+  {
+   "name": "ColorTintStrengthInDark",
+   "type": "float4",
+   "kind": "vector",
+   "param": "ColorTintStrengthInDark",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.5,
+    1.0
+   ]
+  },
+  {
+   "name": "NoiseSparkColorAdd",
+   "type": "float4",
+   "kind": "vector",
+   "param": "NoiseSparkColorAdd",
+   "channels": "rgba",
+   "default": [
+    50.0,
+    35.677085876464844,
+    23.95833396911621,
+    0.5190470218658447
+   ]
+  },
+  {
+   "name": "NoiseSparkTexSW",
+   "type": "float4",
+   "kind": "vector",
+   "param": "NoiseSparkTexSW",
+   "channels": "rgba",
+   "default": [
+    5.0,
+    2.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "NoiseSparkColorMaskControl",
+   "type": "float4",
+   "kind": "vector",
+   "param": "NoiseSparkColorMaskControl",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.30000001192092896,
+    0.25,
+    0.0
+   ]
+  },
+  {
+   "name": "NoiseSparkColorMaskControl_End",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "NoiseSparkColorMaskControl"
+   ],
+   "expr": "(NoiseSparkColorMaskControl.x + NoiseSparkColorMaskControl.y)",
+   "ue_nodes": "material graph expression evaluated as a uniform expression (CPU float32 preshader, as Kuro)",
+   "default": 0.3
+  },
+  {
+   "name": "SolidShadowProcess",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowProcess",
+   "default": 0.20000000298023224
+  },
+  {
+   "name": "SolidShadowProcess_Eps",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "SolidShadowProcess"
+   ],
+   "expr": "(0.001 + SolidShadowProcess)",
+   "ue_nodes": "material graph expression evaluated as a uniform expression (CPU float32 preshader, as Kuro)",
+   "default": 0.201
+  },
+  {
+   "name": "ShadowOffsetAdjustFactor",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowOffsetAdjustFactor",
+   "default": 1.0
+  },
+  {
+   "name": "ShadowOffsetPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowOffsetPower",
+   "default": 1.0
+  },
+  {
+   "name": "MaskShadowOffsetStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MaskShadowOffsetStrength",
+   "default": 0.0
+  },
+  {
+   "name": "RaytracingReflectionFix",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RaytracingReflectionFix",
+   "default": 0.0
+  },
+  {
+   "name": "LightOffset_Pitch",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightOffset_Pitch",
+   "default": 0.0
+  },
+  {
+   "name": "ShadowProcess_Lo",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "ShadowProcess",
+    "ShadowWidth"
+   ],
+   "expr": "(((0 + ShadowProcess) + 0) - ShadowWidth)",
+   "ue_nodes": "material graph expression evaluated as a uniform expression (CPU float32 preshader, as Kuro)",
+   "default": 0.51
+  },
+  {
+   "name": "ShadowProcess_Hi",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "ShadowProcess",
+    "ShadowWidth"
+   ],
+   "expr": "(((0 + ShadowProcess) + 0) + ShadowWidth)",
+   "ue_nodes": "material graph expression evaluated as a uniform expression (CPU float32 preshader, as Kuro)",
+   "default": 0.59
+  },
+  {
+   "name": "AniSwitch_FaceShadow",
+   "type": "float",
+   "kind": "scalar",
+   "param": "AniSwitch_FaceShadow",
+   "default": 0.0
+  },
+  {
+   "name": "SolidShadow_A",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "SolidShadowProcess",
+    "SolidShadowWidth"
+   ],
+   "expr": "(((clamp((min(SolidShadowProcess, float13(float12(float8(0, (0.001 + SolidShadowProcess)), 0), EmissionIntensity).y) / max(SolidShadowProcess, 0.01)), (1 - SolidShadowWidth), 1) - (1 - SolidShadowWidth)) / max((1 - (1 - SolidShadowWidth)), 0.0001)) * 1)",
+   "ue_nodes": "material graph expression evaluated as a uniform expression (CPU float32 preshader, as Kuro)",
+   "default": 0.0
+  },
+  {
+   "name": "SolidShadow_B",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "SolidShadowProcess",
+    "SolidShadowWidth"
+   ],
+   "expr": "((((clamp((min(SolidShadowProcess, float13(float12(float8(0, (0.001 + SolidShadowProcess)), 0), EmissionIntensity).y) / max(SolidShadowProcess, 0.01)), (1 - SolidShadowWidth), 1) - (1 - SolidShadowWidth)) / max((1 - (1 - SolidShadowWidth)), 0.0001)) * 1) * 1)",
+   "ue_nodes": "material graph expression evaluated as a uniform expression (CPU float32 preshader, as Kuro)",
+   "default": 0.0
+  },
+  {
+   "name": "SolidShadow_Mul",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "SolidShadowProcess",
+    "SolidShadowStrength"
+   ],
+   "expr": "(1 - ((1 - (min(SolidShadowProcess, float13(float12(float8(0, (0.001 + SolidShadowProcess)), 0), EmissionIntensity).y) / max(SolidShadowProcess, 0.01))) * SolidShadowStrength))",
+   "ue_nodes": "material graph expression evaluated as a uniform expression (CPU float32 preshader, as Kuro)",
+   "default": 0.0
+  },
+  {
+   "name": "FinalColorControl",
+   "type": "float4",
+   "kind": "vector",
+   "param": "FinalColorControl",
+   "channels": "rgba",
+   "default": [
+    0.3499999940395355,
+    0.550000011920929,
+    0.5,
+    0.20000000298023224
+   ]
+  },
+  {
+   "name": "FinalColorMul_Night",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FinalColorMul_Night",
+   "default": 0.800000011920929
+  },
+  {
+   "name": "BlackEdgeColor_UP",
+   "type": "float4",
+   "kind": "vector",
+   "param": "BlackEdgeColor_UP",
+   "channels": "rgba",
+   "default": [
+    0.21354199945926666,
+    0.13129399716854095,
+    0.043375998735427856,
+    1.0
+   ]
+  },
+  {
+   "name": "BlackEdgeColor_Button",
+   "type": "float4",
+   "kind": "vector",
+   "param": "BlackEdgeColor_Button",
+   "channels": "rgba",
+   "default": [
+    0.020833000540733337,
+    0.017544999718666077,
+    0.00672800000756979,
+    1.0
+   ]
+  },
+  {
+   "name": "BlackMaskControl",
+   "type": "float4",
+   "kind": "vector",
+   "param": "BlackMaskControl",
+   "channels": "rgba",
+   "default": [
+    0.25,
+    0.10000000149011612,
+    0.4000000059604645,
+    1.0
+   ]
+  },
+  {
+   "name": "WPOTexSW",
+   "type": "float4",
+   "kind": "vector",
+   "param": "WPOTexSW",
+   "channels": "rgba",
+   "default": [
+    2.0,
+    2.0,
+    0.0,
+    -0.6000000238418579
+   ]
+  },
+  {
+   "name": "IDNoiseUVControl",
+   "type": "float4",
+   "kind": "vector",
+   "param": "IDNoiseUVControl",
+   "channels": "rgba",
+   "default": [
+    -0.13809500634670258,
+    0.5,
+    0.10000000149011612,
+    1.0
+   ]
+  },
+  {
+   "name": "DissolveMaskStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "DissolveMaskStrength",
+   "default": 0.30000001192092896
+  },
+  {
+   "name": "Tail_FresnelPos",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Tail_FresnelPos",
+   "default": 0.0
+  },
+  {
+   "name": "Tail_FresnelEnd",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Tail_FresnelPos",
+    "Tail_FresnelWidth"
+   ],
+   "expr": "(Tail_FresnelPos + Tail_FresnelWidth)",
+   "ue_nodes": "material graph expression evaluated as a uniform expression (CPU float32 preshader, as Kuro)",
+   "default": 3.0
+  },
+  {
+   "name": "Tail_DissolveInnerRange",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Tail_DissolveInnerRange",
+   "default": 0.20000000298023224
+  },
+  {
+   "name": "Tail_DissolveInnerEnd",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Tail_DissolveInnerRange",
+    "Tail_DissolveWidth"
+   ],
+   "expr": "(Tail_DissolveInnerRange + Tail_DissolveWidth)",
+   "ue_nodes": "material graph expression evaluated as a uniform expression (CPU float32 preshader, as Kuro)",
+   "default": 0.17
+  },
+  {
+   "name": "Tail_DissolveOuterStart",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Tail_DissolveInnerRange",
+    "Tail_DissolveOuterRange"
+   ],
+   "expr": "(Tail_DissolveInnerRange - Tail_DissolveOuterRange)",
+   "ue_nodes": "material graph expression evaluated as a uniform expression (CPU float32 preshader, as Kuro)",
+   "default": 0.22
+  },
+  {
+   "name": "Tail_DissolveOuterEnd",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Tail_DissolveInnerRange",
+    "Tail_DissolveOuterRange",
+    "Tail_DissolveWidth"
+   ],
+   "expr": "((Tail_DissolveInnerRange - Tail_DissolveOuterRange) + Tail_DissolveWidth)",
+   "ue_nodes": "material graph expression evaluated as a uniform expression (CPU float32 preshader, as Kuro)",
+   "default": 0.27
+  },
+  {
+   "name": "Tail_DissolveOpacityAdd",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Tail_DissolveOpacityAdd",
+   "default": -0.10000000149011612
+  },
+  {
+   "name": "TailBlackMaskRange",
+   "type": "float",
+   "kind": "scalar",
+   "param": "TailBlackMaskRange",
+   "default": 1.0
+  },
+  {
+   "name": "FinalEmissionStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FinalEmissionStrength",
+   "default": 0.11999999731779099
+  },
+  {
+   "name": "DefaultSkinFactor",
+   "type": "float",
+   "kind": "scalar",
+   "param": "DefaultSkinFactor",
+   "default": 0.0
+  },
+  {
+   "name": "UseSkinMask_DYN",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseSkinMask_DYN",
+   "default": 0.0
+  },
+  {
+   "name": "UseFaceAni_SkinMask",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseFaceAni_SkinMask",
+   "default": 0.0
+  },
+  {
+   "name": "SkinColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SkinColor",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "name": "EmissionIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EmissionIntensity",
+   "default": 0.0
+  },
+  {
+   "name": "EmissionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "EmissionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Motion_Emissive",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Motion_Emissive",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "DissolveWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "DissolveWidth",
+   "default": 0.800000011920929
+  },
+  {
+   "name": "OverallOpacity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "OverallOpacity",
+   "default": 1.0
+  },
+  {
+   "name": "HETA_OpacityMulti",
+   "type": "float",
+   "kind": "scalar",
+   "param": "HETA_OpacityMulti",
+   "default": 1.0
+  },
+  {
+   "name": "FireRimColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "FireRimColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "name": "ToonRimWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ToonRimWidth",
+   "default": 0.05000000074505806
+  },
+  {
+   "name": "ShadowLord_ColorTiling",
+   "type": "float4",
+   "kind": "vector",
+   "param": "ShadowLord_ColorTiling",
+   "channels": "rgba",
+   "default": [
+    6.0,
+    0.5,
+    0.0,
+    0.05000000074505806
+   ]
+  },
+  {
+   "name": "ShadowLord_ColorMulti",
+   "type": "float4",
+   "kind": "vector",
+   "param": "ShadowLord_ColorMulti",
+   "channels": "rgba",
+   "default": [
+    0.6123380064964294,
+    0.8016480207443237,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "name": "ShadowLord_ColorOpacity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowLord_ColorOpacity",
+   "default": 0.20000000298023224
+  },
+  {
+   "name": "UseShadowLordMaterialDynamic",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseShadowLordMaterialDynamic",
+   "default": 0.0
+  },
+  {
+   "name": "CPD1",
+   "type": "float",
+   "kind": "cpd",
+   "index": 1,
+   "role": "weight toward VS fixed-angle light"
+  },
+  {
+   "name": "CPD13",
+   "type": "float",
+   "kind": "cpd",
+   "index": 13,
+   "role": "toon local light anchor blend"
+  },
+  {
+   "name": "KuroViewLightColorB",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true,
+   "kuro": "View[292].xyz (see KuroViewLightColorA) [U]"
+  },
+  {
+   "name": "MPC_GlobalTimeHour",
+   "type": "float",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalTimeHour",
+   "default": 7.059767,
+   "kuro": "cb3[3].z (day factor smoothstep(0.24..0.26 of the day) * smoothstep(0.76..0.74))"
+  },
+  {
+   "name": "MPC_GlobalCharacterAmbientSkinColor",
+   "type": "float3",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalCharacterAmbientSkinColor",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "kuro": "cb3[23] (used as a light-direction target [U])"
+  },
+  {
+   "name": "MPC_GlobalCharacterDebugLightDirection",
+   "type": "float3",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalCharacterDebugLightDirection",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "kuro": "cb3[42] (base character light direction; must be written at runtime)"
+  },
+  {
+   "name": "ToonLight0",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 0,
+   "kuro": "ToonShadowLightData CB1[0]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "ToonLight1",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 1,
+   "kuro": "ToonShadowLightData CB1[1]",
+   "default": [
+    0,
+    0,
+    -1,
+    0
+   ],
+   "note": "[1].w is a raw uint bit pattern (type in bits 16..17): feed it bit-exactly"
+  },
+  {
+   "name": "ToonLight2",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 2,
+   "kuro": "ToonShadowLightData CB1[2]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "ToonLight3",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 3,
+   "kuro": "ToonShadowLightData CB1[3]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "KuroPrimDitherEnable",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[43].x",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "KuroPrimDitherFade",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[43].y",
+   "ue_expr": null,
+   "default": 1.0,
+   "unknown": true
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "NormalOverrideParameter",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.NormalOverrideParameter",
+   "kuro": "Kuro View[144] (stock member), default (0,0,0,1)",
+   "default": [
+    0,
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "name": "KuroGBufferMode",
+   "type": "float",
+   "kind": "view",
+   "kuro": "View[276].x (int, ==1 selects the alternate packing)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "KuroEmissiveScale",
+   "type": "float3",
+   "kind": "view",
+   "kuro": "View[285].xyz (emissive multiplier when Primitive[42].w == 0)",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true
+  },
+  {
+   "name": "KuroSkipEmissiveScale",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[42].w (skip View[285] multiply when != 0)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "OutOfBoundsMask",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.OutOfBoundsMask",
+   "kuro": "Kuro View[146].x (stock debug)",
+   "default": 0.0
+  },
+  {
+   "name": "ObjectWorldPosition",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "WSHackToFloat(GetObjectWorldPosition(Parameters))"
+  },
+  {
+   "name": "ObjectBounds",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "float3(GetPrimitiveData(Parameters).ObjectBoundsX, GetPrimitiveData(Parameters).ObjectBoundsY, GetPrimitiveData(Parameters).ObjectBoundsZ)"
+  },
+  {
+   "name": "LightingChannelMask",
+   "type": "uint",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitive_LightingChannelMask_FromFlags(GetPrimitiveData(Parameters).Flags)"
+  },
+  {
+   "name": "OpacityMask",
+   "type": "float",
+   "kind": "output"
+  }
+ ],
+ "generated_by": "tools/shaderdiff/weapons/r3/make_specs_zani.py",
+ "notes": {
+  "textures": "slot 0 name (DissolveTex) from the cooked map; others inferred [U]: TypeMask = t1 (SampleLevel at the view mip bias; .x UV distortion weight, .y spark mask, .z black floor, .w id mask; MIs override TypeMask with *_ID), MainTex = t2 (*_D), FlowTex = t3 (WPOTexSW panner; MIs override FlowTex with T_Tile_21001), ShadowLordTex = t4 (UseShadowLordMaterial colour, UV3 panner; name from the Galbrena map ShadowLord_ColorTex [U]; root default, no MI override), DitherTex = t5 (screen / 64 TAA dither noise, .r; not a parameter of the MIs: the root default / engine dither texture [U])."
+ },
+ "wpo": {
+  "entry": "WuwaToonZaniFireHairWPO",
+  "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_ZaniFire.ush",
+  "connect": "World Position Offset (material output pin); absolute-space offset added to the translated world position",
+  "verified": "evidence/validation/shaderdiff/weapons/round3/zani/results_vs_wpo_toon_zani.json (SV_POSITION, stream-output VS diff)",
+  "inputs": [
+   {
+    "name": "FlowTex",
+    "type": "Texture2D",
+    "kind": "texture",
+    "param": "FlowTex",
+    "default": "T_Tile_21001",
+    "note": "VS t3 / s0, SampleLevel LOD -1 (reference MI MI_R2T1ZanniMd20011Bangs_HETA2: {'ObjectName': \"Texture2D'T_Tile_21001'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/Tile/T_Tile_21001.1'})"
+   },
+   {
+    "name": "FlowTexSampler",
+    "type": "SamplerState",
+    "kind": "sampler",
+    "texture": "FlowTex",
+    "sampler_source": "SSM_FromTextureAsset",
+    "ue_expr": "FlowTexSampler"
+   },
+   {
+    "name": "UV2",
+    "type": "float2",
+    "kind": "uv",
+    "index": 2
+   },
+   {
+    "name": "VertexColor",
+    "type": "float4",
+    "kind": "vertexcolor",
+    "ue_expr": "Parameters.VertexColor",
+    "kuro": "COLOR0"
+   },
+   {
+    "name": "WorldTangent",
+    "type": "float3",
+    "kind": "worldtangent",
+    "ue_expr": "Parameters.TangentToWorld[0]"
+   },
+   {
+    "name": "WorldBitangent",
+    "type": "float3",
+    "kind": "worldbitangent",
+    "ue_expr": "Parameters.TangentToWorld[1]",
+    "note": "VS: GPU-skin passthrough TangentY = cross(TangentZ, TangentX) * TangentZ.w, * LocalToWorld * InvNonUniformScale"
+   },
+   {
+    "name": "WorldNormal",
+    "type": "float3",
+    "kind": "worldnormal",
+    "ue_expr": "Parameters.TangentToWorld[2]"
+   },
+   {
+    "name": "GameTime",
+    "type": "float",
+    "kind": "view",
+    "ue_expr": "View.GameTime",
+    "kuro": "Kuro View[148].z (UE material Time node)"
+   },
+   {
+    "name": "TimeBiasAmount",
+    "type": "float",
+    "kind": "scalar",
+    "param": "TimeBiasAmount",
+    "default": 1.0
+   },
+   {
+    "name": "SpeedControl",
+    "type": "float",
+    "kind": "scalar",
+    "param": "SpeedControl",
+    "default": 1.0
+   },
+   {
+    "name": "RandomAmount",
+    "type": "float",
+    "kind": "scalar",
+    "param": "RandomAmount",
+    "default": 1.2300000190734863
+   },
+   {
+    "name": "WPOTexSW",
+    "type": "float4",
+    "kind": "vector",
+    "param": "WPOTexSW",
+    "channels": "rgba",
+    "default": [
+     2.0,
+     2.0,
+     0.0,
+     -0.6000000238418579
+    ]
+   },
+   {
+    "name": "Group_NoiseDisplaceAmount",
+    "type": "float4",
+    "kind": "vector",
+    "param": "Group_NoiseDisplaceAmount",
+    "channels": "rgba",
+    "default": [
+     1.0,
+     1.0,
+     4.0,
+     1.0
+    ]
+   },
+   {
+    "name": "Group_SineWaveAmount",
+    "type": "float4",
+    "kind": "vector",
+    "param": "Group_SineWaveAmount",
+    "channels": "rgba",
+    "default": [
+     0.800000011920929,
+     2.0,
+     5.0,
+     2.0
+    ]
+   },
+   {
+    "name": "Group_ExpandAmount",
+    "type": "float4",
+    "kind": "vector",
+    "param": "Group_ExpandAmount",
+    "channels": "rgba",
+    "default": [
+     0.0,
+     1.0,
+     0.5,
+     0.0
+    ]
+   },
+   {
+    "name": "Tail_SineWaveAmount",
+    "type": "float",
+    "kind": "scalar",
+    "param": "Tail_SineWaveAmount",
+    "default": 4.0
+   },
+   {
+    "name": "SineTangentWaveAmount",
+    "type": "float",
+    "kind": "scalar",
+    "param": "SineTangentWaveAmount",
+    "default": 0.20000000298023224
+   }
+  ]
+ }
+}

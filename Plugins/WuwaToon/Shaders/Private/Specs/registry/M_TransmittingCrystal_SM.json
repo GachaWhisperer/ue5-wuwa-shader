@@ -1,0 +1,71 @@
+{
+ "root_material": "M_TransmittingCrystal_SM",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "TransmittingCrystal_SM_EffectSecond.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "c3338a60e7818bf827cdd0deb4f0dc72528fee88"
+    ],
+    "base_pass_vs_hash": [
+     "98ddcc5eb79440ab36d97df6fc205943b3913f87"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/crystal/results_multi_final.json summary.crystal_c3338a (42 runs, o0 688128/688128 bit-exact); VS #2157 engine_only (evidence/validation/shaderdiff/weapons/vs_status.json (round 1: no Material uniform buffer declared; stock translucent GPU-skin VS + height fog))",
+   "ps_archive_index": 137263,
+   "vs_archive_index": [
+    2157
+   ],
+   "vs_status": {
+    "98ddcc5eb79440ab36d97df6fc205943b3913f87": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 1,
+   "entities": [
+    "weapon:Blooming Jadehaven"
+   ],
+   "example_mis": [
+    "MI_R5Device510Md20001_Effect"
+   ],
+   "notes": "Blooming Jadehaven main mesh (MI_R5Device510Md20001_Effect). Engine inputs: SceneColor texture (t1), View[138] / [139] (buffer inv size / UV clamp), View[153] light dir, View[296] SSS dir. 42 runs, o0 688128/688128 bit-exact."
+  },
+  {
+   "spec": "TransmittingCrystal_SM_ParallaxDiamond.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6525ac23afdc0a42320e352242ae0b908664c3dd"
+    ],
+    "base_pass_vs_hash": [
+     "98ddcc5eb79440ab36d97df6fc205943b3913f87"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/crystal/results_multi_final.json summary.crystal_6525ac (42 runs, o0 688128/688128 bit-exact); VS #2157 engine_only (evidence/validation/shaderdiff/weapons/vs_status.json (round 1: no Material uniform buffer declared; stock translucent GPU-skin VS + height fog))",
+   "ps_archive_index": 11113,
+   "vs_archive_index": [
+    2157
+   ],
+   "vs_status": {
+    "98ddcc5eb79440ab36d97df6fc205943b3913f87": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 6,
+   "entities": [
+    "character:Qingxiao",
+    "character:Rover: Electro",
+    "skin:Silken Cloud",
+    "skin:Wandering Traveler"
+   ],
+   "example_mis": [
+    "MI_EQingxiaoDajianMd10011_Effect"
+   ],
+   "notes": "MI_EQingxiaoDajianMd10011_Effect (Qingxiao, Rover props). Same engine inputs as c3338a60. 42 runs, o0 688128/688128 bit-exact."
+  }
+ ]
+}

@@ -1,0 +1,349 @@
+// WuwaToonBasePass_Motor.ush — M_Motor_Com base pass (Hiyuki's motorbike prop MI_ETaidaonvDiaoouMd10011), MSM_ToonCommon
+// (GBufferB id 12), round 7 (research/roster/round7/singletons.md). New file; the verified headers are only #included.
+//
+// Line refs T### = asm_hex of PS #162137 (6fbc5fb913536bc0ea18a38b45feb45a3e0b9ea2), instruction index (1-based, first
+// instruction after dcl_temps = 1). M_Motor_Com is the M_CharMonster PBR toon body (WuwaToonBasePass_Monster.ush, bCube
+// path: PS light direction, GGX hard spec, edge EnvBRDF, PBRCubeMap reflection, attack rim / dark scale, GI tint) plus:
+//   * motor decal (Use_MotorDecal): a second normal map (Decal_Tex_Normal at UV2, .zw = decal metal / roughness) and a decal
+//     colour (Decal_Tex at UV2) blended by ID_Mask.x; the lighting normal is lerp(base, decal) (not re-normalised)    (T15-34, 88-104)
+//   * roughness: UseSpecularMask lerps roughness toward 1 - 2 rough (RoughA) and then toward RoughnessIntensity (RoughB)
+//   * a car-paint clear-coat layer on a normal lerped toward world +Z (NormalStrength_CarPaint): GGX D on lerp(t, NoH,
+//     NoV_CarPaint/NoH_CarPaint), Smith-joint visibility with NoV := t, smoothstep spec range x unclamped wrap, a 1 - NoV rim,
+//     metallic-tint smoothstep, blended by CarPaintRender_Blend^2                                                       (T294-352)
+//   * emission = pow(ID_Mask.a, Main_EmissionPower) x lit colour x EmissionColor (+ FX_Mask band x Use_MotorDecal) + Second layer
+//     under pow(R_Noise_A_Mask.a, 1 - Effect_Progress)                                                                  (T358-379)
+//   * the attack fresnel uses the base normal-mapped normal; GBufferC = attack-grey-lerped lit colour, GI tint (no ShadowLord)
+//   * the solid-shadow / GBufferA.z terms use the constant ToonShadowRange where M_CharMonster uses MainTex.a
+//   * mode 0 GBufferD = (ToonRimWidth, packed(saturate(2 RoughA) hi byte | min(max(metal, 0), 0.9) lo nibble), 0,
+//     round(saturate(FFTIntensity) 15) / 255), A.w = 0; mode 1 as every toon map.
+// CPU preshaders kept as uniform expressions: Second_RotCos / Second_RotSin (cos / sin(Second_Rotation x 2pi)) and
+// CarPaint_A2 = ((CR CR)(CR CR))((CR CR)(CR CR)), CR = CarPaint_Roughness (Material CB [88].w).
+// The VS (#162151) is the stock GPU-skin VS plus the UV3-dissolve WPO x UseShadowLordMaterialDynamic = 0 at the roster MI
+// (gated, not ported), structurally identical to the verified-gated M_CharMonster VS #240952.
+#pragma once
+#ifndef WUWA_MOTOR_USH
+#define WUWA_MOTOR_USH
+
+#include "WuwaToonBasePass_WeaponShared.ush"
+
+float WuwaMTSmooth(float x) { float k = x * -2.0 + 3.0; return (x * x) * k; }
+float WuwaMTSignSat(float x) { return saturate((float)WuwaKuroSignI(x)); }   // ilt / ilt / iadd / itof / sat
+
+// T108-209: PS light direction (pitch 45 + MPC GlobalCharacterVerticalRotation, yaw CPD0 (+ LightOffset_Yaw), toward MPC
+// GlobalCharacterDebugLightDirection by 1 - saturate(CPD1), then toward the toon point light) - the M_CharMonster form.
+float3 WuwaMTLightDir(float MPC_GlobalCharacterVerticalRotation, float CPD0, float CPD1, float UseLightOffset_Yaw_DYN,
+	float LightOffset_Yaw, float3 MPC_GlobalCharacterDebugLightDirection, float4 ToonLight0, float4 ToonLight3,
+	float3 ObjectWorldPosition)
+{
+	float sp, cp, sy, cy;
+	WuwaKuroSinCosDeg(MPC_GlobalCharacterVerticalRotation + 45.0, sp, cp);
+	float yaw = (UseLightOffset_Yaw_DYN >= 0.5) ? (CPD0 + LightOffset_Yaw) : CPD0;
+	WuwaKuroSinCosDeg(yaw, sy, cy);
+	float3 d = float3(cp * cy, sy * cp, sp);
+	d = d / sqrt(dot(d, d));
+	float3 Lb = saturate(CPD1) * (d - MPC_GlobalCharacterDebugLightDirection) + MPC_GlobalCharacterDebugLightDirection;
+	float3 anchor = ObjectWorldPosition + float3(0.0, 0.0, 150.0);
+	float3 Lpt = ToonLight0.xyz - anchor;
+	Lpt = Lpt / sqrt(dot(Lpt, Lpt));
+	float3 dA = anchor - ToonLight0.xyz;
+	float  distFrac = saturate(sqrt(dot(dA, dA)) * ToonLight0.w);
+	float3 Lm = distFrac * (Lb - Lpt) + Lpt;
+	float3 L = ToonLight3.z * (Lm - Lb) + Lb;
+	return L / sqrt(dot(L, L));
+}
+
+// Tangent-space normal map (xy * 2 - 1, x strength) to world, normalised with sqrt / div (T15-23, T24-32).
+float3 WuwaMTNormalMap(float2 nxy01, float Strength, float3 WorldTangent, float3 TangentY, float3 WorldNormal)
+{
+	float2 nxy = (nxy01 * 2.0 + -1.0) * Strength;
+	float3 n = TangentY * nxy.y;
+	n = nxy.x * WorldTangent + n;
+	n = n + WorldNormal;
+	return n / sqrt(dot(n, n));
+}
+
+// PS 6fbc5fb913 (#162137) MI_ETaidaonvDiaoouMd10011 (Hiyuki motorbike, character 1108 + skin 81001108).
+FWuwaToonGBuffer WuwaToonMotorBasePass_DecalCarPaintCubeSecond(
+	Texture2D Normal_Roughness_Metallic, SamplerState Normal_Roughness_MetallicSampler,
+	Texture2D Decal_Tex_Normal, SamplerState Decal_Tex_NormalSampler,
+	Texture2D Second_RGB, SamplerState Second_RGBSampler,
+	Texture2D R_Noise_A_Mask, SamplerState R_Noise_A_MaskSampler,
+	Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D Decal_Tex, SamplerState Decal_TexSampler,
+	Texture2D ID_Mask, SamplerState ID_MaskSampler,
+	Texture2D FX_Mask, SamplerState FX_MaskSampler,
+	TextureCube PBRCubeMap, SamplerState PBRCubeMapSampler,
+	float2 UV0, float2 UV1, float2 UV2, float2 UV3, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 TranslatedWorldPosition, float3 CameraVector,
+	float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize,
+	float Tex_Mip_Offset, float NormalStrength_Base, float Decal_Tex_BaseNormalStrength, float Use_MotorDecal,
+	float3 BaseColorTint, float MetallicIntensity_Base, float Decal_Tex_MetallicIntensity, float RoughnessIntensity_Base,
+	float Decal_Tex_RoughnessIntensity, float UseSpecularMask, float RoughnessIntensity,
+	float UseLightOffset_Yaw_DYN, float LightOffset_Yaw,
+	float4 SecondTex_UVSwitch, float Second_UseScreenUV, float Second_RotCos, float Second_RotSin, float4 Second_UV, float2 Second_UV_Offset,
+	float4 Second_Refine, float3 Second_ColorTint, float EffectMaskTexUV2Switch, float Effect_Progress,
+	float PBRHardSpecWidth_Test, float PBRHardSpeSmooth_Test, float EdgeEnvBRDFIntensity,
+	float PBRSpecularRangeDessolve_Threshold, float PBRSpecularRangeDessolve_Smooth, float PBRSpecularRangeDessolve_Intensity,
+	float3 PBRSpecularColor_Test, float PBRCubeMap_Test, float3 PBRCubemapColor, float3 PBRIndirectColor, float PBRRateIntensity,
+	float NormalStrength_CarPaint, float NoV_CarPaint_NoH_CarPaint, float CarPaint_A2,
+	float CarPaint_SpecularRangeMin, float CarPaint_SpecularRangeMax, float CarPaint_RimLightMin, float CarPaint_RimLightMax,
+	float CarPaint_RimLight_Intensity, float3 ClearCoat_RimLight_Color, float CarPaint_Specular_Intensity, float3 CarPaint_ColorTint,
+	float CarPaint_Metallic_IntMin, float CarPaint_Metallic_IntMax, float CarPaintRender_Blend,
+	float Main_EmissionPower, float EmissionMaskMin, float EmissionMaskMax, float3 EmissionColor,
+	float AttackDarkScale, float AttackFresnelRimRange, float3 AttackFresnelRimColor, float AttackFresnelRimIntensity,
+	float FresnelAttackFactor, float4 SelectionColor, float GI_Blend,
+	float3 ShadowColor, float SolidShadowView, float SolidShadowSaturation, float SolidShadowThreshold, float ToonShadowRange,
+	float ShadowOffset, float ShadowRange, float SolidShadowStrength, float ToonRimWidth, float FFTIntensity,
+	float CPD0, float CPD1, float MPC_GlobalCharacterVerticalRotation, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight3, float3 KuroViewGIColor,
+	float4x4 TranslatedWorldToView, float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask, float GameTime)
+{
+	FWuwaToonGBuffer G;
+	const float3 V = CameraVector;
+
+	// T1-5: bitangent, screen UV
+	float3 TangentY = cross(WorldNormal, WorldTangent) * TangentSign;
+	float2 ScreenUV = (SvPositionXY - ViewRectMin) * ViewSizeAndInvSize.zw;
+	float  MipB = MaterialTextureMipBias + Tex_Mip_Offset;
+
+	// T14-34: base and decal normal maps; lighting normal Nl = lerp(base, decal, Use_MotorDecal)
+	float4 NRM = Normal_Roughness_Metallic.SampleBias(Normal_Roughness_MetallicSampler, UV0, MipB);
+	float3 Nb = WuwaMTNormalMap(NRM.xy, NormalStrength_Base, WorldTangent, TangentY, WorldNormal);
+	float4 DN = Decal_Tex_Normal.SampleBias(Decal_Tex_NormalSampler, UV2, MipB);
+	float3 Nd = WuwaMTNormalMap(DN.xy, Decal_Tex_BaseNormalStrength, WorldTangent, TangentY, WorldNormal);
+	float3 Nl = Use_MotorDecal * (Nd - Nb) + Nb;
+
+	// T35-47: back to tangent space, View[144] override, to world (GBuffer normal N)
+	float3 nT = float3(dot(WorldTangent, Nl), dot(TangentY, Nl), dot(WorldNormal, Nl));
+	nT = nT * NormalOverrideParameter.w + NormalOverrideParameter.xyz;
+	nT = nT * rsqrt(dot(nT, nT));
+	float3 N = TangentY * nT.y;
+	N = nT.x * WorldTangent + N;
+	N = nT.z * WorldNormal + N;
+	N = N * rsqrt(dot(N, N));
+
+	// T48-79: Second layer (switch / screen UV, CPU cos/sin rotation, fmod(time, 600) scroll, refine) x tint; the cooked
+	// (Second_NoiseStrength * 0) UV term is 0 and not written
+	float  Dark0 = 1.0 - UV3.y;
+	float2 suv;
+	suv.x = dot(SecondTex_UVSwitch, float4(UV0.x, UV1.x, UV2.x, UV3.x));
+	suv.y = dot(SecondTex_UVSwitch, float4(UV0.y, UV1.y, UV2.y, UV3.y));
+	suv = Second_UseScreenUV * (ScreenUV - suv) + suv;
+	suv = suv + -0.5;
+	suv = float2(dot(suv, float2(Second_RotCos, -Second_RotSin)), dot(suv, float2(Second_RotSin, Second_RotCos))) + 0.5;
+	float  t600 = fmod(GameTime, 600.0);
+	suv = suv * Second_UV.xy + t600 * Second_UV.zw;
+	suv = suv + Second_UV_Offset;
+	float3 S2 = Second_RGB.SampleBias(Second_RGBSampler, suv, MaterialTextureMipBias).rgb;
+	float3 S2p;
+	S2p.x = WuwaWPowGuard(S2.x, Second_Refine.x);
+	S2p.y = WuwaWPowGuard(S2.y, Second_Refine.x);
+	S2p.z = WuwaWPowGuard(S2.z, Second_Refine.x);
+	S2p = S2p * Second_Refine.y;
+	S2 = Second_Refine.w * (S2 * Second_Refine.z - S2p) + S2p;
+	S2 = S2 * Second_ColorTint;
+
+	// T80-87: effect mask pow(R_Noise_A_Mask.a at lerp(UV0, UV2), 1 - Effect_Progress)
+	float2 euv = EffectMaskTexUV2Switch * (UV2 - UV0) + UV0;
+	float  em = R_Noise_A_Mask.SampleBias(R_Noise_A_MaskSampler, euv, MaterialTextureMipBias).a;
+	em = WuwaWPowGuard(em, 1.0 - Effect_Progress);
+
+	// T88-104: base colour (decal by ID_Mask.x), metal / roughness (decal lerp, spec-mask roughness)
+	float3 MT = MainTex.SampleBias(MainTexSampler, UV0, MipB).rgb;
+	float3 DC = Decal_Tex.SampleBias(Decal_TexSampler, UV2, MipB).rgb;
+	float4 IDm = ID_Mask.SampleBias(ID_MaskSampler, UV0, MipB);
+	float3 BaseCol = Use_MotorDecal * (IDm.x * (DC - MT * BaseColorTint)) + MT * BaseColorTint;
+	float  Metal0 = NRM.z * MetallicIntensity_Base;
+	float  Metallic = Use_MotorDecal * (Decal_Tex_MetallicIntensity * DN.z - Metal0) + Metal0;
+	float  Rough0 = NRM.w * RoughnessIntensity_Base;
+	Rough0 = Use_MotorDecal * (Decal_Tex_RoughnessIntensity * DN.w - Rough0) + Rough0;
+	float  RoughA = UseSpecularMask * (Rough0 * -2.0 + 1.0) + Rough0;
+	float  RoughB = UseSpecularMask * (RoughnessIntensity - RoughA) + RoughA;
+
+	// T105-107: reflection vector on the lighting normal
+	float  NoVr = dot(Nl, V);
+	float3 Rv = (NoVr * Nl) * 2.0 - V;
+
+	// T108-209: light direction
+	float3 L = WuwaMTLightDir(MPC_GlobalCharacterVerticalRotation, CPD0, CPD1, UseLightOffset_Yaw_DYN, LightOffset_Yaw,
+		MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight3, ObjectWorldPosition);
+
+	// T210-227: H, NoH / NoV / NoL, hard-spec width, half-Lambert, spec mask
+	float3 H = V + L;
+	H = H / sqrt(dot(H, H));
+	float NoH = saturate(dot(Nl, H));
+	float NoV = saturate(NoVr);
+	float NoLr = dot(Nl, L);
+	float NoL = saturate(NoLr);
+	float hw0 = max(PBRHardSpecWidth_Test, 0.01);
+	float hw = -(RoughA + -0.6) * 2.0 + hw0;
+	hw = ((0.6 >= RoughA) ? 1.0 : 0.0) * (hw0 - hw) + hw;
+	bool  bRoughLE095 = (asfloat(0x3F733333u) >= RoughA);
+	float HL = NoLr * 0.5 + 0.5;
+	float wrapU = NoLr * 0.5 + 1.0;                 // unclamped wrap (car-paint spec range, T320)
+	float hl2 = saturate(HL * asfloat(0x40366666u)) * 0.5 + 0.5;
+	float SpecMask = UseSpecularMask * (RoughA + -1.0) + 1.0;
+
+	// T228-244: diffuse / spec colour, EnvBRDFApprox(saturate NoV), edge EnvBRDF
+	float  kd = Metallic * asfloat(0xBF75C28Fu) + asfloat(0x3F75C28Fu);
+	float3 DiffC = BaseCol * kd;
+	float3 SpecC = Metallic * (BaseCol + asfloat(0xBD23D70Au)) + asfloat(0x3D23D70Au);
+	float4 eb = RoughB * float4(-1.0, asfloat(0xBCE147AEu), asfloat(0xBF126E98u), asfloat(0x3CB43958u))
+		+ float4(1.0, asfloat(0x3D2E147Bu), asfloat(0x3F851EB8u), asfloat(0xBD23D70Au));
+	float  a004 = min(eb.x * eb.x, exp2(NoV * asfloat(0xC1147AE1u))) * eb.x + eb.y;
+	float2 AB = a004 * float2(asfloat(0xBF851EB8u), asfloat(0x3F851EB8u)) + eb.zw;
+	float3 EnvBRDF = SpecC * AB.x + saturate(SpecC.g * 50.0) * AB.y;
+	float3 EnvE = EnvBRDF * EdgeEnvBRDFIntensity;
+	EnvBRDF = NoV * (EnvBRDF - EnvBRDF * EdgeEnvBRDFIntensity) + EnvE;
+
+	// T245-264: GGX D, hard-spec smoothstep
+	float a2 = max(RoughB * RoughB, asfloat(0x3B03126Fu));
+	a2 = a2 * a2;
+	float dd = NoH * a2 - NoH;
+	dd = dd * NoH + asfloat(0x3F800054u);
+	float D = (a2 * asfloat(0x3EA2F983u)) / (dd * dd + asfloat(0x33D6BF95u));
+	float hs = max(PBRHardSpeSmooth_Test, 0.001);
+	float hhi = hw + hs;
+	float hlo = min((hs + 1.0) * hw - hs, hhi + asfloat(0xBA83126Fu));
+	float hsp = WuwaMTSmooth(saturate((D - hlo) * (1.0 / (hhi - hlo))));
+
+	// T265-277: half-Lambert range dissolve of the highlight, spec mask
+	float rd = WuwaMTSmooth(saturate((1.0 / (PBRSpecularRangeDessolve_Smooth - PBRSpecularRangeDessolve_Threshold)) *
+		(HL - PBRSpecularRangeDessolve_Threshold)));
+	float3 SpecHL = hsp * (EnvBRDF * PBRSpecularColor_Test);
+	float3 SpecM = SpecMask * SpecHL;
+	SpecHL = PBRSpecularRangeDessolve_Intensity * ((rd * SpecHL) * SpecMask - SpecM) + SpecM;
+
+	// T278-293: reflection cube (SampleLevel, lod = rough (1.7 - 0.7 rough) 6), lit colour
+	float  lod = (RoughB * asfloat(0xBF333333u) + asfloat(0x3FD9999Au)) * RoughB;
+	lod = lod * 6.0;
+	float3 cube = PBRCubeMap.SampleLevel(PBRCubeMapSampler, Rv, lod).rgb;
+	cube = PBRCubeMap_Test * (cube + -1.0) + 1.0;
+	cube = ((EnvBRDF * cube) * PBRCubemapColor) * SpecMask;
+	float  wrap = NoL * 0.5 + 1.0;
+	float3 Lit = BaseCol * kd + SpecHL;
+	float3 Ind = (DiffC * PBRIndirectColor + cube) * wrap;
+	Lit = Lit * hl2 + Ind;
+	Lit = PBRRateIntensity * (Lit - BaseCol) + BaseCol;
+
+	// T294-319: car-paint clear coat: normal lerped toward world +Z, GGX D on lerp(t, NoH), Smith-joint visibility (NoV := t)
+	float  VoH = saturate(dot(V, H));
+	float3 Nc = NormalStrength_CarPaint * (Nl - float3(0.0, 0.0, 1.0)) + float3(0.0, 0.0, 1.0);
+	float  NoHc = saturate(dot(Nc, H));
+	float  NoVc = saturate(dot(Nc, V));
+	float  ct = (-VoH * asfloat(0x3E6147AEu) + asfloat(0x3F2147AEu)) * VoH + asfloat(0xBF3EB852u);
+	ct = NoVc * asfloat(0x3F2AAAABu) - NoHc * ct;
+	ct = min(ct, 1.0);
+	float  cx = NoV_CarPaint_NoH_CarPaint * (NoHc - ct) + ct;
+	float  cd = (cx * CarPaint_A2 - cx) * cx + 1.0;
+	cd = (cd * cd) * asfloat(0x40490FDBu);
+	float  Dc = CarPaint_A2 / cd;
+	float  ca = sqrt(CarPaint_A2);
+	float  coma = 1.0 - ca;
+	float  vV = ct * coma + ca;
+	float  vL = NoL * coma + ca;
+	float  cspec = (rcp(NoL * vV + ct * vL) * Dc) * 0.5;
+
+	// T320-352: spec range smoothstep x unclamped wrap, rim, tint by metallic smoothstep, blend
+	float  cs = WuwaMTSmooth(saturate((cspec * wrapU - CarPaint_SpecularRangeMin) * (1.0 / (CarPaint_SpecularRangeMax - CarPaint_SpecularRangeMin))));
+	float  rim = WuwaMTSmooth(saturate(((1.0 - NoVc) - CarPaint_RimLightMin) * (1.0 / (CarPaint_RimLightMax - CarPaint_RimLightMin))));
+	rim = rim * CarPaint_RimLight_Intensity;
+	float3 cc = (cs * CarPaint_Specular_Intensity) + rim * ClearCoat_RimLight_Color;
+	cc = Lit + cc;
+	float3 ccT = cc * CarPaint_ColorTint;
+	float  cm = min(WuwaMTSmooth(saturate((NoVc - CarPaint_Metallic_IntMin) * (1.0 / (CarPaint_Metallic_IntMax - CarPaint_Metallic_IntMin)))), 1.0);
+	cc = cm * (cc - cc * CarPaint_ColorTint) + ccT;
+	Lit = (cc - Lit) * (CarPaintRender_Blend * CarPaintRender_Blend) + Lit;
+
+	// T353-357: rough > 0.95 && metal <= 0.05 -> unlit base colour
+	float unlit = bRoughLE095 ? 0.0 : ((asfloat(0x3D4CCCCDu) >= Metallic) ? 1.0 : 0.0);
+	Lit = unlit * (BaseCol - Lit) + Lit;
+
+	// T358-380: ID_Mask.a emission, FX_Mask.a band x Use_MotorDecal, Second layer under the effect mask
+	float  ep = WuwaWPowGuard(IDm.a, Main_EmissionPower);
+	float3 Em = ep * Lit;
+	float  fx = FX_Mask.SampleBias(FX_MaskSampler, UV2, MipB).a;
+	float  fb = ((EmissionMaskMax >= fx) ? 1.0 : 0.0) * ((fx >= EmissionMaskMin) ? 1.0 : 0.0);
+	fb = WuwaWPowGuard(fb, Main_EmissionPower);
+	float3 EmD = ((Lit * fb) * EmissionColor) * Use_MotorDecal;
+	float3 E0 = EmissionColor * Em + EmD;
+	E0 = em * S2 + E0;
+	float  emLum = dot(E0, float3(0.3, 0.59, 0.11));
+
+	// T381-387: attack dark scale on 1 - UV3.y
+	float Dark = (asfloat(0x33000002u) >= Dark0) ? asfloat(0x3DCCCCCDu) : min(max(exp2(log2(Dark0) * AttackDarkScale), asfloat(0x3DCCCCCDu)), 1.0);
+
+	// T388-416: attack fresnel rim (base normal-mapped normal) with a screen-space dot pattern, x saturate(-view-space normal y)
+	float2 dots = frac(ScreenUV * float2(2.0, 200.0)) + -0.5;
+	bool   inDot = (0.5 >= sqrt(dot(dots, dots)));
+	float  fr0 = 1.0 - dot(Nb, V);
+	float  fr = (asfloat(0x33000002u) >= fr0) ? 0.0 : min(exp2(log2(fr0) * AttackFresnelRimRange), 1.0);
+	float  inv = 1.0 - fr;
+	inv = inv * ((asfloat(0x3F666666u) >= inv) ? 1.0 : 0.0);
+	float  pat = inDot ? 0.0 : inv;
+	float  frm = fr * ((fr >= asfloat(0x3DCCCCCDu)) ? 1.0 : 0.0);
+	pat = frm * (1.0 - pat) + pat;
+	float  down = saturate(-mul(WorldNormal, (float3x3)TranslatedWorldToView).y);
+	pat = down * pat;
+
+	// T417-424: attack emissive, selection
+	float3 Rim = ((pat * AttackFresnelRimColor) * AttackFresnelRimIntensity) * FresnelAttackFactor;
+	Rim = emLum * Dark + Rim;
+	float3 E = FresnelAttackFactor * (Rim - E0) + E0;
+	E = SelectionColor.a * (SelectionColor.rgb - E) + E;
+
+	// T425-433: attack grey of the lit colour, GI tint -> GBufferC.rgb
+	float  lum = dot(Lit, float3(0.3, 0.59, 0.11));
+	lum = saturate((lum + -0.1) * 0.3 + lum);
+	float3 Lg = FresnelAttackFactor * (lum - Lit) + Lit;
+	float3 Lit2 = FresnelAttackFactor * (Lit * Lg - Lit) + Lit;
+	G.C.rgb = GI_Blend * (Lit2 * KuroViewGIColor - Lit2) + Lit2;
+
+	// T467-485: emissive tail
+	G.Emissive = WuwaBPFinalEmissive(E, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+
+	// T486-501: solid-shadow colour (desaturated) on the constant ToonShadowRange -> GBufferB.rgb
+	float3 Sc = Lit2 * ShadowColor;
+	float3 Sv = Sc * SolidShadowView;
+	float  sl = dot(Sv, float3(asfloat(0x3E59999Au), asfloat(0x3F372474u), asfloat(0x3D93A92Au)));
+	Sv = SolidShadowSaturation * (Sc * SolidShadowView - sl) + sl;
+	float  thr = min(SolidShadowThreshold, 0.99);
+	float  t1 = ToonShadowRange - thr;
+	Sv = (Sv - ShadowColor * Lit2) * (t1 / (1.0 - thr));
+	Sc = WuwaMTSignSat(t1) * Sv + Sc;
+
+	// T502-520: GBufferA.z
+	float t2 = ToonShadowRange - SolidShadowThreshold;
+	float so = ToonShadowRange + ShadowOffset;
+	float k2 = (t2 / (1.0 - SolidShadowThreshold)) * (1.0 - so);
+	so = saturate(WuwaMTSignSat(t2) * k2 + so);
+	so = so * asfloat(0x3F82EE63u) - HL;
+	so = (so + ShadowRange * -1.0) / ShadowRange;
+	so = 1.0 - saturate(so + 1.0);
+	G.A.z = (so * 0.5 + 0.5) * (1.0 - (1.0 - 1.0) * SolidShadowStrength);
+
+	// T521-593: packings
+	G.A.xy = WuwaBPOctEncode(N);
+	G.B.rgb = sqrt(saturate(Sc));
+	G.B.a = WuwaBPShadingModelByte(LightingChannelMask, 12u);
+	if (KuroGBufferMode == 1.0)
+	{
+		G.C.a = WuwaBPRimByteEven(ToonRimWidth);
+		G.D = float4(0.0, 0.0, 0.0, 0.0);
+		G.A.w = 1.0;
+	}
+	else
+	{
+		float packedY = WuwaPackU8Lo4(saturate(RoughA + RoughA), min(max(Metallic, 0.0), asfloat(0x3F666666u)));
+		float fft = (float)(uint)round(saturate(FFTIntensity) * 15.0) * WUWA_INV255;
+		G.D = float4(ToonRimWidth, packedY, 0.0, fft);
+		G.A.w = 0.0;
+		G.C.a = 0.0;
+	}
+	return G;
+}
+
+#endif // WUWA_MOTOR_USH

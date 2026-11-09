@@ -1,0 +1,873 @@
+{
+ "name": "CharMonster_SP_GhostFaceAni2S",
+ "entry": "WuwaToonMonsterSPBasePass_GhostFaceAni2S",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_Monster.ush",
+ "kuro_shading_model": "MSM_ToonCommon (GBufferB id 12, or 15 when Ghost_ToonRimColorMask > 0)",
+ "kuro_asm": "M_CharMonster_SP PS caca5ab54d (#236962, 439 instr) / VS 815bd27ed7 (#236944); MI MI_ELuokekeRuanniguaiMd10011B; static switches UseGhost, UseFaceAniMap, UseSkinMask, UseMatCap, UseLightOffset_Yaw / _Pitch",
+ "kuro_root_material": "M_CharMonster_SP",
+ "blend_mode": "BLEND_Opaque",
+ "two_sided": true,
+ "resolve": true,
+ "resolve_note": "toon GBuffer through WuwaToonResolve. M_CharMonster_SP packing: A.xy = oct(N two-sided, re-normalised), A.z = MainTex.a solid-shadow factor (half-Lambert on the normalised vertex normal), A.w = 0 (mode 0) / 1 (mode 1); B.rgb = sqrt(saturate(Ghost_FresnelColorTex rim colour x Ghost_RimColorIntensity)), B.a = id 15 when Ghost_ToonRimColorMask > 0 else 12; C.rgb = base colour (FaceAniMap over MainTex, attack dark, desaturation / contrast / lightness x BlendStat, ShadowLord colour), C.a = Alpha (mode 0) / even rim byte of ToonRimWidth (mode 1); D = (ToonRimWidth, 0, 0, 0) in mode 0, 0 in mode 1. Ghost layer, MainTex.a / face emission, attack rim and selection colour are in the emissive. NOTE id 15 is not a WuwaToon resolve id yet [U: Kuro shading-model 15 = toon with rim-colour mask].",
+ "vs_note": "VS #236944 carries the always-on Ghost WPO (sin / cos sway in object XY x Ghost_WPOsize x COLOR0.b x a bounds factor); connect the wpo block (WuwaToonMonsterSPGhostWPO) to World Position Offset.",
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "o0.rgb SceneColor (o0.a = 0)"
+  },
+  "A": {
+   "type": "float4",
+   "kuro": "o1 GBufferA: xy oct normal, z toon shadow factor, w flag"
+  },
+  "B": {
+   "type": "float4",
+   "kuro": "o2 GBufferB: rgb sqrt(shadow colour), a (LightingChannelMask<<5 | ShadingModelId)/255"
+  },
+  "C": {
+   "type": "float4",
+   "kuro": "o3 GBufferC: rgb lit colour, a MainTex.a*OpacityIntensity / rim byte"
+  },
+  "D": {
+   "type": "float4",
+   "kuro": "o6 \"GBufferD\": x ToonRimWidth, y packed nibble, z 0, w packed AO|FFT"
+  }
+ },
+ "inputs": [
+  {
+   "name": "Ghost_MudTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Ghost_MudTex",
+   "default": "T_Tile_005",
+   "note": "reference MI MI_ELuokekeRuanniguaiMd10011B: {'ObjectName': \"Texture2D'T_Tile_005'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/Tile/T_Tile_005.1'}"
+  },
+  {
+   "name": "Ghost_MudTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Ghost_MudTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "Ghost_MudTexSampler"
+  },
+  {
+   "name": "Ghost_FresnelColorTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Ghost_FresnelColorTex",
+   "default": "T_Tile_19_Vec",
+   "note": "reference MI MI_ELuokekeRuanniguaiMd10011B: {'ObjectName': \"Texture2D'T_Tile_19_Vec'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/Tile/T_Tile_19_Vec.1'}"
+  },
+  {
+   "name": "Ghost_FresnelColorTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Ghost_FresnelColorTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "Ghost_FresnelColorTexSampler"
+  },
+  {
+   "name": "FaceAniMap",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "FaceAniMap",
+   "default": "T_ELuokekeRuanniguaiMd10011_MIP_D",
+   "note": "reference MI MI_ELuokekeRuanniguaiMd10011B: {'ObjectName': \"Texture2D'T_ELuokekeRuanniguaiMd10011_MIP_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Weapon/Prop/Role/LuokekeProp/ELuokekeRuanniguaiMd10011/Model/T_ELuokekeRuanniguaiMd10011_MIP_D.1'}"
+  },
+  {
+   "name": "FaceAniMapSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "FaceAniMap",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "FaceAniMapSampler"
+  },
+  {
+   "name": "MainTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "MainTex",
+   "default": "T_ELuokekeRuanniguaiMd10011B_D",
+   "note": "reference MI MI_ELuokekeRuanniguaiMd10011B: {'ObjectName': \"Texture2D'T_ELuokekeRuanniguaiMd10011B_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Weapon/Prop/Role/LuokekeProp/ELuokekeRuanniguaiMd10011B/Model/T_ELuokekeRuanniguaiMd10011B_D.1'}"
+  },
+  {
+   "name": "MainTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "MainTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MainTexSampler"
+  },
+  {
+   "name": "ShadowLord_ColorTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "ShadowLord_ColorTex",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "ShadowLord_ColorTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "ShadowLord_ColorTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "ShadowLord_ColorTexSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "UV2",
+   "type": "float2",
+   "kind": "uv",
+   "index": 2
+  },
+  {
+   "name": "UV3",
+   "type": "float2",
+   "kind": "uv",
+   "index": 3
+  },
+  {
+   "name": "VertexColorB",
+   "type": "float",
+   "kind": "vertexcolor",
+   "channel": "b",
+   "ue_expr": "Parameters.VertexColor.b",
+   "note": "Kuro COLOR0.z (Ghost layer weight; the VS Ghost WPO uses VertexColor.r instead)"
+  },
+  {
+   "name": "WorldTangent",
+   "type": "float3",
+   "kind": "worldtangent",
+   "ue_expr": "Parameters.TangentToWorld[0]"
+  },
+  {
+   "name": "WorldNormal",
+   "type": "float3",
+   "kind": "worldnormal",
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "TangentSign",
+   "type": "float",
+   "kind": "worldtangent",
+   "channel": "sign",
+   "ue_expr": "Parameters.TangentToWorldSign"
+  },
+  {
+   "name": "TwoSidedSign",
+   "type": "float",
+   "kind": "twosidedsign",
+   "ue_expr": "Parameters.TwoSidedSign"
+  },
+  {
+   "name": "WorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "absolute",
+   "ue_expr": "WSHackToFloat(GetWorldPosition(Parameters))"
+  },
+  {
+   "name": "TranslatedWorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "translated",
+   "ue_expr": "GetTranslatedWorldPosition(Parameters)"
+  },
+  {
+   "name": "CameraVector",
+   "type": "float3",
+   "kind": "cameravector",
+   "ue_expr": "Parameters.CameraVector"
+  },
+  {
+   "name": "SvPositionXY",
+   "type": "float2",
+   "kind": "svposition",
+   "ue_expr": "Parameters.SvPosition.xy"
+  },
+  {
+   "name": "ViewRectMin",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewRectMin.xy",
+   "kuro": "View[134].xy"
+  },
+  {
+   "name": "ViewSizeAndInvSize",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewSizeAndInvSize",
+   "kuro": "View[135]"
+  },
+  {
+   "name": "Ghost_BottonColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Ghost_BottonColor",
+   "channels": "rgb",
+   "default": [
+    9.134452819824219,
+    35.182350158691406,
+    55.0
+   ]
+  },
+  {
+   "name": "Ghost_TopColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Ghost_TopColor",
+   "channels": "rgb",
+   "default": [
+    0.029978999868035316,
+    0.1407179981470108,
+    0.25520798563957214
+   ]
+  },
+  {
+   "name": "Ghost_NoiseTilling",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Ghost_NoiseTilling",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    -0.17000000178813934
+   ]
+  },
+  {
+   "name": "Ghost_NoiseSpeed2",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "Ghost_NoiseTilling"
+   ],
+   "expr": "float2(Ghost_NoiseTilling.z, Ghost_NoiseTilling.w) * 0.05",
+   "expr_note": "second Ghost_MudTex tap scroll speed (Kuro cb4[37].xy)",
+   "cb4_mi": "MI_ELuokekeRuanniguaiMd10011B",
+   "cb4_slot": "cb4[37]",
+   "cb4_comp": "xy",
+   "cb4_source": "evidence/roster/shadermaps/weapons/cb4/MI_ELuokekeRuanniguaiMd10011B.json (slot cb4[37], opcode stream re-run in float32)",
+   "ue_nodes": "the material graph expression of the same name, evaluated by UE as a uniform expression (CPU float32 preshader)",
+   "default": [
+    0.0,
+    -0.0025
+   ]
+  },
+  {
+   "name": "Ghost_FresnelSize",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Ghost_FresnelSize",
+   "default": 0.3499999940395355
+  },
+  {
+   "name": "Ghost_FresnelSizeEnd",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Ghost_FresnelSize"
+   ],
+   "expr": "Ghost_FresnelSize + 0.15",
+   "expr_note": "fresnel band upper edge (Kuro cb4[76].z; an HLSL add could be folded with \"Ghost_FresnelSize - end\" by fxc)",
+   "cb4_mi": "MI_ELuokekeRuanniguaiMd10011B",
+   "cb4_slot": "cb4[76]",
+   "cb4_comp": "z",
+   "cb4_source": "evidence/roster/shadermaps/weapons/cb4/MI_ELuokekeRuanniguaiMd10011B.json (slot cb4[76], opcode stream re-run in float32)",
+   "ue_nodes": "the material graph expression of the same name, evaluated by UE as a uniform expression (CPU float32 preshader)",
+   "default": 0.5
+  },
+  {
+   "name": "Ghost_FresnelColorTexTilling",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Ghost_FresnelColorTexTilling",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    -0.17000000178813934
+   ]
+  },
+  {
+   "name": "Ghost_FresnelColorMulti",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Ghost_FresnelColorMulti",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Ghost_RimColorIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Ghost_RimColorIntensity",
+   "default": 0.20000000298023224
+  },
+  {
+   "name": "Ghost_ToonRimColorMask",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Ghost_ToonRimColorMask",
+   "default": 0.0
+  },
+  {
+   "name": "AniSwitch_FaceOffset",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "AniSwitch_Face",
+    "AniSwitch_Face_Int"
+   ],
+   "expr": "float2(floor(AniSwitch_Face - 1), floor((AniSwitch_Face - 1) / AniSwitch_Face_Int.x))",
+   "expr_note": "FaceAniMap atlas cell offset (Kuro cb4[42].xy)",
+   "cb4_mi": "MI_ELuokekeRuanniguaiMd10011B",
+   "cb4_slot": "cb4[42]",
+   "cb4_comp": "xy",
+   "cb4_source": "evidence/roster/shadermaps/weapons/cb4/MI_ELuokekeRuanniguaiMd10011B.json (slot cb4[42], opcode stream re-run in float32)",
+   "ue_nodes": "the material graph expression of the same name, evaluated by UE as a uniform expression (CPU float32 preshader)",
+   "default": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "AniSwitch_FaceInvInt",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "AniSwitch_Face_Int"
+   ],
+   "expr": "1 / AniSwitch_Face_Int",
+   "expr_note": "FaceAniMap atlas cell scale (Kuro cb4[79].x)",
+   "cb4_mi": "MI_ELuokekeRuanniguaiMd10011B",
+   "cb4_slot": "cb4[79]",
+   "cb4_comp": "x",
+   "cb4_source": "evidence/roster/shadermaps/weapons/cb4/MI_ELuokekeRuanniguaiMd10011B.json (slot cb4[79], opcode stream re-run in float32)",
+   "ue_nodes": "the material graph expression of the same name, evaluated by UE as a uniform expression (CPU float32 preshader)",
+   "default": 0.3333333432674408
+  },
+  {
+   "name": "FaceAniEmissionStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FaceAniEmissionStrength",
+   "default": 1.0
+  },
+  {
+   "name": "MainTexColorTint",
+   "type": "float3",
+   "kind": "vector",
+   "param": "MainTexColorTint",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "FresnelAttackFactor",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FresnelAttackFactor",
+   "default": 0.0
+  },
+  {
+   "name": "Main_EmissionPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Main_EmissionPower",
+   "default": 1.0
+  },
+  {
+   "name": "EmissionColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "EmissionColor",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "AttackDarkScale",
+   "type": "float",
+   "kind": "scalar",
+   "param": "AttackDarkScale",
+   "default": 1.399999976158142
+  },
+  {
+   "name": "AttackFresnelRimRange",
+   "type": "float",
+   "kind": "scalar",
+   "param": "AttackFresnelRimRange",
+   "default": 3.0
+  },
+  {
+   "name": "AttackFresnelRimColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "AttackFresnelRimColor",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    0.6052820086479187,
+    0.29166701436042786
+   ]
+  },
+  {
+   "name": "AttackFresnelRimIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "AttackFresnelRimIntensity",
+   "default": 4.0
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Main_Desaturation",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Main_Desaturation",
+   "default": 0.0
+  },
+  {
+   "name": "Main_ContrastLo",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Main_Contrast"
+   ],
+   "expr": "0 - Main_Contrast",
+   "expr_note": "contrast lower bound (Kuro cb4[51].xyz)",
+   "cb4_mi": "MI_ELuokekeRuanniguaiMd10011B",
+   "cb4_slot": "cb4[51]",
+   "cb4_comp": "x",
+   "cb4_source": "evidence/roster/shadermaps/weapons/cb4/MI_ELuokekeRuanniguaiMd10011B.json (slot cb4[51], opcode stream re-run in float32)",
+   "ue_nodes": "the material graph expression of the same name, evaluated by UE as a uniform expression (CPU float32 preshader)",
+   "default": 0.0
+  },
+  {
+   "name": "Main_ContrastHi",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Main_Contrast"
+   ],
+   "expr": "Main_Contrast + 1",
+   "expr_note": "contrast upper bound (Kuro cb4[82].y)",
+   "cb4_mi": "MI_ELuokekeRuanniguaiMd10011B",
+   "cb4_slot": "cb4[82]",
+   "cb4_comp": "y",
+   "cb4_source": "evidence/roster/shadermaps/weapons/cb4/MI_ELuokekeRuanniguaiMd10011B.json (slot cb4[82], opcode stream re-run in float32)",
+   "ue_nodes": "the material graph expression of the same name, evaluated by UE as a uniform expression (CPU float32 preshader)",
+   "default": 1.0
+  },
+  {
+   "name": "Main_Lightness",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Main_Lightness",
+   "default": 1.0
+  },
+  {
+   "name": "BlendStat",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BlendStat",
+   "default": 0.0
+  },
+  {
+   "name": "ShadowLord_ColorTiling",
+   "type": "float4",
+   "kind": "vector",
+   "param": "ShadowLord_ColorTiling",
+   "channels": "rgba",
+   "default": [
+    6.0,
+    0.5,
+    0.0,
+    0.05000000074505806
+   ]
+  },
+  {
+   "name": "ShadowLord_ColorMulti",
+   "type": "float3",
+   "kind": "vector",
+   "param": "ShadowLord_ColorMulti",
+   "channels": "rgb",
+   "default": [
+    0.6123380064964294,
+    0.8016480207443237,
+    1.0
+   ]
+  },
+  {
+   "name": "ShadowLord_ColorOpacity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowLord_ColorOpacity",
+   "default": 0.20000000298023224
+  },
+  {
+   "name": "UseShadowLordMaterialDynamic",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseShadowLordMaterialDynamic",
+   "default": 0.0
+  },
+  {
+   "name": "SolidShadowThreshold",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowThreshold",
+   "default": 0.8999999761581421
+  },
+  {
+   "name": "ShadowOffset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowOffset",
+   "default": 0.0
+  },
+  {
+   "name": "ShadowRange",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowRange",
+   "default": 0.014999999664723873
+  },
+  {
+   "name": "SolidShadowStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowStrength",
+   "default": 1.0
+  },
+  {
+   "name": "ToonRimWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ToonRimWidth",
+   "default": 0.10000000149011612
+  },
+  {
+   "name": "Alpha",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Alpha",
+   "default": 1.0
+  },
+  {
+   "name": "UseLightOffset_Yaw_DYN",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseLightOffset_Yaw_DYN",
+   "default": 0.0
+  },
+  {
+   "name": "LightOffset_Yaw",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightOffset_Yaw",
+   "default": 0.0
+  },
+  {
+   "name": "CPD0",
+   "type": "float",
+   "kind": "cpd",
+   "index": 0,
+   "role": "light yaw (degrees)"
+  },
+  {
+   "name": "CPD1",
+   "type": "float",
+   "kind": "cpd",
+   "index": 1,
+   "role": "saturate(CPD1) = weight of the fixed-angle light direction vs MPC GlobalCharacterDebugLightDirection"
+  },
+  {
+   "name": "MPC_GlobalCharacterVerticalRotation",
+   "type": "float",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalCharacterVerticalRotation",
+   "default": 0.0,
+   "kuro": "cb3[6].y (scalar 25), added to the 45 degree light pitch"
+  },
+  {
+   "name": "MPC_GlobalCharacterDebugLightDirection",
+   "type": "float3",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalCharacterDebugLightDirection",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "kuro": "cb3[42] (base character light direction; must be written at runtime)"
+  },
+  {
+   "name": "ToonLight0",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 0,
+   "kuro": "ToonShadowLightData CB1[0]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "ToonLight3",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 3,
+   "kuro": "ToonShadowLightData CB1[3]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "PrimWorldToLocal0",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "DFHackToFloat(GetPrimitiveData(Parameters).WorldToLocal)[0].xyz",
+   "kuro": "Primitive[6].xyz (WorldToLocal row 0, 3x3 part; the Ghost fresnel transforms N and V to object space)"
+  },
+  {
+   "name": "PrimWorldToLocal1",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "DFHackToFloat(GetPrimitiveData(Parameters).WorldToLocal)[1].xyz",
+   "kuro": "Primitive[7].xyz (WorldToLocal row 1, 3x3 part; the Ghost fresnel transforms N and V to object space)"
+  },
+  {
+   "name": "PrimWorldToLocal2",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "DFHackToFloat(GetPrimitiveData(Parameters).WorldToLocal)[2].xyz",
+   "kuro": "Primitive[8].xyz (WorldToLocal row 2, 3x3 part; the Ghost fresnel transforms N and V to object space)"
+  },
+  {
+   "name": "TranslatedWorldToView",
+   "type": "float4x4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.TranslatedWorldToView",
+   "kuro": "Kuro View[12..15]"
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "NormalOverrideParameter",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.NormalOverrideParameter",
+   "kuro": "Kuro View[144] (stock member), default (0,0,0,1)",
+   "default": [
+    0,
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "name": "KuroGBufferMode",
+   "type": "float",
+   "kind": "view",
+   "kuro": "View[276].x (int, ==1 selects the alternate packing)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "KuroEmissiveScale",
+   "type": "float3",
+   "kind": "view",
+   "kuro": "View[285].xyz (emissive multiplier when Primitive[42].w == 0)",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true
+  },
+  {
+   "name": "KuroSkipEmissiveScale",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[42].w (skip View[285] multiply when != 0)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "OutOfBoundsMask",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.OutOfBoundsMask",
+   "kuro": "Kuro View[146].x (stock debug)",
+   "default": 0.0
+  },
+  {
+   "name": "ObjectWorldPosition",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "WSHackToFloat(GetObjectWorldPosition(Parameters))"
+  },
+  {
+   "name": "ObjectBounds",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "float3(GetPrimitiveData(Parameters).ObjectBoundsX, GetPrimitiveData(Parameters).ObjectBoundsY, GetPrimitiveData(Parameters).ObjectBoundsZ)"
+  },
+  {
+   "name": "LightingChannelMask",
+   "type": "uint",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitive_LightingChannelMask_FromFlags(GetPrimitiveData(Parameters).Flags)"
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  }
+ ],
+ "generated_by": "tools/shaderdiff/weapons/r7/make_specs_monster_r7.py",
+ "notes": {
+  "textures": "texture names: the cooked map lists ['E_Tex_NoiseTex', 'Ghost_MudTex', 'Ghost_FresnelColorTex', 'FaceAniMap', 'MainTex', 'ShadowLord_ColorTex'] (6 names, 5 slots: E_Tex_NoiseTex is not sampled by this permutation); slot order inferred from usage and MI overrides [U for slots > 0]: t0 = Ghost_MudTex (two noise taps on UV3), t1 = Ghost_FresnelColorTex (fresnel colour at the view-space UV and scrolled rim colour), t2 = FaceAniMap (UV2 atlas cell, mip bias - 1), t3 = MainTex, t4 = ShadowLord_ColorTex"
+ },
+ "wpo": {
+  "entry": "WuwaToonMonsterSPGhostWPO",
+  "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_Monster.ush",
+  "connect": "World Position Offset (material output pin); world-space offset (the original adds it to the translated world position before the Kuro primitive offset)",
+  "verified": "evidence/validation/shaderdiff/roster_charcom/round7/singletons/monster/results_vs_wpo_monster_sp_final.json (VS #236944 SV_POSITION 884736/884736 bit-exact, stream-output VS diff on WARP)",
+  "inputs": [
+   {
+    "name": "UV3",
+    "type": "float2",
+    "kind": "uv",
+    "index": 3,
+    "note": "VS: TexCoords[NumTexCoords * i + min(NumTexCoords - 1, 3)].xy; only .y is read"
+   },
+   {
+    "name": "VertexColorR",
+    "type": "float",
+    "kind": "vertexcolor",
+    "channel": "r",
+    "ue_expr": "Parameters.VertexColor.r",
+    "note": "VS: colour buffer component .z = Kuro COLOR0.x (the PS Ghost weight is COLOR0.z = VertexColor.b)"
+   },
+   {
+    "name": "LocalToWorldRow0",
+    "type": "float3",
+    "kind": "primitive",
+    "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[0].xyz",
+    "kuro": "Primitive[0].xyz"
+   },
+   {
+    "name": "LocalToWorldRow1",
+    "type": "float3",
+    "kind": "primitive",
+    "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[1].xyz",
+    "kuro": "Primitive[1].xyz"
+   },
+   {
+    "name": "LocalToWorldRow2",
+    "type": "float3",
+    "kind": "primitive",
+    "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[2].xyz",
+    "kuro": "Primitive[2].xyz"
+   },
+   {
+    "name": "ObjectRadius",
+    "type": "float",
+    "kind": "primitive",
+    "ue_expr": "GetPrimitiveData(Parameters).ObjectRadius",
+    "kuro": "Primitive[5].w"
+   },
+   {
+    "name": "LocalObjectBoundsMin",
+    "type": "float3",
+    "kind": "primitive",
+    "ue_expr": "GetPrimitiveData(Parameters).LocalObjectBoundsMin",
+    "kuro": "Primitive[25].xyz [I: meaning inferred from the formula 2 ObjectRadius / |[26] - [25]|; Kuro primitive layout]"
+   },
+   {
+    "name": "LocalObjectBoundsMax",
+    "type": "float3",
+    "kind": "primitive",
+    "ue_expr": "GetPrimitiveData(Parameters).LocalObjectBoundsMax",
+    "kuro": "Primitive[26].xyz [I: see LocalObjectBoundsMin]"
+   },
+   {
+    "name": "GameTime",
+    "type": "float",
+    "kind": "view",
+    "ue_expr": "View.GameTime",
+    "kuro": "Kuro View[148].z (UE material Time node)"
+   },
+   {
+    "name": "Ghost_WPOWavySize",
+    "type": "float",
+    "kind": "scalar",
+    "param": "Ghost_WPOWavySize",
+    "default": 30.0
+   },
+   {
+    "name": "Ghost_WPOTimeSpeed",
+    "type": "float",
+    "kind": "scalar",
+    "param": "Ghost_WPOTimeSpeed",
+    "default": -1.0
+   },
+   {
+    "name": "Ghost_WPOsize",
+    "type": "float",
+    "kind": "scalar",
+    "param": "Ghost_WPOsize",
+    "default": 20.0
+   }
+  ]
+ }
+}

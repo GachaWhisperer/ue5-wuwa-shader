@@ -1,0 +1,950 @@
+{
+ "name": "CharWeapon_Com_SuoMinRainBreath",
+ "entry": "WuwaToonCharWeaponBasePass_SuoMinRainBreath",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_CharWeapon2.ush",
+ "kuro_shading_model": "MSM_ToonCommon (GBufferB id 12)",
+ "kuro_asm": "M_CharWeapon_Com PS bd9bfaaeeb (#80483) / VS 70235027 (#80470); Use_RenderForSuoMin (circle noise + rain ripples + MainTex_Change) + UseToonMask/UseMainTexA + UseBreathLight + PBR(Mask) + UseDoubleSpecular",
+ "kuro_root_material": "M_CharWeapon_Com",
+ "blend_mode": "BLEND_Opaque",
+ "two_sided": false,
+ "resolve": true,
+ "resolve_note": "toon GBuffer (id 12) through WuwaToonResolve. M_CharWeapon_Com packing: B.rgb = sqrt(saturate(ShadowColor)) (no ramp), C.rgb = Lit * AniSwitch_ShadowColorBright on the Use_RenderForSuoMin base colour, A.z = az * (Shadow * 5.0 + 0.5) (SolidShadowWidth 0.1 folded); mode 0: C.a = 0, D = (ToonRimWidth, packed rough/metal, 0, packed AO/FFT), A.w = 0; mode 1: rim byte in C.a, D = 0, A.w = 1. Breathing / PBR highlight are in the emissive.",
+ "vs_note": null,
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "o0.rgb SceneColor (o0.a = 0)"
+  },
+  "A": {
+   "type": "float4",
+   "kuro": "o1 GBufferA: xy oct normal, z toon shadow factor, w flag"
+  },
+  "B": {
+   "type": "float4",
+   "kuro": "o2 GBufferB: rgb sqrt(shadow colour), a (LightingChannelMask<<5 | ShadingModelId)/255"
+  },
+  "C": {
+   "type": "float4",
+   "kuro": "o3 GBufferC: rgb lit colour, a MainTex.a*OpacityIntensity / rim byte"
+  },
+  "D": {
+   "type": "float4",
+   "kuro": "o6 \"GBufferD\": x ToonRimWidth, y packed nibble, z 0, w packed AO|FFT"
+  }
+ },
+ "inputs": [
+  {
+   "name": "Normal_Roughness_Metallic",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Normal_Roughness_Metallic",
+   "default": "T_ESuomingSanMd10011Sanmian_N",
+   "note": "reference MI MI_ESuomingSanMd10011Sanmian_01: {'ObjectName': \"Texture2D'T_ESuomingSanMd10011Sanmian_N'\", 'ObjectPath': 'Client/Content/Aki/Character/Prop/RoleProp/SuomingProp/ESuomingSanMd10011/Model/T_ESuomingSanMd10011Sanmian_N.1'}"
+  },
+  {
+   "name": "Normal_Roughness_MetallicSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Normal_Roughness_Metallic",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "Normal_Roughness_MetallicSampler"
+  },
+  {
+   "name": "CircleNoise_Map",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "CircleNoise_Map",
+   "default": "T_ESuomingSanMd10011Sanbing_FX",
+   "note": "reference MI MI_ESuomingSanMd10011Sanmian_01: {'ObjectName': \"Texture2D'T_ESuomingSanMd10011Sanbing_FX'\", 'ObjectPath': 'Client/Content/Aki/Character/Prop/RoleProp/SuomingProp/ESuomingSanMd10011/Model/T_ESuomingSanMd10011Sanbing_FX.0'}"
+  },
+  {
+   "name": "CircleNoise_MapSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "CircleNoise_Map",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "CircleNoise_MapSampler"
+  },
+  {
+   "name": "Sanmian_FX",
+   "type": "Texture2D",
+   "kind": "material_texture",
+   "asset": "Client/Content/Aki/Character/Prop/RoleProp/SuomingProp/ESuomingSanMd10011/Model/T_ESuomingSanMd10011Sanmian_FX",
+   "default": "T_ESuomingSanMd10011Sanmian_FX",
+   "note": "[U] texture object of the root material (its cooked UES record name is unresolved and no texture parameter of another name exists in the MI name map); identified as the Use_RenderForSuoMin circle-noise / ripple mask (.x at UV0) from the root material referenced textures"
+  },
+  {
+   "name": "Sanmian_FXSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Sanmian_FX",
+   "sampler_source": "SSM_FromTextureAsset (texture object of the root material)",
+   "ue_expr": "Sanmian_FXSampler"
+  },
+  {
+   "name": "MainTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "MainTex",
+   "default": "T_ESuomingSanMd10011Sanmian01_D",
+   "note": "reference MI MI_ESuomingSanMd10011Sanmian_01: {'ObjectName': \"Texture2D'T_ESuomingSanMd10011Sanmian01_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Prop/RoleProp/SuomingProp/ESuomingSanMd10011/Model/T_ESuomingSanMd10011Sanmian01_D.1'}"
+  },
+  {
+   "name": "MainTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "MainTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MainTexSampler"
+  },
+  {
+   "name": "MainTex_Change",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "MainTex_Change",
+   "default": "T_ESuomingSanMd10011Sanmian02_D",
+   "note": "reference MI MI_ESuomingSanMd10011Sanmian_01: {'ObjectName': \"Texture2D'T_ESuomingSanMd10011Sanmian02_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Prop/RoleProp/SuomingProp/ESuomingSanMd10011/Model/T_ESuomingSanMd10011Sanmian02_D.1'}"
+  },
+  {
+   "name": "MainTex_ChangeSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "MainTex_Change",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MainTex_ChangeSampler"
+  },
+  {
+   "name": "RainRipples",
+   "type": "Texture2D",
+   "kind": "material_texture",
+   "asset": "Client/Content/Aki/Render/Common/T_RainRipples",
+   "default": "T_RainRipples",
+   "note": "[U] texture object of the root material (see Sanmian_FX): rain ripple texture, .x ring, .w phase"
+  },
+  {
+   "name": "RainRipplesSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "RainRipples",
+   "sampler_source": "SSM_FromTextureAsset (texture object of the root material)",
+   "ue_expr": "RainRipplesSampler"
+  },
+  {
+   "name": "MatCapTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "MatCapTex",
+   "default": "T_MC_premake05_D",
+   "note": "reference MI MI_ESuomingSanMd10011Sanmian_01: {'ObjectName': \"Texture2D'T_MC_premake05_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/CommonTexture/CharacterCubeMaps/T_MC_premake05_D.1'}"
+  },
+  {
+   "name": "MatCapTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "MatCapTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MatCapTexSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "UV2",
+   "type": "float2",
+   "kind": "uv",
+   "index": 2
+  },
+  {
+   "name": "WorldTangent",
+   "type": "float3",
+   "kind": "worldtangent",
+   "ue_expr": "Parameters.TangentToWorld[0]"
+  },
+  {
+   "name": "WorldNormal",
+   "type": "float3",
+   "kind": "worldnormal",
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "TangentSign",
+   "type": "float",
+   "kind": "worldtangent",
+   "channel": "sign",
+   "ue_expr": "Parameters.TangentToWorldSign"
+  },
+  {
+   "name": "WorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "absolute",
+   "ue_expr": "WSHackToFloat(GetWorldPosition(Parameters))"
+  },
+  {
+   "name": "TranslatedWorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "translated",
+   "ue_expr": "GetTranslatedWorldPosition(Parameters)"
+  },
+  {
+   "name": "CameraVector",
+   "type": "float3",
+   "kind": "cameravector",
+   "ue_expr": "Parameters.CameraVector"
+  },
+  {
+   "name": "LightDirVS",
+   "type": "float3",
+   "kind": "interpolator",
+   "source": "WuwaToonBaseVS_LightDir",
+   "note": "Kuro TEXCOORD2.yzw on M_Char_Com_Special (Face-VS layout) / TEXCOORD2.xyz on M_CharWeapon_Com (Body-VS layout); VS symbolically compared in vs_status_r2.py"
+  },
+  {
+   "name": "MotionEmissiveMask",
+   "type": "float",
+   "kind": "interpolator",
+   "source": "WuwaToonBaseVS_WPO:MotionEmissiveMask",
+   "note": "Kuro TEXCOORD2.x on M_Char_Com_Special (.yzw light direction) / TEXCOORD2.w on M_CharWeapon_Com"
+  },
+  {
+   "name": "NormalStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "NormalStrength",
+   "default": 1.0
+  },
+  {
+   "name": "CircleNoise_UVOffset_X",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircleNoise_UVOffset_X",
+   "default": 0.0
+  },
+  {
+   "name": "CircleNoise_UVOffset_Y",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircleNoise_UVOffset_Y",
+   "default": 0.0
+  },
+  {
+   "name": "CircleNoise_Tilling_X",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircleNoise_Tilling_X",
+   "default": 5.0
+  },
+  {
+   "name": "CircleNoise_Speed_Y",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircleNoise_Speed_Y",
+   "default": 0.0
+  },
+  {
+   "name": "CircleNoise_Tilling_Y",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircleNoise_Tilling_Y",
+   "default": 1.0
+  },
+  {
+   "name": "CircleNoise_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircleNoise_Intensity",
+   "default": 0.0
+  },
+  {
+   "name": "BaseColorTint",
+   "type": "float3",
+   "kind": "vector",
+   "param": "BaseColorTint",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "RippleNoise_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RippleNoise_Intensity",
+   "default": 0.0
+  },
+  {
+   "name": "Ripple_UVTilling",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Ripple_UVTilling",
+   "default": 1.0
+  },
+  {
+   "name": "Ripple_Speed",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Ripple_Speed",
+   "default": 1.0
+  },
+  {
+   "name": "Ripple_Frequency_Min",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Ripple_Frequency_Min",
+   "default": 0.0
+  },
+  {
+   "name": "Ripple_Frequency_Max",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Ripple_Frequency_Max",
+   "default": 1.0
+  },
+  {
+   "name": "RippleWeightBias",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Ripple_Weight"
+   ],
+   "expr": "(Ripple_Weight * 0.8) + 0.2",
+   "expr_note": "ripple frequency-band weight (Kuro cb4[69].x; CPU mul + add)",
+   "cb4_mi": "MI_ESuomingSanMd10011Sanmian_01",
+   "cb4_slot": "cb4[69].x",
+   "cb4_comp": 0,
+   "cb4_source": "evidence/roster/shadermaps/weapons/cb4/MI_ESuomingSanMd10011Sanmian_01.json (slot cb4[69].x component 0, opcode stream re-run in float32)",
+   "ue_nodes": "the material graph expression of the same name, evaluated by UE as a uniform expression (CPU float32 preshader)",
+   "default": 1.0
+  },
+  {
+   "name": "RippleSphereMask_SmoothMin",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RippleSphereMask_SmoothMin",
+   "default": 0.5
+  },
+  {
+   "name": "RippleSphereMask_SmoothMax",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RippleSphereMask_SmoothMax",
+   "default": 1.0
+  },
+  {
+   "name": "RippleRot2Cos",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Ripple_UVRotation_2"
+   ],
+   "expr": "cos(Ripple_UVRotation_2 * 6.28319)",
+   "expr_note": "ripple layer-2 UV rotation (Kuro cb4[8].x; cb4[8].y = -sin)",
+   "cb4_mi": "MI_ESuomingSanMd10011Sanmian_01",
+   "cb4_slot": "cb4[8]",
+   "cb4_comp": 0,
+   "cb4_source": "evidence/roster/shadermaps/weapons/cb4/MI_ESuomingSanMd10011Sanmian_01.json (slot cb4[8] component 0, opcode stream re-run in float32)",
+   "ue_nodes": "the material graph expression of the same name, evaluated by UE as a uniform expression (CPU float32 preshader)",
+   "default": -0.951056
+  },
+  {
+   "name": "RippleRot2Sin",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Ripple_UVRotation_2"
+   ],
+   "expr": "sin(Ripple_UVRotation_2 * 6.28319)",
+   "expr_note": "ripple layer-2 UV rotation (Kuro cb4[9].x; cb4[9].y = cos)",
+   "cb4_mi": "MI_ESuomingSanMd10011Sanmian_01",
+   "cb4_slot": "cb4[9]",
+   "cb4_comp": 0,
+   "cb4_source": "evidence/roster/shadermaps/weapons/cb4/MI_ESuomingSanMd10011Sanmian_01.json (slot cb4[9] component 0, opcode stream re-run in float32)",
+   "ue_nodes": "the material graph expression of the same name, evaluated by UE as a uniform expression (CPU float32 preshader)",
+   "default": -0.309017
+  },
+  {
+   "name": "RippleNoise_Intensity_2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RippleNoise_Intensity_2",
+   "default": 0.0
+  },
+  {
+   "name": "Ripple_UVTilling_2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Ripple_UVTilling_2",
+   "default": 1.0
+  },
+  {
+   "name": "Ripple_Speed_2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Ripple_Speed_2",
+   "default": 1.0
+  },
+  {
+   "name": "Ripple_Frequency_Min_2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Ripple_Frequency_Min_2",
+   "default": 0.0
+  },
+  {
+   "name": "Ripple_Frequency_Max_2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Ripple_Frequency_Max_2",
+   "default": 1.0
+  },
+  {
+   "name": "RippleSphereMask_SmoothMin_2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RippleSphereMask_SmoothMin_2",
+   "default": 0.5
+  },
+  {
+   "name": "RippleSphereMask_SmoothMax_2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RippleSphereMask_SmoothMax_2",
+   "default": 1.0
+  },
+  {
+   "name": "RippleSphereMask_Int",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RippleSphereMask_Int",
+   "default": 1.0
+  },
+  {
+   "name": "WeatherWeight",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WeatherWeight",
+   "default": 1.0
+  },
+  {
+   "name": "MPC_CharWetRenderFootPrintInt",
+   "type": "float",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "CharWetRenderFootPrintInt",
+   "default": 0.0,
+   "kuro": "cb3[18].x (scalar 72)"
+  },
+  {
+   "name": "MPC_CharWetRenderBlackRainInt",
+   "type": "float",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "CharWetRenderBlackRainInt",
+   "default": 0.0,
+   "kuro": "cb3[19].z (scalar 78)"
+  },
+  {
+   "name": "CircleNoiseRange_SmoothMin",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircleNoiseRange_SmoothMin",
+   "default": 0.0
+  },
+  {
+   "name": "CircleNoiseRange_SmoothMax",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircleNoiseRange_SmoothMax",
+   "default": 1.0
+  },
+  {
+   "name": "CircleNoise_Color",
+   "type": "float3",
+   "kind": "vector",
+   "param": "CircleNoise_Color",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "CircleNoise_EmissInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircleNoise_EmissInt",
+   "default": 0.0
+  },
+  {
+   "name": "OpacityIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "OpacityIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "DecodeShadowThreshold",
+   "type": "float",
+   "kind": "scalar",
+   "param": "DecodeShadowThreshold",
+   "default": 0.5
+  },
+  {
+   "name": "DecodeSpecThreshold",
+   "type": "float",
+   "kind": "scalar",
+   "param": "DecodeSpecThreshold",
+   "default": 0.8999999761581421
+  },
+  {
+   "name": "EmissionColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "EmissionColor",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "BreatheFrequency",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BreatheFrequency",
+   "default": 0.0
+  },
+  {
+   "name": "BreatheStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BreatheStrength",
+   "default": 2.0
+  },
+  {
+   "name": "BreathePropotion",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BreathePropotion",
+   "default": 0.5
+  },
+  {
+   "name": "EmissionStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EmissionStrength",
+   "default": 1.0
+  },
+  {
+   "name": "EmissionBreathThreshold",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EmissionBreathThreshold",
+   "default": 0.8999999761581421
+  },
+  {
+   "name": "MetallicIntensityDebug",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MetallicIntensity(Debug)",
+   "default": 1.0
+  },
+  {
+   "name": "RoughnessIntensityDebug",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RoughnessIntensity(Debug))",
+   "default": 1.0
+  },
+  {
+   "name": "RaytracingReflectionFix",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RaytracingReflectionFix",
+   "default": 0.0
+  },
+  {
+   "name": "MetalSpecularPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MetalSpecularPower",
+   "default": 5000.0
+  },
+  {
+   "name": "SpecularPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SpecularPower",
+   "default": 5.0
+  },
+  {
+   "name": "LightOffset_Pitch",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightOffset_Pitch",
+   "default": 0.0
+  },
+  {
+   "name": "SolidShadowProcess",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowProcess",
+   "default": 0.20000000298023224
+  },
+  {
+   "name": "ShadowOffsetAdjustFactor",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowOffsetAdjustFactor",
+   "default": 1.0
+  },
+  {
+   "name": "ShadowOffsetPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowOffsetPower",
+   "default": 1.0
+  },
+  {
+   "name": "MaskShadowOffsetStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MaskShadowOffsetStrength",
+   "default": 0.0
+  },
+  {
+   "name": "ShadowProcess",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowProcess",
+   "default": 0.5
+  },
+  {
+   "name": "ShadowWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowWidth",
+   "default": 0.009999999776482582
+  },
+  {
+   "name": "PBRHardSpecWidth_Test",
+   "type": "float",
+   "kind": "scalar",
+   "param": "PBRHardSpecWidth_Test",
+   "default": 0.8999999761581421
+  },
+  {
+   "name": "PBRHardSpeSmooth_Test",
+   "type": "float",
+   "kind": "scalar",
+   "param": "PBRHardSpeSmooth_Test",
+   "default": 0.05000000074505806
+  },
+  {
+   "name": "PBRRateIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "PBRRateIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "MetalEmissionStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MetalEmissionStrength",
+   "default": 2.0
+  },
+  {
+   "name": "E_Motion_Emissive",
+   "type": "float3",
+   "kind": "vector",
+   "param": "E_Motion_Emissive",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "MatCapInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MatCapInt",
+   "default": 1.0
+  },
+  {
+   "name": "MetalMatCapBack",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MetalMatCapBack",
+   "default": 4.0
+  },
+  {
+   "name": "MetalMatCapInt",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MetalMatCapInt",
+   "default": 5.0
+  },
+  {
+   "name": "AniSwitch_ShadowColorBright",
+   "type": "float",
+   "kind": "scalar",
+   "param": "AniSwitch_ShadowColorBright",
+   "default": 1.0
+  },
+  {
+   "name": "ShadowColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "ShadowColor",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "SolidShadowStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowStrength",
+   "default": 1.0
+  },
+  {
+   "name": "ToonRimWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ToonRimWidth",
+   "default": 0.05000000074505806
+  },
+  {
+   "name": "FFTIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FFTIntensity",
+   "default": 0.0
+  },
+  {
+   "name": "SSAOIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SSAOIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "CPD1",
+   "type": "float",
+   "kind": "cpd",
+   "index": 1,
+   "role": "weight toward VS fixed-angle light"
+  },
+  {
+   "name": "CPD13",
+   "type": "float",
+   "kind": "cpd",
+   "index": 13,
+   "role": "toon local light anchor blend"
+  },
+  {
+   "name": "MPC_GlobalCharacterAmbientSkinColor",
+   "type": "float3",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalCharacterAmbientSkinColor",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "kuro": "cb3[23] (used as a light-direction target [U])"
+  },
+  {
+   "name": "MPC_GlobalCharacterDebugLightDirection",
+   "type": "float3",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalCharacterDebugLightDirection",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "kuro": "cb3[42] (base character light direction; must be written at runtime)"
+  },
+  {
+   "name": "ToonLight0",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 0,
+   "kuro": "ToonShadowLightData CB1[0]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "ToonLight1",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 1,
+   "kuro": "ToonShadowLightData CB1[1]",
+   "default": [
+    0,
+    0,
+    -1,
+    0
+   ],
+   "note": "[1].w is a raw uint bit pattern (type in bits 16..17): feed it bit-exactly"
+  },
+  {
+   "name": "ToonLight2",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 2,
+   "kuro": "ToonShadowLightData CB1[2]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "ToonLight3",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 3,
+   "kuro": "ToonShadowLightData CB1[3]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "TranslatedWorldToView",
+   "type": "float4x4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.TranslatedWorldToView",
+   "kuro": "Kuro View[12..15]"
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "NormalOverrideParameter",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.NormalOverrideParameter",
+   "kuro": "Kuro View[144] (stock member), default (0,0,0,1)",
+   "default": [
+    0,
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "name": "KuroGBufferMode",
+   "type": "float",
+   "kind": "view",
+   "kuro": "View[276].x (int, ==1 selects the alternate packing)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "KuroEmissiveScale",
+   "type": "float3",
+   "kind": "view",
+   "kuro": "View[285].xyz (emissive multiplier when Primitive[42].w == 0)",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true
+  },
+  {
+   "name": "KuroSkipEmissiveScale",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[42].w (skip View[285] multiply when != 0)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "OutOfBoundsMask",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.OutOfBoundsMask",
+   "kuro": "Kuro View[146].x (stock debug)",
+   "default": 0.0
+  },
+  {
+   "name": "ObjectWorldPosition",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "WSHackToFloat(GetObjectWorldPosition(Parameters))"
+  },
+  {
+   "name": "ObjectBounds",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "float3(GetPrimitiveData(Parameters).ObjectBoundsX, GetPrimitiveData(Parameters).ObjectBoundsY, GetPrimitiveData(Parameters).ObjectBoundsZ)"
+  },
+  {
+   "name": "LightingChannelMask",
+   "type": "uint",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitive_LightingChannelMask_FromFlags(GetPrimitiveData(Parameters).Flags)"
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  }
+ ],
+ "generated_by": "tools/shaderdiff/weapons/r3/make_specs_charweapon.py",
+ "notes": {
+  "textures": "t0 Normal_Roughness_Metallic (name from the cooked map), t1 CircleNoise_Map [U] (MI override T_ESuomingSanMd10011Sanbing_FX; polar circle noise .x, SampleLevel), t2 Sanmian_FX [U] (texture object T_ESuomingSanMd10011Sanmian_FX, mask .x), t3 MainTex [U] (T_ESuomingSanMd10011Sanmian01_D), t4 MainTex_Change [U] (T_ESuomingSanMd10011Sanmian02_D), t5 RainRipples [U] (texture object T_RainRipples, .x/.w), t6 MatCapTex [U] (T_MC_premake05_D). The cooked UES texture records other than slot 0 have no recoverable names; the slot order is inferred from usage and the MI overrides.",
+  "cb4": "cb4 table rebuilt by tools/shaderdiff/weapons/r3/charweapon_cbmap.py: wcbmap.py rejected every frozen block (151 script-name records > 144 name-map entries); with that bound relaxed, all 5 frozen blocks decode to the same 120 scalar / 25 vector names, so every parameter name is the Kuro name (no slot-based names)"
+ }
+}

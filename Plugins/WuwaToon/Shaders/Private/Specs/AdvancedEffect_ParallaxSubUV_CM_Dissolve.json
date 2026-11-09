@@ -1,0 +1,1210 @@
+{
+ "name": "AdvancedEffect_ParallaxSubUV_CM_Dissolve",
+ "entry": "WuwaFXParallaxSubUV_Dissolve",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_WaterFX.ush",
+ "kuro_shading_model": "MSM_Unlit",
+ "kuro_asm": "M_AdvancedEffect_ParallaxSubUV_CM PS 0f3490a90b (#13850) / VS 2f6587b6 (#13853); switches UseSecondTex, UseSecondMask, UseNoise, UseMaskTex, UseDissolve, UseAllUV",
+ "kuro_root_material": "M_AdvancedEffect_ParallaxSubUV_CM",
+ "blend_mode": "BLEND_Translucent",
+ "two_sided": false,
+ "resolve": false,
+ "resolve_note": "forward translucent unlit (not a toon GBuffer): output Emissive + Opacity to a UE translucent unlit material. Kuro engine tail, not ported (UE applies its own): opacity *= Kuro primitive fade (Primitive[43]); colour = max(E, 0) (*View[285] unless Primitive[42].w), OOB stripes, vertex fog (TEXCOORD7) / volumetric fog, Kuro effect colour grading (View[283]/[279], View[286].x/[284]); o0 = (rgb, opacity) with the material blend mode, o1 = (0, 1, 0, opacity). Verified with that tail reproduced in the harness (tools/shaderdiff/weapons/hlsl/kuro_translucent_tail.hlsli).",
+ "vs_note": "VS #13853 2f6587b614: only the E_Absorbed WPO (x WPOIntensity), branched on E_Absorbed_Enable > 0.5 = 0 at every roster MI (gated_wpo, evidence/validation/shaderdiff/weapons/round3/waterfx/vs_status_waterfx.json); not ported. TEXCOORD2 (KuroLocalPosition) = world position x Primitive WorldToLocal (no material value).",
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "material Emissive Color (before the engine translucent tail: fog, OOB, Kuro effect grading)"
+  },
+  "Opacity": {
+   "type": "float",
+   "kuro": "material Opacity (o0.a = o1.a after the tail)"
+  }
+ },
+ "inputs": [
+  {
+   "name": "Noise",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Noise",
+   "default": "T_Normal_30002",
+   "note": "reference MI MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains: {'ObjectName': \"Texture2D'T_Normal_30002'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/Normal/T_Normal_30002.0'}"
+  },
+  {
+   "name": "NoiseSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Noise",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "NoiseSampler"
+  },
+  {
+   "name": "Second",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Second",
+   "default": "T_Wenli_Suisui_FolderFan_Edge_15002",
+   "note": "reference MI MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains: {'ObjectName': \"Texture2D'T_Wenli_Suisui_FolderFan_Edge_15002'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/WenliNoMip/T_Wenli_Suisui_FolderFan_Edge_15002.1'}"
+  },
+  {
+   "name": "SecondSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Second",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "SecondSampler"
+  },
+  {
+   "name": "SecondMask",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "SecondMask",
+   "default": "T_Tile_790003",
+   "note": "reference MI MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains: {'ObjectName': \"Texture2D'T_Tile_790003'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/Tile/T_Tile_790003.1'}"
+  },
+  {
+   "name": "SecondMaskSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "SecondMask",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "SecondMaskSampler"
+  },
+  {
+   "name": "Base",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Base",
+   "default": "T_Wenli_Suisui_FolderFan_15002",
+   "note": "reference MI MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains: {'ObjectName': \"Texture2D'T_Wenli_Suisui_FolderFan_15002'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/WenliNoMip/T_Wenli_Suisui_FolderFan_15002.1'}"
+  },
+  {
+   "name": "BaseSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Base",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "BaseSampler"
+  },
+  {
+   "name": "Dissolve",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Dissolve",
+   "default": "T_Mask_70006",
+   "note": "reference MI MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains: {'ObjectName': \"Texture2D'T_Mask_70006'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/Mask/T_Mask_70006.0'}"
+  },
+  {
+   "name": "DissolveSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Dissolve",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "DissolveSampler"
+  },
+  {
+   "name": "Mask_Tex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Mask_Tex",
+   "default": "T_Mask_15012",
+   "note": "reference MI MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains: {'ObjectName': \"Texture2D'T_Mask_15012'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/Mask/T_Mask_15012.1'}"
+  },
+  {
+   "name": "Mask_TexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Mask_Tex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "Mask_TexSampler"
+  },
+  {
+   "name": "WorldTangent",
+   "type": "float3",
+   "kind": "worldtangent",
+   "ue_expr": "Parameters.TangentToWorld[0]"
+  },
+  {
+   "name": "WorldNormal",
+   "type": "float3",
+   "kind": "worldnormal",
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "TangentSign",
+   "type": "float",
+   "kind": "worldtangent",
+   "channel": "sign",
+   "ue_expr": "Parameters.TangentToWorldSign"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "UV1",
+   "type": "float2",
+   "kind": "uv",
+   "index": 1
+  },
+  {
+   "name": "UV2",
+   "type": "float2",
+   "kind": "uv",
+   "index": 2
+  },
+  {
+   "name": "UV3",
+   "type": "float2",
+   "kind": "uv",
+   "index": 3
+  },
+  {
+   "name": "VertexColor",
+   "type": "float4",
+   "kind": "vertexcolor",
+   "ue_expr": "Parameters.VertexColor",
+   "kuro": "COLOR0"
+  },
+  {
+   "name": "SvPosition",
+   "type": "float4",
+   "kind": "svposition",
+   "ue_expr": "Parameters.SvPosition"
+  },
+  {
+   "name": "TranslatedWorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "translated",
+   "ue_expr": "GetTranslatedWorldPosition(Parameters)"
+  },
+  {
+   "name": "ViewRectMin",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewRectMin.xy",
+   "kuro": "View[134].xy"
+  },
+  {
+   "name": "ViewSizeAndInvSize",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewSizeAndInvSize",
+   "kuro": "View[135]"
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "KuroViewLightColorA",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true,
+   "kuro": "View[193].xyz (Kuro view colour, averaged with View[292] for the effect \"light colour\" tint) [U]"
+  },
+  {
+   "name": "KuroViewLightColorB",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true,
+   "kuro": "View[292].xyz (see KuroViewLightColorA) [U]"
+  },
+  {
+   "name": "KuroEffectSaturation",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true,
+   "kuro": "View[286].y (effect-material desaturation weight) [U]"
+  },
+  {
+   "name": "MPC_KuroEffectColorGradingDesaturate",
+   "type": "float",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "KuroEffectColorGradingDesaturate",
+   "default": 0.0,
+   "kuro": "cb3[16].y"
+  },
+  {
+   "name": "MPC_KuroEffectColorGradingTint",
+   "type": "float3",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "KuroEffectColorGradingTint",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    0.0
+   ],
+   "kuro": "cb3[55]"
+  },
+  {
+   "name": "LocalToWorldRow0",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[0].xyz",
+   "kuro": "Primitive[0].xyz"
+  },
+  {
+   "name": "LocalToWorldRow1",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[1].xyz",
+   "kuro": "Primitive[1].xyz"
+  },
+  {
+   "name": "LocalToWorldRow2",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[2].xyz",
+   "kuro": "Primitive[2].xyz"
+  },
+  {
+   "name": "PreViewTranslation",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": "ResolvedView.PreViewTranslation",
+   "kuro": "View[70].xyz"
+  },
+  {
+   "name": "KuroLocalPosition",
+   "type": "float3",
+   "kind": "interpolator",
+   "source": "VS TEXCOORD2.xyz",
+   "ue_expr": "TransformWorldToLocal(GetWorldPosition(Parameters)) [U] (VS: WorldPosition x Primitive WorldToLocal rows 6..9)",
+   "note": "Kuro TEXCOORD2.xyz (M_AdvancedEffect_ParallaxSubUV_CM VS o5 = position * Primitive[6..8] + Primitive[9], i.e. the object-local position); the PS rotates it back with LocalToWorld rows 0..2 [I, VS output not diffed]"
+  },
+  {
+   "name": "EffectTime",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EffectTime",
+   "default": 0.0
+  },
+  {
+   "name": "UseSpecificTime",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseSpecificTime",
+   "default": 0.0
+  },
+  {
+   "name": "EffectTimeScale",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EffectTimeScale",
+   "default": 1.0
+  },
+  {
+   "name": "Noise_UVSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Noise_UVSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Noise_UV",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Noise_UV",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Noise_bScreenUV",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Noise_bScreenUV",
+   "default": 0.0
+  },
+  {
+   "name": "Noise_Offset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Noise_Offset",
+   "default": 0.0
+  },
+  {
+   "name": "Noise_UseSigned2D",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Noise_UseSigned2D",
+   "default": 0.0
+  },
+  {
+   "name": "Noise_Strength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Noise_Strength",
+   "default": 0.15000000596046448
+  },
+  {
+   "name": "ParallaxSub_NoiseStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ParallaxSub_NoiseStrength",
+   "default": 0.0
+  },
+  {
+   "name": "ParallaxSub_GridCols",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ParallaxSub_GridCols",
+   "default": 1.0
+  },
+  {
+   "name": "ParallaxSub_GridRows",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ParallaxSub_GridRows",
+   "default": 1.0
+  },
+  {
+   "name": "ParallaxSub_Index0_Index",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ParallaxSub_Index0_Index",
+   "default": 0.0
+  },
+  {
+   "name": "ParallaxSub_Index0_Depth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ParallaxSub_Index0_Depth",
+   "default": 0.0
+  },
+  {
+   "name": "ParallaxSub_Index0_ScaleNPosOffset",
+   "type": "float4",
+   "kind": "vector",
+   "param": "ParallaxSub_Index0_ScaleNPosOffset",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Second_bClamp",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Second_bClamp",
+   "default": 0.0
+  },
+  {
+   "name": "Second_UV",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Second_UV",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Second_Contorl",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Second_Contorl",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "SecondMask_UV",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SecondMask_UV",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Mask_UV",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Mask_UV",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "SecondMask_NoiseStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SecondMask_NoiseStrength",
+   "default": 0.0
+  },
+  {
+   "name": "Mask_NoiseStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Mask_NoiseStrength",
+   "default": 0.0
+  },
+  {
+   "name": "SecondMask_AlphaSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SecondMask_AlphaSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Mask_AlphaSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Mask_AlphaSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "bInvertNSecondMask",
+   "type": "float",
+   "kind": "scalar",
+   "param": "bInvertNSecondMask",
+   "default": 0.0
+  },
+  {
+   "name": "Base_bClamp",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Base_bClamp",
+   "default": 0.0
+  },
+  {
+   "name": "Base_UV",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Base_UV",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Base_UV_Offset",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Base_UV_Offset",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Base_NoiseStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Base_NoiseStrength",
+   "default": 1.0
+  },
+  {
+   "name": "Base_bClampAfterNoise",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Base_bClampAfterNoise",
+   "default": 0.0
+  },
+  {
+   "name": "Base_EmissiveSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Base_EmissiveSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Base_bUseChannelAsEmissive",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Base_bUseChannelAsEmissive",
+   "default": 0.0
+  },
+  {
+   "name": "Base_Refine",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Base_Refine",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    0.5
+   ]
+  },
+  {
+   "name": "Base_Emissive_Add",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Base_Emissive_Add",
+   "default": 0.0
+  },
+  {
+   "name": "Base_bAddSecond",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Base_bAddSecond",
+   "default": 0.0
+  },
+  {
+   "name": "Base_ColorTint",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Base_ColorTint",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "name": "ParallaxSub_Index1_Index",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ParallaxSub_Index1_Index",
+   "default": 1.0
+  },
+  {
+   "name": "ParallaxSub_Index1_Depth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ParallaxSub_Index1_Depth",
+   "default": 0.0
+  },
+  {
+   "name": "ParallaxSub_Index1_ScaleNPosOffset",
+   "type": "float4",
+   "kind": "vector",
+   "param": "ParallaxSub_Index1_ScaleNPosOffset",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Base_AlphaSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Base_AlphaSwitch",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "name": "Base_Alpha_Multiply",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Base_Alpha_Multiply",
+   "default": 1.0
+  },
+  {
+   "name": "bUse_ParallaxSub_Index1",
+   "type": "float",
+   "kind": "scalar",
+   "param": "bUse_ParallaxSub_Index1",
+   "default": 0.0
+  },
+  {
+   "name": "ParallaxSub_Index2_Index",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ParallaxSub_Index2_Index",
+   "default": 2.0
+  },
+  {
+   "name": "ParallaxSub_Index3_Index",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ParallaxSub_Index3_Index",
+   "default": 3.0
+  },
+  {
+   "name": "ParallaxSub_Index2_Depth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ParallaxSub_Index2_Depth",
+   "default": 0.0
+  },
+  {
+   "name": "ParallaxSub_Index2_ScaleNPosOffset",
+   "type": "float4",
+   "kind": "vector",
+   "param": "ParallaxSub_Index2_ScaleNPosOffset",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "bUse_ParallaxSub_Index2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "bUse_ParallaxSub_Index2",
+   "default": 0.0
+  },
+  {
+   "name": "ParallaxSub_Index3_Depth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ParallaxSub_Index3_Depth",
+   "default": 0.0
+  },
+  {
+   "name": "ParallaxSub_Index3_ScaleNPosOffset",
+   "type": "float4",
+   "kind": "vector",
+   "param": "ParallaxSub_Index3_ScaleNPosOffset",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "bUse_ParallaxSub_Index3",
+   "type": "float",
+   "kind": "scalar",
+   "param": "bUse_ParallaxSub_Index3",
+   "default": 0.0
+  },
+  {
+   "name": "Dissolve_UV",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Dissolve_UV",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Dissolve_UVSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Dissolve_UVSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Dissolve_bScreenUV",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_bScreenUV",
+   "default": 0.0
+  },
+  {
+   "name": "DIssolve_TimeOffset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "DIssolve_TimeOffset",
+   "default": 0.0
+  },
+  {
+   "name": "Dissolve_bClamp",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_bClamp",
+   "default": 0.0
+  },
+  {
+   "name": "Dissolve_NoiseStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_NoiseStrength",
+   "default": 0.0
+  },
+  {
+   "name": "Dissolve_UOffset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_UOffset",
+   "default": 0.0
+  },
+  {
+   "name": "Dissolve_VOffset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_VOffset",
+   "default": 0.0
+  },
+  {
+   "name": "Dissolve_ChannelSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Dissolve_ChannelSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Mask_UVSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Mask_UVSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Mask_bScreenUV",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Mask_bScreenUV",
+   "default": 0.0
+  },
+  {
+   "name": "Mask_bClamp",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Mask_bClamp",
+   "default": 0.0
+  },
+  {
+   "name": "Mask_UV_Offset",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Mask_UV_Offset",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Mask_Invert",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Mask_Invert",
+   "default": 0.0
+  },
+  {
+   "name": "Mask_Alpha_Multiply",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Mask_Alpha_Multiply",
+   "default": 1.0
+  },
+  {
+   "name": "Dissolve_MaskLerp",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_MaskLerp",
+   "default": 0.0
+  },
+  {
+   "name": "Dissolve_Invert",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_Invert",
+   "default": 0.0
+  },
+  {
+   "name": "Dissolve_Smooth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_Smooth",
+   "default": 5.0
+  },
+  {
+   "name": "Dissolve_Dissolve",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Dissolve_Dissolve",
+   "default": 1.0
+  },
+  {
+   "name": "Dissolve_EdgeColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Dissolve_EdgeColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "LightColorStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightColorStrength",
+   "default": 0.10000000149011612
+  },
+  {
+   "name": "NiagaraShiftLowGrayColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "NiagaraShiftLowGrayColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "name": "NiagaraShiftHighGrayColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "NiagaraShiftHighGrayColor",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "NiagaraShiftColorParam",
+   "type": "float",
+   "kind": "scalar",
+   "param": "NiagaraShiftColorParam",
+   "default": 0.0
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Dither_DitherValue",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_DitherValue",
+   "default": 1.2000000476837158
+  },
+  {
+   "name": "E_Dither_UseDither",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_UseDither",
+   "default": 0.0
+  },
+  {
+   "name": "Opacity_bVertexAlphaToMask",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Opacity_bVertexAlphaToMask",
+   "default": 0.0
+  },
+  {
+   "name": "ScreenFadeFrom",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ScreenFadeFrom",
+   "default": 12.0
+  },
+  {
+   "name": "ScreenFadeDistance",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ScreenFadeDistance",
+   "default": 30.0
+  },
+  {
+   "name": "Noise_RotCos",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "cos((Noise_Rotation * 6.28319))",
+   "params": [
+    "Noise_Rotation"
+   ],
+   "code": "030a0002db0fc940db0fc940db0fc940db0fc940070e",
+   "cb4_ref": "MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  },
+  {
+   "name": "Noise_RotSin",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "sin((Noise_Rotation * 6.28319))",
+   "params": [
+    "Noise_Rotation"
+   ],
+   "code": "030a0002db0fc940db0fc940db0fc940db0fc940070d",
+   "cb4_ref": "MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  },
+  {
+   "name": "Second_RotCos",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "cos((Second_Rotation * 6.28319))",
+   "params": [
+    "Second_Rotation"
+   ],
+   "code": "03120002db0fc940db0fc940db0fc940db0fc940070e",
+   "cb4_ref": "MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  },
+  {
+   "name": "Second_RotSin",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "sin((Second_Rotation * 6.28319))",
+   "params": [
+    "Second_Rotation"
+   ],
+   "code": "03120002db0fc940db0fc940db0fc940db0fc940070d",
+   "cb4_ref": "MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  },
+  {
+   "name": "SecondMask_RotCos",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "cos((SecondMask_Rotation * 6.28319))",
+   "params": [
+    "SecondMask_Rotation"
+   ],
+   "code": "03140002db0fc940db0fc940db0fc940db0fc940070e",
+   "cb4_ref": "MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  },
+  {
+   "name": "Mask_RotCos",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "cos((Mask_Rotation * 6.28319))",
+   "params": [
+    "Mask_Rotation"
+   ],
+   "code": "03310002db0fc940db0fc940db0fc940db0fc940070e",
+   "cb4_ref": "MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  },
+  {
+   "name": "SecondMask_RotSin",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "sin((SecondMask_Rotation * 6.28319))",
+   "params": [
+    "SecondMask_Rotation"
+   ],
+   "code": "03140002db0fc940db0fc940db0fc940db0fc940070d",
+   "cb4_ref": "MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  },
+  {
+   "name": "Mask_RotSin",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "sin((Mask_Rotation * 6.28319))",
+   "params": [
+    "Mask_Rotation"
+   ],
+   "code": "03310002db0fc940db0fc940db0fc940db0fc940070d",
+   "cb4_ref": "MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  },
+  {
+   "name": "Base_RotCos",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "cos((Base_Rotation * 6.28319))",
+   "params": [
+    "Base_Rotation"
+   ],
+   "code": "03170002db0fc940db0fc940db0fc940db0fc940070e",
+   "cb4_ref": "MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  },
+  {
+   "name": "Base_RotSin",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "sin((Base_Rotation * 6.28319))",
+   "params": [
+    "Base_Rotation"
+   ],
+   "code": "03170002db0fc940db0fc940db0fc940db0fc940070d",
+   "cb4_ref": "MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  },
+  {
+   "name": "Dissolve_RotCos",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "cos((DIssolve_Rotation * 6.28319))",
+   "params": [
+    "DIssolve_Rotation"
+   ],
+   "code": "032b0002db0fc940db0fc940db0fc940db0fc940070e",
+   "cb4_ref": "MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  },
+  {
+   "name": "Dissolve_RotSin",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "sin((DIssolve_Rotation * 6.28319))",
+   "params": [
+    "DIssolve_Rotation"
+   ],
+   "code": "032b0002db0fc940db0fc940db0fc940db0fc940070d",
+   "cb4_ref": "MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  }
+ ],
+ "notes": {
+  "textures": "t-slot order = the cooked texture table after the VS-only JItter Noise: t1 Noise (.xy), t2 Second (rgb, 4 parallax taps), t3 SecondMask (4 taps), t4 Base (4 taps), t5 Dissolve, last slot Mask_Tex (SampleLevel MaterialTextureMipBias - 1)"
+ },
+ "generated_by": "tools/shaderdiff/weapons/r3/make_specs_waterfx.py",
+ "ue_material": {
+  "contract": "entry returns FWuwaFXOutput {float3 Emissive; float Opacity;} - no toon GBuffer, no WuwaToonResolve",
+  "shading_model": "MSM_Unlit",
+  "blend_mode": "BLEND_Translucent",
+  "two_sided": false,
+  "connect": {
+   "EmissiveColor": "X.Emissive",
+   "Opacity": "X.Opacity"
+  },
+  "opacity_mask_clip_value": null,
+  "note": "standard translucent unlit (SrcAlpha / InvSrcAlpha); UE applies fog"
+ },
+ "vertex_interpolators": [
+  {
+   "name": "KuroLocalPosition",
+   "type": "float3",
+   "inputs": [],
+   "custom_node_code": "return mul(float4(WSHackToFloat(GetWorldPosition(Parameters)), 1.0), DFHackToFloat(GetPrimitiveData(Parameters).WorldToLocal)).xyz;",
+   "note": "Kuro VS TEXCOORD2.xyz = world position x Primitive WorldToLocal rows 6..9 (object-local position); UE: vertex world position x demoted Primitive WorldToLocal, interpolated like the Kuro TEXCOORD (Round 4 compile fixes: the spec named the interpolator without a VS block)",
+   "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_WaterFX.ush"
+  }
+ ]
+}

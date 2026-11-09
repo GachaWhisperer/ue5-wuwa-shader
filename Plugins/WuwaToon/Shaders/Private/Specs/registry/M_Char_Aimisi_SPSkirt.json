@@ -1,0 +1,73 @@
+{
+ "root_material": "M_Char_Aimisi_SPSkirt",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "Char_Aimisi_SPSkirt_MilkSpark.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "793f627635dde8b7c31c68e8d3833e3b017d1c85"
+    ],
+    "base_pass_vs_hash": [
+     "15d277dbbe01616fb913b8936c66130e8f9924fd"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/aimisi/results_multi_final.json summary.aimisi_793f62 (39 runs, o0 638976/638976 bit-exact); VS #13669 engine_only (evidence/validation/shaderdiff/weapons/round3/aimisi/vs_status_aimisi.json: no Material uniform buffer declared (CB0[260], CB1[309], CB2[45], CB3[1]; same CB set as round-1 #2157))",
+   "ps_archive_index": 86403,
+   "vs_archive_index": [
+    13669
+   ],
+   "vs_status": {
+    "15d277dbbe01616fb913b8936c66130e8f9924fd": "engine_only"
+   },
+   "blend_mode": "BLEND_Additive",
+   "resolve": false,
+   "roster_mis": 3,
+   "roster_slot_uses": 6,
+   "entities": [
+    "character:Hsin",
+    "skin:True to Heart"
+   ],
+   "example_mis": [
+    "MI_SS1HuliHead_FX",
+    "MI_SS1HuliTail2_FX",
+    "MI_SS1HuliTail3_FX"
+   ],
+   "notes": "Hsin SS1Huli fox shells (3 MIs); additive unlit, Kuro tail in hlsl/kuro_tail_aimisi.hlsli; 39 runs, o0 638976/638976 bit-exact; neg control results_aimisi_793f62_aimisi_30a8b7_skirt_neg.json"
+  },
+  {
+   "spec": "Char_Aimisi_SPSkirt_CircuitFlowSparkTextRain.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "30a8b76b4a8fda91e030a9484ef6ed6e1557349c"
+    ],
+    "base_pass_vs_hash": [
+     "15d277dbbe01616fb913b8936c66130e8f9924fd"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/aimisi/results_multi_final.json summary.aimisi_30a8b7 (42 runs, o0 688128/688128 bit-exact); VS #13669 engine_only (evidence/validation/shaderdiff/weapons/round3/aimisi/vs_status_aimisi.json: no Material uniform buffer declared (CB0[260], CB1[309], CB2[45], CB3[1]; same CB set as round-1 #2157))",
+   "ps_archive_index": 264804,
+   "vs_archive_index": [
+    13669
+   ],
+   "vs_status": {
+    "15d277dbbe01616fb913b8936c66130e8f9924fd": "engine_only"
+   },
+   "blend_mode": "BLEND_Additive",
+   "resolve": false,
+   "roster_mis": 2,
+   "roster_slot_uses": 3,
+   "entities": [
+    "character:Aemeath",
+    "skin:Invisible Starlight"
+   ],
+   "example_mis": [
+    "MI_Char_Aimisi_SPSkirt",
+    "MI_R2T1AimisiGDMd10011Head1FX_OL"
+   ],
+   "notes": "Aemeath main-mesh skirt + Head1FX_OL; additive unlit; 42 runs, o0 688128/688128 bit-exact; neg control results_aimisi_793f62_aimisi_30a8b7_skirt_neg.json"
+  }
+ ]
+}

@@ -1,0 +1,185 @@
+{
+ "root_material": "M_Char_Com",
+ "generated_by": "tools/shaderdiff/roster_charcom/register_round6_common.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 6 (common): AniSwitch MaskTex decode \"Alpha\" bodies and the Zanni skin Md20011 fur / UseFurryParallax PS (WuwaToonBasePass_Common.ush / _CommonMasked.ush). One variant per verified (PS, VS set); research/roster/round6/common.md",
+ "variants": [
+  {
+   "spec": "ToonCommon_DownNoSkinRampCAniSwitchShadowParallaxFurDTAA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "e40122d8885e282ab899c6b5f87eb0b5b530f333"
+    ],
+    "base_pass_vs_hash": [
+     "e1dc80b55027ea9184a4eb9201dcf30b96ae51a1"
+    ]
+   },
+   "verified": "research/roster/round6/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round6/common/results_round6_common.json variants.r6c_down_noskinrampc_ani_parallax_fur_dtaa_50708 (659452/659452 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches, SV_DepthLessEqual 659452/659452); VS #50707 (round-6 VS port WuwaToonBaseVS_WPO_Fur, evidence/validation/shaderdiff/roster_charcom/round6/vs/vs_verified.json; results evidence/validation/shaderdiff/roster_charcom/round6/vs/results_vs.json)",
+   "ps_archive_index": 50708,
+   "vs_archive_index": [
+    50707
+   ],
+   "vs_status": "ported_wpo_verified",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1ZanniMd20011Alpha"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": false,
+    "UseSkinAllRampColor": false,
+    "UseAniSwitchShadow": true,
+    "UseFurry": true,
+    "UseFurryParallax": true,
+    "UseTranslucent": true
+   },
+   "round": "6 (common)"
+  },
+  {
+   "spec": "ToonCommon_DownRampMaskNoSkinRampCAniSwitchShadowAniMaskDecodeMaskedDTAA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "8a207c12506f7ddce97f9ee4b806f41121468a80"
+    ],
+    "base_pass_vs_hash": [
+     "832b077c60aadce361c5b4f92d8e152cb15c7c1b"
+    ]
+   },
+   "verified": "research/roster/round6/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round6/common/results_round6_common.json variants.r6c_downrm_noskinrampc_ani_animask_dtaa_286072 (691334/691334 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #286068 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 286072,
+   "vs_archive_index": [
+    286068
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1KanteleilaMd10011Alpha"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": true,
+    "UseSkinAllRampColor": false,
+    "UseAniSwitchShadow": true,
+    "UseAniSwitch (MaskTex decode)": true,
+    "UseTranslucent": true
+   },
+   "round": "6 (common)"
+  },
+  {
+   "spec": "ToonCommon_DownRampMaskParallaxFurTangent.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ddc87759ee74a25853ef112137ca8a02c2b832d1"
+    ],
+    "base_pass_vs_hash": [
+     "e1dc80b55027ea9184a4eb9201dcf30b96ae51a1"
+    ]
+   },
+   "verified": "research/roster/round6/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round6/common/results_round6_common.json variants.r6c_downrm_parallax_fur_tangent_316924 (697365/697365 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches, SV_DepthLessEqual 697365/697365); VS #50707 (round-6 VS port WuwaToonBaseVS_WPO_Fur, evidence/validation/shaderdiff/roster_charcom/round6/vs/vs_verified.json; results evidence/validation/shaderdiff/roster_charcom/round6/vs/results_vs.json)",
+   "ps_archive_index": 316924,
+   "vs_archive_index": [
+    50707
+   ],
+   "vs_status": "ported_wpo_verified",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1ZanniMd20011Down"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseStocking": true,
+    "UseRampMask": true,
+    "UseFurry": true,
+    "UseFurryParallax": true,
+    "UseTangentClip": true
+   },
+   "round": "6 (common)"
+  },
+  {
+   "spec": "ToonCommon_TypeMaskNoSkinRampCTwoSidedAniMaskDecodeMaskedDTAA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "51b54f6d303668bfb6263423921cc78f4657b612"
+    ],
+    "base_pass_vs_hash": [
+     "f5a129acdcb351c52827e4cb49bf6518002f5795"
+    ]
+   },
+   "verified": "research/roster/round6/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round6/common/results_round6_common.json variants.r6c_tm_noskinrampc_2s_animask_dtaa_112638 (711040/711040 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #112685 (round-6 VS port WuwaToonBaseVS_WPO_Ghost, evidence/validation/shaderdiff/roster_charcom/round6/vs/vs_verified.json; results evidence/validation/shaderdiff/roster_charcom/round6/vs/results_vs.json)",
+   "ps_archive_index": 112638,
+   "vs_archive_index": [
+    112685
+   ],
+   "vs_status": "ported_wpo_verified",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1LupaMd10011Tail1"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseSkinAllRampColor": false,
+    "UseAniSwitch (MaskTex decode)": true,
+    "UseTranslucent": true
+   },
+   "round": "6 (common)"
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskFurTangent.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0d4362b7df6c581972fc18cf66b062bc70ad9042"
+    ],
+    "base_pass_vs_hash": [
+     "4e3f515664e40eacc421c42cdc286be0e4f977d2"
+    ]
+   },
+   "verified": "research/roster/round6/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round6/common/results_round6_common.json variants.r6c_tmrm_fur_tangent_64048 (680568/680568 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches, SV_DepthLessEqual 680568/680568); VS #64064 (round-6 VS port WuwaToonBaseVS_WPO_Fur, evidence/validation/shaderdiff/roster_charcom/round6/vs/vs_verified.json; results evidence/validation/shaderdiff/roster_charcom/round6/vs/results_vs.json)",
+   "ps_archive_index": 64048,
+   "vs_archive_index": [
+    64064
+   ],
+   "vs_status": "ported_wpo_verified",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1ZanniMd20011Fur"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseFurry": true,
+    "UseTangentClip": true,
+    "UseVertexColor (fur gate)": true
+   },
+   "round": "6 (common)"
+  },
+  {
+   "spec": "ToonCommon_TypeMaskRampMaskParallax.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "d7c344c5b34d1a94c2b6a82fc7fddaf07affae06"
+    ],
+    "base_pass_vs_hash": [
+     "eb6d991a8f021bd2a0669cfa38ee3dbfb0cfb1bd"
+    ]
+   },
+   "verified": "research/roster/round6/common.md; PS: evidence/validation/shaderdiff/roster_charcom/round6/common/results_round6_common.json variants.r6c_tmrm_parallax_299207 (851968/851968 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #299209 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 299207,
+   "vs_archive_index": [
+    299209
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1ZanniMd20011Up"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseFurryParallax": true
+   },
+   "round": "6 (common)"
+  }
+ ]
+}

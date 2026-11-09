@@ -1,0 +1,287 @@
+// WuwaToonBasePass_SpecialStarry2.ush — M_Char_Com_Special base pass, MSM_ToonCommon (GBufferB id 12), round 3 batch
+// "starry2" of research/roster/Port_Weapons_Specials.md. New file: WuwaToonBasePass_Special.ush (round 2) is only #included.
+//
+// 1) WuwaToonSpecialBasePass_StarryTexPBRRamp2SAlpha — PS 742ecd4422 (#110504), MI_R2T1FuludelisiMd10011Alpha (Cartethyia),
+//    BLEND_Masked, two-sided. The ported round-2 Starry body (WuwaToonSpecialStarryBasePass_Impl with bTwoSided, bTexPBR,
+//    bRamp = the switches of PS 0ecda79bae + two-sided) plus Kuro "UseTranslucent": the opacity mask is a temporal-AA dither
+//      a  = lerp(TranslucentDitherVaule, 1, MainTex.a * OpacityIntensity)
+//      d5 = (uint(px + TemporalAAParams.x) + 2 * uint(py + TemporalAAParams.x)) mod 5,   p = SvPosition.xy - ViewRectMin
+//      m  = (d5 + DitherNoise((p) / 64).r) / 6 + a - 0.5            (UE /Utility/DitherTemporalAA material function)
+//    and the masked clip (OpacityMaskClipValue 0.3333) is FOLDED by fxc into the constant: m' = d/6 + a + (-0.83330) (0xBF555326),
+//    discarded together with the Kuro primitive dither: discard if min(m', WuwaPrimDitherClip(...)) < 0.
+//    CONTRACT (in-entry clip): the entry calls clip() itself. The UE material must NOT clip again on that value: connect
+//    Opacity Mask = 1.0 (constant) with any clip value < 1 (or leave the default 0.3333), BLEND_Masked, two-sided. The folded
+//    constant cannot be re-expressed as "OpacityMask - 0.3333" bit-exactly, so the clip stays inside the entry.
+//    Engine inputs: DitherNoiseTex = /Engine/EngineMaterials/Good64x64TilingNoiseHighFreq (the Random texture of the
+//    DitherTemporalAA function, referenced by M_Char_Com_Special; Kuro t6), TemporalAAParamsX = View.TemporalAAParams.x (Kuro
+//    View[158].x), ViewRectMin, SvPositionXY, Kuro primitive dither Primitive[43].xy.
+//
+// 2) WuwaToonSpecialBasePass_StarryNoPBRRamp — PS 04597b249a (#243343), MI_R2T1ShouanrenMd10011Up02 (Shorekeeper), opaque.
+//    UseStarrySky + UseRampColor WITHOUT UsePBR: no specular / EnvBRDF / matcap / metal, no vertex-colour PBR mask.
+//    Lit = BaseColor, GBufferC.rgb = BaseColor * AniSwitch_ShadowColorBright, emissive = EmissionColor * BaseColor + motion
+//    emissive + the UseStarrySky term (WuwaSPStarrySky of WuwaToonBasePass_Special.ush with LitB = BaseColor * Bright).
+//    Refs K### = approximate instruction numbers in asm_hex/243343_04597b249a...asm.txt (starry first, lighting after the emissive).
+//    Verified bit-exact on WARP (o0/o1/o2/o3/o6): evidence/validation/shaderdiff/weapons/round3/starry2/.
+#ifndef WUWA_SPECIAL_STARRY2_USH
+#define WUWA_SPECIAL_STARRY2_USH
+
+#include "WuwaToonBasePass_Special.ush"   // WuwaToonSpecialStarryBasePass_Impl, WuwaSPStarrySky (+ WeaponShared helpers)
+
+// ---------------------------------------------------------------------------------------------------------------------
+// UseTranslucent dither mask with the folded masked clip (PS 742ecd4422 l.493-526). Returns the value whose sign decides the
+// discard (< 0 -> discard), already min()'d with the Kuro primitive dither.
+// ---------------------------------------------------------------------------------------------------------------------
+float WuwaSPTranslucentDitherClipValue(float A, float TranslucentDitherVaule, Texture2D DitherNoiseTex, SamplerState DitherNoiseTexSampler,
+	float2 SvPositionXY, float2 ViewRectMin, float TemporalAAParamsX, float MaterialTextureMipBias,
+	float KuroPrimDitherEnable, float KuroPrimDitherFade)
+{
+	float  a  = A * (1.0 - TranslucentDitherVaule) + TranslucentDitherVaule;
+	float2 p  = SvPositionXY - ViewRectMin;
+	uint2  ip = (uint2)(p + TemporalAAParamsX);
+	uint   d5 = ((ip.y << 1) + ip.x) % 5u;
+	float  dn = DitherNoiseTex.SampleBias(DitherNoiseTexSampler, p * 0.015625, MaterialTextureMipBias).x;
+	float  d  = dn + (float)d5;
+	float  m  = d * asfloat(0x3E2AAAABu) + a;          // (d5 + noise) / 6 + alpha
+	m = m + asfloat(0xBF555326u);                        // - 0.5 (dither centre) - 0.3333 (masked clip value), folded by fxc
+	return min(m, WuwaPrimDitherClip(KuroPrimDitherEnable, KuroPrimDitherFade, SvPositionXY));
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 1) PS 742ecd4422: Starry body (bTwoSided, bTexPBR, bRamp) + in-entry translucent-dither clip
+// ---------------------------------------------------------------------------------------------------------------------
+FWuwaToonGBuffer WuwaToonSpecialBasePass_StarryTexPBRRamp2SAlpha(
+	Texture2D Normal_Roughness_Metallic, SamplerState Normal_Roughness_MetallicSampler,
+	Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D MatCapTex, SamplerState MatCapTexSampler,
+	Texture2D CommonNoiseMap, SamplerState CommonNoiseMapSampler,
+	Texture2D StarrySky_FlowNoise, SamplerState StarrySky_FlowNoiseSampler,
+	Texture2D TypeMask, SamplerState TypeMaskSampler,
+	Texture2D DitherNoiseTex, SamplerState DitherNoiseTexSampler,
+	Texture2D Ramp, SamplerState RampSampler,
+	float2 UV0, float2 UV1, float2 UV2, float2 UV3, float VertexColorR, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 TranslatedWorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask,
+	float TwoSidedSign, float2 SvPositionXY, float2 ViewRectMin, float TemporalAAParamsX,
+	float NormalStrength, float3 E_Motion_Emissive, float3 SkinColor, float DefaultSkinFactor, float3 BaseColorTint,
+	float RaytracingReflectionFix, float MetallicIntensityDebug, float RoughnessIntensityDebug,
+	float SpecularPower, float MetalSpecularPower, float LightOffset_Pitch, float ShadowProcess, float ShadowWidth,
+	float OpacityIntensity, float DecodeShadowThreshold, float SolidShadowProcess, float PBRRate, float MetalEmissionStrength,
+	float3 EmissionColor, float MatCapInt, float MetalMatCapBack, float MetalMatCapInt, float AniSwitch_ShadowColorBright,
+	float4 StarrySky_UV_Switch, float SparkTiling, float SparkTimeSpeed, float SparkIntensity, float SparkIntensityMax,
+	float SparkPower, float SparkStrength, float WaveSpeed, float WaveTiling, float WaveNormalAmount, float WaveAmount,
+	float Spark_BStrength, float Spark_BStrengthWave, float SeqSwitchFactor, float3 TintColorFlowNight02,
+	float3 TintColorFlowNight, float3 TintColorFlowDay, float StarIntensity, float DiamondEmissiveStrength, float4 SelectionColor,
+	float SolidShadowStrength, float3 SubsurfaceColor, float ToonRimWidth,
+	float SolidShadow_RampPosition, float RampPosition, float RampInt, float TranslucentDitherVaule,
+	float MPC_GlobalCharSkyLightIntensity, float CPD1, float CPD13,
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection, float MPC_GlobalTimeHour,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float4x4 TranslatedWorldToView, float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask, float GameTime, float ClipToView00, float3 WorldCameraOrigin, float3 LocalToWorldRow2,
+	float3 LocalToWorldRow3, float KuroPrimDitherEnable, float KuroPrimDitherFade)
+{
+	FWuwaToonGBuffer G = WuwaToonSpecialStarryBasePass_Impl(true, false, false, true, true, false,
+		Normal_Roughness_Metallic, Normal_Roughness_MetallicSampler,
+		MainTex, MainTexSampler,            // R_Noise_A_Mask (unused: bEffectMask = bSecond = false)
+		MainTex, MainTexSampler,            // Second_RGB (unused)
+		MainTex, MainTexSampler,
+		MatCapTex, MatCapTexSampler,
+		CommonNoiseMap, CommonNoiseMapSampler,
+		StarrySky_FlowNoise, StarrySky_FlowNoiseSampler,
+		TypeMask, TypeMaskSampler,
+		Ramp, RampSampler,
+		UV0, UV1, UV2, UV3, VertexColorR, WorldTangent, WorldNormal, TangentSign,
+		WorldPosition, TranslatedWorldPosition, CameraVector, LightDirVS, MotionEmissiveMask,
+		TwoSidedSign, float2(0.0, 0.0), float2(0.0, 0.0), float4(0.0, 0.0, 0.0, 0.0),
+		float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, float4(0.0, 0.0, 0.0, 0.0),
+		float2(0.0, 0.0), float4(0.0, 0.0, 0.0, 0.0), 0.0, float4(0.0, 0.0, 0.0, 0.0), 0.0,
+		0.0, float4(0.0, 0.0, 0.0, 0.0), float3(0.0, 0.0, 0.0),
+		NormalStrength, 0.0, float4(0.0, 0.0, 0.0, 0.0), 0.0, float3(0.0, 0.0, 0.0),
+		E_Motion_Emissive, SkinColor, DefaultSkinFactor, BaseColorTint, RaytracingReflectionFix,
+		0.0, 0.0, MetallicIntensityDebug, RoughnessIntensityDebug,
+		SpecularPower, MetalSpecularPower, LightOffset_Pitch, ShadowProcess, ShadowWidth,
+		OpacityIntensity, DecodeShadowThreshold, SolidShadowProcess, PBRRate, MetalEmissionStrength,
+		EmissionColor, MatCapInt, MetalMatCapBack, MetalMatCapInt, AniSwitch_ShadowColorBright,
+		0.0, 0.0, 0.0, 0.0, 0.0,
+		StarrySky_UV_Switch, SparkTiling, SparkTimeSpeed, SparkIntensity, SparkIntensityMax,
+		SparkPower, SparkStrength, WaveSpeed, WaveTiling, WaveNormalAmount, WaveAmount,
+		Spark_BStrength, Spark_BStrengthWave, SeqSwitchFactor, TintColorFlowNight02,
+		TintColorFlowNight, TintColorFlowDay, StarIntensity, DiamondEmissiveStrength, SelectionColor,
+		SolidShadowStrength, SubsurfaceColor, ToonRimWidth,
+		SolidShadow_RampPosition, RampPosition, RampInt, MPC_GlobalCharSkyLightIntensity,
+		CPD1, CPD13,
+		MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, MPC_GlobalTimeHour,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3,
+		TranslatedWorldToView, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode,
+		KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds,
+		LightingChannelMask, GameTime, ClipToView00, WorldCameraOrigin, LocalToWorldRow2, LocalToWorldRow3);
+
+	// UseTranslucent: alpha = MainTex.a * OpacityIntensity (the same sample / product as GBufferC.a in mode 0)
+	float A = MainTex.SampleBias(MainTexSampler, UV0, MaterialTextureMipBias).a * OpacityIntensity;
+	clip(WuwaSPTranslucentDitherClipValue(A, TranslucentDitherVaule, DitherNoiseTex, DitherNoiseTexSampler, SvPositionXY, ViewRectMin,
+		TemporalAAParamsX, MaterialTextureMipBias, KuroPrimDitherEnable, KuroPrimDitherFade));
+	return G;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 2) PS 04597b249a: StarrySky + ramp body without UsePBR
+// ---------------------------------------------------------------------------------------------------------------------
+FWuwaToonGBuffer WuwaToonSpecialStarryNoPBR_Impl(
+	Texture2D Normal_Roughness_Metallic, SamplerState Normal_Roughness_MetallicSampler,
+	Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D CommonNoiseMap, SamplerState CommonNoiseMapSampler,
+	Texture2D StarrySky_FlowNoise, SamplerState StarrySky_FlowNoiseSampler,
+	Texture2D TypeMask, SamplerState TypeMaskSampler,
+	Texture2D Ramp, SamplerState RampSampler,
+	float2 UV0, float2 UV1, float2 UV2, float2 UV3, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask,
+	float NormalStrength, float3 E_Motion_Emissive, float3 SkinColor, float DefaultSkinFactor, float3 BaseColorTint,
+	float RaytracingReflectionFix, float LightOffset_Pitch, float ShadowProcess, float ShadowWidth,
+	float OpacityIntensity, float DecodeShadowThreshold, float SolidShadowProcess,
+	float3 EmissionColor, float AniSwitch_ShadowColorBright,
+	float4 StarrySky_UV_Switch, float SparkTiling, float SparkTimeSpeed, float SparkIntensity, float SparkIntensityMax,
+	float SparkPower, float SparkStrength, float WaveSpeed, float WaveTiling, float WaveNormalAmount, float WaveAmount,
+	float Spark_BStrength, float Spark_BStrengthWave, float SeqSwitchFactor, float3 TintColorFlowNight02,
+	float3 TintColorFlowNight, float3 TintColorFlowDay, float StarIntensity, float DiamondEmissiveStrength, float4 SelectionColor,
+	float SolidShadowStrength, float3 SubsurfaceColor, float ToonRimWidth,
+	float SolidShadow_RampPosition, float RampPosition, float RampInt, float MPC_GlobalCharSkyLightIntensity,
+	float CPD1, float CPD13,
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection, float MPC_GlobalTimeHour,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float4x4 TranslatedWorldToView, float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask, float GameTime, float ClipToView00, float3 WorldCameraOrigin, float3 LocalToWorldRow2,
+	float3 LocalToWorldRow3)
+{
+	FWuwaToonGBuffer G;
+	const float3 V = CameraVector;
+
+	// K1-3: bitangent
+	float3 TangentY = cross(WorldNormal, WorldTangent) * TangentSign;
+
+	// K14-26: normal map (xy), View[144].w blend, normalise
+	float2 nxy = (Normal_Roughness_Metallic.SampleBias(Normal_Roughness_MetallicSampler, UV0, MaterialTextureMipBias).xy * 2.0 + -1.0) * NormalStrength;
+	float3 Nmap = TangentY * nxy.y;
+	Nmap = nxy.x * WorldTangent + Nmap;
+	Nmap = Nmap + WorldNormal;
+	float  nw = NormalOverrideParameter.w;
+	float3 Nraw = Nmap * nw + (1.0 - nw) * WorldNormal;
+	float  NrawRsq = rsqrt(dot(Nraw, Nraw));
+	float3 N = Nraw * NrawRsq;
+
+	// K27-35: skin tint (DefaultSkinFactor), base colour, emission + motion emissive, lit colour (no PBR: Lit = BaseColor)
+	float3 SkinTint = DefaultSkinFactor * (SkinColor + -1.0) + 1.0;
+	float4 MT = MainTex.SampleBias(MainTexSampler, UV0, MaterialTextureMipBias);
+	float3 BaseColor = SkinTint * (MT.rgb * BaseColorTint);
+	float3 E = EmissionColor * BaseColor;
+	E = MotionEmissiveMask * E_Motion_Emissive + E;
+	float3 LitB = BaseColor * AniSwitch_ShadowColorBright;
+
+	// K36-262: UseStarrySky emissive (view-space z of the unblended normal-mapped normal drives the wave / tint flow)
+	float NmapVZ = mul(Nmap, (float3x3)TranslatedWorldToView).z;
+	float3 Star = WuwaSPStarrySky(CommonNoiseMap, CommonNoiseMapSampler, StarrySky_FlowNoise, StarrySky_FlowNoiseSampler, TypeMask, TypeMaskSampler,
+		UV0, UV1, UV2, UV3, V.xy, NmapVZ, LitB, BaseColor.z,
+		StarrySky_UV_Switch, SparkTiling, SparkTimeSpeed, SparkIntensity, SparkIntensityMax, SparkPower, SparkStrength,
+		WaveSpeed, WaveTiling, WaveNormalAmount, WaveAmount, Spark_BStrength, Spark_BStrengthWave, SeqSwitchFactor,
+		TintColorFlowNight02, TintColorFlowNight, TintColorFlowDay, StarIntensity, AniSwitch_ShadowColorBright,
+		GameTime, MaterialTextureMipBias, ClipToView00, WorldCameraOrigin, LocalToWorldRow2, LocalToWorldRow3, MPC_GlobalTimeHour);
+
+	// K263-267: emissive tail
+	float3 Em = Star + E;
+	Em = Em + 0.0 * DiamondEmissiveStrength;
+	Em = SelectionColor.a * (SelectionColor.rgb - Em) + Em;
+	G.Emissive = WuwaBPFinalEmissive(Em, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+
+	// K334-335: shading normal (not two-sided)
+	float3 N2 = RaytracingReflectionFix * (-Nraw * NrawRsq + WorldNormal) + N;
+
+	// K336-394: light direction (M_Char_Com block), half-Lambert
+	float3 L = WuwaBPMainLightDir(LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+	float HL = dot(N2, L) * 0.5 + 0.5;
+
+	// K395-403: alpha -> solid-shadow ratio
+	float A = MT.a * OpacityIntensity;
+	float ShadowPart = min(max(A, 0.0), DecodeShadowThreshold) / DecodeShadowThreshold;
+	float SolidRatio = min(ShadowPart, SolidShadowProcess) / max(SolidShadowProcess, 0.01);
+
+	// K404-414: UseRampColor -> GBufferB
+	float rp = min(max(HL, 0.0), SolidShadow_RampPosition);
+	rp = SolidRatio * (HL - rp) + rp;
+	rp = rp + 0.5;
+	float2 RampUV = float2(saturate(rp - (ShadowProcess + 0.0)), DefaultSkinFactor * (0.1 - RampPosition) + RampPosition);
+	float3 RampC = Ramp.SampleBias(RampSampler, RampUV, MaterialTextureMipBias).rgb;
+	float  RampW = ((MPC_GlobalCharSkyLightIntensity >= 0.05) ? 1.0 : 0.0) * RampInt;
+
+	// K415-430: toon shadow step x solid-shadow term (SolidShadowWidth 0.1 folded) -> GBufferA.z
+	float Lo = (ShadowProcess + 0.0) - ShadowWidth;
+	float Hi = ShadowWidth + (ShadowProcess + 0.0);
+	float Shadow = WuwaSPSmooth(saturate((HL - Lo) * (1.0 / (Hi - Lo))));
+	Shadow = Shadow * (min(max(SolidRatio, asfloat(0x3F666666u)), 1.0) + asfloat(0xBF666666u));
+	float az = -(1.0 - SolidRatio) * SolidShadowStrength + 1.0;
+	G.A.z = az * (Shadow * asfloat(0x409FFFFEu) + 0.5);
+
+	// K431-482: GBuffer
+	G.A.xy = WuwaBPOctEncode(N);
+	G.B.rgb = sqrt(saturate(RampW * (RampC - SubsurfaceColor) + SubsurfaceColor));
+	G.B.a = WuwaBPShadingModelByte(LightingChannelMask, 12u);
+	G.C.rgb = LitB;
+	if (KuroGBufferMode == 1.0)
+	{
+		G.C.a = WuwaBPRimByteEven(ToonRimWidth);
+		G.D = float4(0.0, 0.0, 0.0, 0.0);
+		G.A.w = 1.0;
+	}
+	else
+	{
+		G.C.a = A;
+		G.D = float4(ToonRimWidth, 0.0, 0.0, 0.0);
+		G.A.w = 0.0;
+	}
+	return G;
+}
+
+FWuwaToonGBuffer WuwaToonSpecialBasePass_StarryNoPBRRamp(
+	Texture2D Normal_Roughness_Metallic, SamplerState Normal_Roughness_MetallicSampler,
+	Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D CommonNoiseMap, SamplerState CommonNoiseMapSampler,
+	Texture2D StarrySky_FlowNoise, SamplerState StarrySky_FlowNoiseSampler,
+	Texture2D TypeMask, SamplerState TypeMaskSampler,
+	Texture2D Ramp, SamplerState RampSampler,
+	float2 UV0, float2 UV1, float2 UV2, float2 UV3, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask,
+	float NormalStrength, float3 E_Motion_Emissive, float3 SkinColor, float DefaultSkinFactor, float3 BaseColorTint,
+	float RaytracingReflectionFix, float LightOffset_Pitch, float ShadowProcess, float ShadowWidth,
+	float OpacityIntensity, float DecodeShadowThreshold, float SolidShadowProcess,
+	float3 EmissionColor, float AniSwitch_ShadowColorBright,
+	float4 StarrySky_UV_Switch, float SparkTiling, float SparkTimeSpeed, float SparkIntensity, float SparkIntensityMax,
+	float SparkPower, float SparkStrength, float WaveSpeed, float WaveTiling, float WaveNormalAmount, float WaveAmount,
+	float Spark_BStrength, float Spark_BStrengthWave, float SeqSwitchFactor, float3 TintColorFlowNight02,
+	float3 TintColorFlowNight, float3 TintColorFlowDay, float StarIntensity, float DiamondEmissiveStrength, float4 SelectionColor,
+	float SolidShadowStrength, float3 SubsurfaceColor, float ToonRimWidth,
+	float SolidShadow_RampPosition, float RampPosition, float RampInt, float MPC_GlobalCharSkyLightIntensity,
+	float CPD1, float CPD13,
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection, float MPC_GlobalTimeHour,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float4x4 TranslatedWorldToView, float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask, float GameTime, float ClipToView00, float3 WorldCameraOrigin, float3 LocalToWorldRow2,
+	float3 LocalToWorldRow3)
+{
+	return WuwaToonSpecialStarryNoPBR_Impl(Normal_Roughness_Metallic, Normal_Roughness_MetallicSampler, MainTex, MainTexSampler,
+		CommonNoiseMap, CommonNoiseMapSampler, StarrySky_FlowNoise, StarrySky_FlowNoiseSampler, TypeMask, TypeMaskSampler, Ramp, RampSampler,
+		UV0, UV1, UV2, UV3, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask,
+		NormalStrength, E_Motion_Emissive, SkinColor, DefaultSkinFactor, BaseColorTint, RaytracingReflectionFix, LightOffset_Pitch,
+		ShadowProcess, ShadowWidth, OpacityIntensity, DecodeShadowThreshold, SolidShadowProcess, EmissionColor, AniSwitch_ShadowColorBright,
+		StarrySky_UV_Switch, SparkTiling, SparkTimeSpeed, SparkIntensity, SparkIntensityMax, SparkPower, SparkStrength,
+		WaveSpeed, WaveTiling, WaveNormalAmount, WaveAmount, Spark_BStrength, Spark_BStrengthWave, SeqSwitchFactor,
+		TintColorFlowNight02, TintColorFlowNight, TintColorFlowDay, StarIntensity, DiamondEmissiveStrength, SelectionColor,
+		SolidShadowStrength, SubsurfaceColor, ToonRimWidth, SolidShadow_RampPosition, RampPosition, RampInt, MPC_GlobalCharSkyLightIntensity,
+		CPD1, CPD13, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, MPC_GlobalTimeHour,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, TranslatedWorldToView, MaterialTextureMipBias, NormalOverrideParameter,
+		KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds,
+		LightingChannelMask, GameTime, ClipToView00, WorldCameraOrigin, LocalToWorldRow2, LocalToWorldRow3);
+}
+
+#endif // WUWA_SPECIAL_STARRY2_USH

@@ -1,0 +1,101 @@
+{
+ "root_material": "M_Char_BlurTransLucentGlass",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "Char_BlurTransLucentGlass_TexPBR.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "c6d7b85d06dfd63a716478dc626fb262544bddba"
+    ],
+    "base_pass_vs_hash": [
+     "5140346746cf8a824ef3ebe22b6c5aea981f14dc"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/blurglass/results_blurglass_c6d7b8_blurglass_3ebbfe_blurglass_6dee9f_final.json summary.blurglass_c6d7b8 (39 runs, o0 638976/638976 bit-exact); VS #161356 gated_wpo (evidence/validation/shaderdiff/weapons/round3/blurglass/vs_status_blurglass.json (r3/blurglass_vs_status.py): TEXCOORD2.xyz (WuwaToonBaseVS_LightDir) symbolically identical to the verified Body VS #35700 (cbuffer slots renamed cbN -> cbN-1); every other Material-UB read is the hologram WPO (gate USE Hologram > 0.0001) or the E_Motion offset WPO + TEXCOORD2.w motion mask (gate E_Motion_Offset.w > 0.0001): USE Hologram = 0 and E_Motion_Offset = (0,0,0,0) at the roster MI, so WPO = 0 and the mask = 0; the remaining outputs (tangent frame, UVs, colour, TEXCOORD7 fog, SV_POSITION) read no Material-UB value)",
+   "ps_archive_index": 292976,
+   "vs_archive_index": [
+    161356
+   ],
+   "vs_status": {
+    "5140346746cf8a824ef3ebe22b6c5aea981f14dc": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Augusta",
+    "skin:Bearer of Legend"
+   ],
+   "example_mis": [
+    "MI_R2T1AogusitaMd10011Alpha"
+   ],
+   "notes": "MI_R2T1AogusitaMd10011Alpha (Augusta); lit translucent toon (ToonCommon forward): resolve:false, Emissive Color = X.Emissive + out ToonLit, Opacity = X.Opacity; engine inputs SceneColor, KuroDirShadow, EyeAdaptation, KuroLocalLights, Kuro View[286].z/[298..306], ToonLight0..3, MPC, CPD (see spec ue_material.engine_inputs_required); engine tail (prim fade, fog, emissive scale, OOB) not ported (hlsl/kuro_tail_blurglass.hlsli)"
+  },
+  {
+   "spec": "Char_BlurTransLucentGlass_TexPBRMainTexA2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "3ebbfe109d90a6dcf8281531e4052b44c1a69139"
+    ],
+    "base_pass_vs_hash": [
+     "d4b41ab1738925b7dc1b5c2e2bbfa343696f77f2"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/blurglass/results_blurglass_c6d7b8_blurglass_3ebbfe_blurglass_6dee9f_final.json summary.blurglass_3ebbfe (39 runs, o0 638976/638976 bit-exact); VS #242957 gated_wpo (evidence/validation/shaderdiff/weapons/round3/blurglass/vs_status_blurglass.json (r3/blurglass_vs_status.py): TEXCOORD2.xyz (WuwaToonBaseVS_LightDir) symbolically identical to the verified Body VS #35700 (cbuffer slots renamed cbN -> cbN-1); every other Material-UB read is the hologram WPO (gate USE Hologram > 0.0001) or the E_Motion offset WPO + TEXCOORD2.w motion mask (gate E_Motion_Offset.w > 0.0001): USE Hologram = 0 and E_Motion_Offset = (0,0,0,0) at the roster MI, so WPO = 0 and the mask = 0; the remaining outputs (tangent frame, UVs, colour, TEXCOORD7 fog, SV_POSITION) read no Material-UB value)",
+   "ps_archive_index": 322245,
+   "vs_archive_index": [
+    242957
+   ],
+   "vs_status": {
+    "d4b41ab1738925b7dc1b5c2e2bbfa343696f77f2": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Chisa",
+    "skin:Her Way Here"
+   ],
+   "example_mis": [
+    "MI_R2T1QianXiaMd10011Alpha"
+   ],
+   "notes": "MI_R2T1QianXiaMd10011Alpha (Chisa), two-sided; lit translucent toon (ToonCommon forward): resolve:false, Emissive Color = X.Emissive + out ToonLit, Opacity = X.Opacity; engine inputs SceneColor, KuroDirShadow, EyeAdaptation, KuroLocalLights, Kuro View[286].z/[298..306], ToonLight0..3, MPC, CPD (see spec ue_material.engine_inputs_required); engine tail (prim fade, fog, emissive scale, OOB) not ported (hlsl/kuro_tail_blurglass.hlsli)"
+  },
+  {
+   "spec": "Char_BlurTransLucentGlass_ScalarPBRMatCap.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6dee9fe264519ef6b57b3668e96e749a6e1d0959"
+    ],
+    "base_pass_vs_hash": [
+     "7808721fff83002e52a6da8e19bf28d983c0d309"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/blurglass/results_blurglass_c6d7b8_blurglass_3ebbfe_blurglass_6dee9f_final.json summary.blurglass_6dee9f (39 runs, o0 638976/638976 bit-exact); VS #259599 gated_wpo (evidence/validation/shaderdiff/weapons/round3/blurglass/vs_status_blurglass.json (r3/blurglass_vs_status.py): TEXCOORD2.xyz (WuwaToonBaseVS_LightDir) symbolically identical to the verified Body VS #35700 (cbuffer slots renamed cbN -> cbN-1); every other Material-UB read is the hologram WPO (gate USE Hologram > 0.0001) or the E_Motion offset WPO + TEXCOORD2.w motion mask (gate E_Motion_Offset.w > 0.0001): USE Hologram = 0 and E_Motion_Offset = (0,0,0,0) at the roster MI, so WPO = 0 and the mask = 0; the remaining outputs (tangent frame, UVs, colour, TEXCOORD7 fog, SV_POSITION) read no Material-UB value)",
+   "ps_archive_index": 259594,
+   "vs_archive_index": [
+    259599
+   ],
+   "vs_status": {
+    "7808721fff83002e52a6da8e19bf28d983c0d309": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Rebecca",
+    "skin:Cyberpunk"
+   ],
+   "example_mis": [
+    "MI_ERebeccaDrinkMd10011_Boli"
+   ],
+   "notes": "MI_ERebeccaDrinkMd10011_Boli (Rebecca prop); lit translucent toon (ToonCommon forward): resolve:false, Emissive Color = X.Emissive + out ToonLit, Opacity = X.Opacity; engine inputs SceneColor, KuroDirShadow, EyeAdaptation, KuroLocalLights, Kuro View[286].z/[298..306], ToonLight0..3, MPC, CPD (see spec ue_material.engine_inputs_required); engine tail (prim fade, fog, emissive scale, OOB) not ported (hlsl/kuro_tail_blurglass.hlsli)"
+  }
+ ]
+}

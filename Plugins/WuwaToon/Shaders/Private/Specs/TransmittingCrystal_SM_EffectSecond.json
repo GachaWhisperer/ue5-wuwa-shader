@@ -1,0 +1,713 @@
+{
+ "name": "TransmittingCrystal_SM_EffectSecond",
+ "entry": "WuwaCrystalTransmitting_EffectSecond",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_Crystal.ush",
+ "kuro_shading_model": "MSM_Unlit",
+ "kuro_asm": "M_TransmittingCrystal_SM PS c3338a60e7 (#137263, 292 instr) / VS 98ddcc5e (#2157); Use_Specular + Use_FlowLight + UseEffectMaterial + UseSecond + UseWrappingUV",
+ "kuro_root_material": "M_TransmittingCrystal_SM",
+ "blend_mode": "BLEND_Translucent",
+ "two_sided": true,
+ "resolve": false,
+ "resolve_note": "forward translucent unlit (Kuro MSM_Unlit, BLEND_Translucent, two-sided): output Emissive + Opacity to a UE translucent unlit material. The material itself is lit (directional light View[153], SSS View[296], specular, smoothstep ramp) and samples the scene colour for its refraction term; those engine values are explicit inputs. Kuro engine tail, not ported (UE applies its own): opacity *= Kuro primitive fade (Primitive[43]); colour = max(E, 0) (*View[285] unless Primitive[42].w), OOB stripes, vertex fog (TEXCOORD7) / volumetric fog, Kuro effect grading (View[283].y/[279], View[286].x/[284]); o0 = (rgb, opacity) (single render target). Verified with that tail reproduced in the harness (KuroRefractionTail).",
+ "vs_note": null,
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "material Emissive Color (before the engine translucent tail: fog, OOB, Kuro effect grading)"
+  },
+  "Opacity": {
+   "type": "float",
+   "kuro": "material Opacity (o0.a = o1.a after the tail)"
+  }
+ },
+ "inputs": [
+  {
+   "name": "SceneColor",
+   "type": "Texture2D",
+   "kind": "engine_texture",
+   "kuro": "t1 (Kuro forward translucent pass: opaque scene-colour copy, sampled with Sample() / no mip bias at the clamped buffer UV computed by the material)",
+   "ue_expr": "SceneColor: UE SceneTexture:SceneColor in a translucent material (SceneTextureLookup(UV, PPI_SceneColor, false) / CalcSceneColor) - pass the texture + sampler (View.SceneColorCopy / SceneColorTextureSampler style) or replace the Sample with a SceneTextureLookup at the same UV. Kuro reads the opaque scene colour directly; UE refraction (Refraction pin / distortion pass) is NOT equivalent.",
+   "harness": "synthetic RGBA32F texture bound to t1 (wv_crystal.tex_hook)"
+  },
+  {
+   "name": "SceneColorSampler",
+   "type": "SamplerState",
+   "kind": "engine_sampler",
+   "texture": "SceneColor",
+   "kuro": "s0 (point / bilinear, clamp-like via the UV clamp)",
+   "ue_expr": "scene-colour sampler (bilinear clamp)"
+  },
+  {
+   "name": "NormalMap",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "NormalMap",
+   "default": "T_R5Device510Md20001_N",
+   "note": "reference MI MI_R5Device510Md20001_Effect: {'ObjectName': \"Texture2D'T_R5Device510Md20001_N'\", 'ObjectPath': 'Client/Content/Aki/Character/Weapon/Device/R5Device510/R5Device510Md20001/Model/T_R5Device510Md20001_N.1'}"
+  },
+  {
+   "name": "NormalMapSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "NormalMap",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "NormalMapSampler"
+  },
+  {
+   "name": "BaseColTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "BaseColTex",
+   "default": "T_R5Device510Md20001_D",
+   "note": "reference MI MI_R5Device510Md20001_Effect: {'ObjectName': \"Texture2D'T_R5Device510Md20001_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Weapon/Device/R5Device510/R5Device510Md20001/Model/T_R5Device510Md20001_D.1'}"
+  },
+  {
+   "name": "BaseColTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "BaseColTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "BaseColTexSampler"
+  },
+  {
+   "name": "FragmentNormal_Tex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "FragmentNormal_Tex",
+   "default": "T_R5Device510Md20001_Effect_D",
+   "note": "reference MI MI_R5Device510Md20001_Effect: {'ObjectName': \"Texture2D'T_R5Device510Md20001_Effect_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Weapon/Device/R5Device510/R5Device510Md20001/Model/T_R5Device510Md20001_Effect_D.1'}"
+  },
+  {
+   "name": "FragmentNormal_TexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "FragmentNormal_Tex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "FragmentNormal_TexSampler"
+  },
+  {
+   "name": "FlowLight_NoiseTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": null,
+   "default": "CommonNoise_Cloud",
+   "note": "[U] not a texture parameter: fixed flow-light noise texture of the root (most likely CommonNoise_Cloud)"
+  },
+  {
+   "name": "FlowLight_NoiseTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "FlowLight_NoiseTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "FlowLight_NoiseTexSampler"
+  },
+  {
+   "name": "Second_RGB",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Second_RGB",
+   "default": "T_Tile_810015",
+   "note": "reference MI MI_R5Device510Md20001_Effect: {'ObjectName': \"Texture2D'T_Tile_810015'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/Tile/T_Tile_810015.1'}"
+  },
+  {
+   "name": "Second_RGBSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Second_RGB",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "Second_RGBSampler"
+  },
+  {
+   "name": "R_Noise_A_Mask",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "R_Noise_A_Mask",
+   "default": "T_R5Device510Md20001Effcet01_D",
+   "note": "reference MI MI_R5Device510Md20001_Effect: {'ObjectName': \"Texture2D'T_R5Device510Md20001Effcet01_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Weapon/Device/R5Device510/R5Device510Md20001/Model/T_R5Device510Md20001Effcet01_D.1'}"
+  },
+  {
+   "name": "R_Noise_A_MaskSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "R_Noise_A_Mask",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "R_Noise_A_MaskSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "UV1",
+   "type": "float2",
+   "kind": "uv",
+   "index": 1
+  },
+  {
+   "name": "UV2",
+   "type": "float2",
+   "kind": "uv",
+   "index": 2
+  },
+  {
+   "name": "UV3",
+   "type": "float2",
+   "kind": "uv",
+   "index": 3
+  },
+  {
+   "name": "WorldTangent",
+   "type": "float3",
+   "kind": "worldtangent",
+   "ue_expr": "Parameters.TangentToWorld[0]"
+  },
+  {
+   "name": "WorldNormal",
+   "type": "float3",
+   "kind": "worldnormal",
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "TangentSign",
+   "type": "float",
+   "kind": "worldtangent",
+   "channel": "sign",
+   "ue_expr": "Parameters.TangentToWorldSign"
+  },
+  {
+   "name": "TwoSidedSign",
+   "type": "float",
+   "kind": "twosidedsign",
+   "ue_expr": "Parameters.TwoSidedSign"
+  },
+  {
+   "name": "TranslatedWorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "translated",
+   "ue_expr": "GetTranslatedWorldPosition(Parameters)"
+  },
+  {
+   "name": "SvPositionXY",
+   "type": "float2",
+   "kind": "svposition",
+   "ue_expr": "Parameters.SvPosition.xy"
+  },
+  {
+   "name": "ViewRectMin",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewRectMin.xy",
+   "kuro": "View[134].xy"
+  },
+  {
+   "name": "ViewSizeAndInvSize",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewSizeAndInvSize",
+   "kuro": "View[135]"
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  },
+  {
+   "name": "TranslatedWorldToView",
+   "type": "float4x4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.TranslatedWorldToView",
+   "kuro": "Kuro View[12..15]"
+  },
+  {
+   "name": "KuroDirectionalLightDirection",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": "ResolvedView.DirectionalLightDirection",
+   "kuro": "View[153].xyz (directional light direction, toward the light) [I]",
+   "default": [
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "name": "KuroSSSDirection",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "unknown": true,
+   "default": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "kuro": "View[296].xyz (Kuro view row: back-light / SSS direction, normalised in the material; not a UE view member - feed the main light direction or a project parameter) [U]"
+  },
+  {
+   "name": "SceneColorBufferSizeAndInvSize",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.BufferSizeAndInvSize",
+   "kuro": "View[138] (.zw = 1 / scene-colour buffer size)"
+  },
+  {
+   "name": "SceneColorBufferUVMinMax",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.BufferBilinearUVMinMax",
+   "kuro": "View[139] (scene-colour UV clamp: xy min, zw max)"
+  },
+  {
+   "name": "NormalStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "NormalStrength",
+   "default": 1.0
+  },
+  {
+   "name": "Specular_Offset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Specular_Offset",
+   "default": 0.0
+  },
+  {
+   "name": "Specular_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Specular_Intensity",
+   "default": 1.0
+  },
+  {
+   "name": "ShadowCol_Tint",
+   "type": "float4",
+   "kind": "vector",
+   "param": "ShadowCol_Tint",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "BaseCol_Tint",
+   "type": "float4",
+   "kind": "vector",
+   "param": "BaseCol_Tint",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "BaseCol_Desaturate",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BaseCol_Desaturate",
+   "default": 0.0
+  },
+  {
+   "name": "ShadowColor_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowColor_Intensity",
+   "default": 0.5
+  },
+  {
+   "name": "ShadowProcess",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowProcess",
+   "default": 0.5
+  },
+  {
+   "name": "ShadowWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowWidth",
+   "default": 0.009999999776482582
+  },
+  {
+   "name": "FinalBaseCol_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FinalBaseCol_Intensity",
+   "default": 1.0
+  },
+  {
+   "name": "SSSValue",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SSSValue",
+   "default": 0.6000000238418579
+  },
+  {
+   "name": "BLPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BLPower",
+   "default": 5.0
+  },
+  {
+   "name": "BLScale",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BLScale",
+   "default": 1.0
+  },
+  {
+   "name": "FresnelAlpha_Power",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FresnelAlpha_Power",
+   "default": 2.0
+  },
+  {
+   "name": "FragmentNormal_Tilling",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FragmentNormal_Tilling",
+   "default": 1.0
+  },
+  {
+   "name": "FragmentNormal_Height",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FragmentNormal_Height",
+   "default": -2.0
+  },
+  {
+   "name": "FragmentNormal_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FragmentNormal_Intensity",
+   "default": 1.0
+  },
+  {
+   "name": "FragmentNormal_Offset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FragmentNormal_Offset",
+   "default": -0.875
+  },
+  {
+   "name": "Refraction_IOR",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Refraction_IOR",
+   "default": 1.5
+  },
+  {
+   "name": "Refraction_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Refraction_Intensity",
+   "default": 1.0
+  },
+  {
+   "name": "RefractionRange_Offset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RefractionRange_Offset",
+   "default": 0.0
+  },
+  {
+   "name": "RefractionRange_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RefractionRange_Intensity",
+   "default": 1.0
+  },
+  {
+   "name": "FlowLight_UV_Switch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "FlowLight_UV_Switch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "WaveTiling",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaveTiling",
+   "default": 6.0
+  },
+  {
+   "name": "WaveSpeed",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaveSpeed",
+   "default": 0.5
+  },
+  {
+   "name": "Normal_ViewBlend",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Normal_ViewBlend",
+   "default": 0.5
+  },
+  {
+   "name": "WaveNormalAmount",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaveNormalAmount",
+   "default": 1.051805019378662
+  },
+  {
+   "name": "WaveAmount",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaveAmount",
+   "default": 1.0
+  },
+  {
+   "name": "TintColorFlow02",
+   "type": "float4",
+   "kind": "vector",
+   "param": "TintColorFlow02",
+   "channels": "rgba",
+   "default": [
+    0.09971000254154205,
+    0.021443000063300133,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "name": "TintColorFlow",
+   "type": "float4",
+   "kind": "vector",
+   "param": "TintColorFlow",
+   "channels": "rgba",
+   "default": [
+    0.9380599856376648,
+    0.38444599509239197,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "name": "SecondTex_UVSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SecondTex_UVSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Second_UseScreenUV",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Second_UseScreenUV",
+   "default": 0.0
+  },
+  {
+   "name": "Second_RotCos",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Second_Rotation"
+   ],
+   "expr": "cos(Second_Rotation * 6.2831855)",
+   "ue_nodes": "Cosine[Period 0](Multiply(ScalarParameter \"Second_Rotation\", 6.2831855 = 0x40C90FDB))",
+   "default": 1.0
+  },
+  {
+   "name": "Second_RotSin",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Second_Rotation"
+   ],
+   "expr": "sin(Second_Rotation * 6.2831855)",
+   "ue_nodes": "Sine[Period 0](Multiply(ScalarParameter \"Second_Rotation\", 6.2831855 = 0x40C90FDB))",
+   "default": 0.0
+  },
+  {
+   "name": "Second_UV",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Second_UV",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Second_UV_Offset",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Second_UV_Offset",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Second_Refine",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Second_Refine",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Second_ColorTint",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Second_ColorTint",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "EffectMaskTexUV2Switch",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EffectMaskTexUV2Switch",
+   "default": 0.0
+  },
+  {
+   "name": "Effect_Progress",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Effect_Progress",
+   "default": 0.0
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "BaseOpacity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BaseOpacity",
+   "default": 1.0
+  },
+  {
+   "name": "FinalOpacity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FinalOpacity",
+   "default": 1.0
+  },
+  {
+   "name": "E_Dither_DitherValue",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_DitherValue",
+   "default": 1.2000000476837158
+  },
+  {
+   "name": "E_Dither_DitherValue_MainPass",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_DitherValue_MainPass",
+   "default": 1.2000000476837158
+  },
+  {
+   "name": "E_Dither_DitherValue2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_DitherValue2",
+   "default": 1.2000000476837158
+  },
+  {
+   "name": "E_Dither_UseDither",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_UseDither",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dither_UseDither2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_UseDither2",
+   "default": 0.0
+  },
+  {
+   "name": "NormalOverrideParameter",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.NormalOverrideParameter",
+   "kuro": "Kuro View[144] (stock member), default (0,0,0,1)",
+   "default": [
+    0,
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  }
+ ],
+ "generated_by": "tools/shaderdiff/weapons/r3/make_specs_crystal.py (on make_specs.py)",
+ "notes": {
+  "textures": "texture-parameter names are inferred [U] (cooked shader maps keep no t-slot names): NormalMap (t2, .xy*2-1 * NormalStrength), BaseColTex (t3), FragmentNormal_Tex (fragment normal, parallax-offset UV0 * FragmentNormal_Tilling), DepthWeight_Tex (.r, UV3 * BumpOffsetTilling) and BumpOffset_BaseTex (parallax emissive), Diamond_MainTex, Second_RGB, R_Noise_A_Mask (.g, lerp(UV0, UV2, EffectMaskTexUV2Switch)) match the MI texture overrides by role. FlowLight_NoiseTex [U]: the flow-light noise (.r at (FlowU * 12, GameTime * WaveSpeed * 0.1)) is not one of the root texture parameters; most likely the fixed texture CommonNoise_Cloud (Client/Content/Aki/Character/Role/CommonTexture/Monster/CommonNoise_Cloud) listed in the root ReferencedTextures without a parameter."
+ },
+ "ue_material": {
+  "contract": "entry returns FWuwaFXOutput {float3 Emissive; float Opacity;} - no toon GBuffer, no WuwaToonResolve",
+  "shading_model": "MSM_Unlit",
+  "blend_mode": "BLEND_Translucent",
+  "two_sided": true,
+  "connect": {
+   "EmissiveColor": "X.Emissive",
+   "Opacity": "X.Opacity"
+  },
+  "opacity_mask_clip_value": null,
+  "note": "standard translucent unlit (SrcAlpha / InvSrcAlpha); UE applies fog"
+ },
+ "engine_inputs_note": "inputs of kind engine_texture / engine_sampler and view rows are engine values the material generator must provide (see each input: kuro register, ue_expr)."
+}

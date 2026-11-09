@@ -1,0 +1,1263 @@
+// WuwaToonBasePass_SpecialDiamond.ush — M_Char_Com_Special base pass with UseDiamond, MSM_ToonCommon (GBufferB id 12).
+// Round 3 of research/roster/Port_Weapons_Specials.md (batch "diamond"): Carlotta (Kamola) R2T1KamolaMd10011 / Md20011 hair and
+// bangs. New file: WuwaToonBasePass_Special.ush (round 2) and the verified shared headers are only #included.
+//
+// Line refs D### = asm_hex of PS #158105 (13da21c481, MI_R2T1KamolaMd10011Bangs_2); H### = PS #30441 (2fbca3b2ff, Hair_2);
+// G### = PS #332331 (0278a11b3f, Bangs_3); M### = PS #1461 (b191fc1de0, Hair_3).
+// Body = the M_Char_Com_Special toon body of the round-2 Starry port (same light direction, toon specular, PBR, GBuffer
+// packing) without UseStarrySky, plus:
+//   * MaskTex (the Kuro hair mask, sampled at the AniSwitch_FaceShadow atlas UV): .g drives the solid-shadow ratio
+//     (min(MaskTex.g, SolidShadowProcess) / max(SolidShadowProcess, 0.01)) instead of MainTex.a * OpacityIntensity.
+//   * UseDiamond: refracted view vector (refract(V, N, 0.750188)) in view space, lerped (UseDiamond_UV_Switch) with a
+//     tiled / panned lerp(UV0, UV3) -> Diamond_MainTex; x (1 + refract-glint pow(dot(Nv, normalize(Diamond_RefractVector)), 12));
+//     + a time-periodic flash band on UV2.y (fmod(GameTime, 1.1 / DiamondFlash_Speed)) x LitB; + a 3x3x3 voronoi star field
+//     on (UV0 * 16, GameTime * 0.28) x LitB; all x the local mask saturate(UV3.y * Diamond_MaskHardness + Diamond_MaskHeight) *
+//     Diamond_MaskColor, lerped toward LitB * mask by Diamond_Blend. The result is added to GBufferC.rgb, to GBufferB.rgb
+//     (before sqrt) and, x DiamondEmissiveStrength, to the emissive. (The original evaluates the voronoi twice - an unshared
+//     custom node; both evaluations are identical, the port evaluates it once.)
+// Compile-time switches:
+//   bToonPlus    UseToonPlus (D, H): metallic / roughness from Normal_Roughness_Metallic.zw * Intensity(Debug); MaskTex shadow
+//                offset pow(smooth(saturate((MaskTex.g - SSP) / (1 - SSP))) * ShadowOffsetAdjustFactor, ShadowOffsetPower) *
+//                MaskShadowOffsetStrength added to the half-Lambert; SolidShadowWidth is a parameter (ratio / max(SSW, 1e-4),
+//                lit threshold 0.4, GBufferA.z = Shadow * 0.5 + 0.5); no matcap.
+//                Off (G, M): Roughness / Metalllic parameters, SolidShadowWidth = 0.1 folded by fxc (0x3D23D70C / 0x409FFFFE as in
+//                the Starry port) and the Starry roughness-selected matcap (MatCapTex).
+//   bToonSpec    UseToonSpecular (H): view toon specular saturate(N2.V) * SpecStrength * (max(1 - NoV, MaskTex.r) clamp - (1 - NoV))
+//                / max(NoV', 1e-4) added to the base colour of the non-PBR part, and GBufferC.rgb = lerp(Lit * AniSwitch_ShadowColorDark,
+//                Lit * AniSwitch_ShadowColorBright, MaskTex.b)
+//   bEffectMask  UseVectorMaskChannel-like effect emissive (H, M): pow(R_Noise_A_Mask.a (lerp(UV0, UV2, EffectMaskTexUV2Switch)),
+//                1 - Effect_Progress) * EffectMaskColor
+// UE inputs: UV0, UV2 (TEXCOORD1.xy), UV3 (TEXCOORD1.zw), LightDirVS / MotionEmissiveMask = Kuro TEXCOORD2.xyz / .w (Body-VS
+// layout; the four VS are symbolically identical to the verified Body VS #35700), uniform expressions Diamond_RefractDir
+// (normalize(Diamond_RefractVector.rgb)) and DiamondFlash_Period (1.1 / DiamondFlash_Speed), both CPU preshaders in Kuro.
+#ifndef WUWA_SPECIAL_DIAMOND_USH
+#define WUWA_SPECIAL_DIAMOND_USH
+
+#include "WuwaToonBasePass_Special.ush"
+
+// ---------------------------------------------------------------------------------------------------------------------
+// D274-333: 3x3x3 voronoi star (hash frac(sin(dot(cell, k)) * 43)), Minkowski exponent e = (d01 * 0.4 + 0.25) * 0.6 + 0.1,
+// d01 = min(|camera - (object + 80 * local Z)| * 0.001, 1); returns ((1 - min distance) * StarIntensity)^2.
+// ---------------------------------------------------------------------------------------------------------------------
+float WuwaSDStar(float2 UV0, float GameTime, float StarIntensity, float3 WorldCameraOrigin, float3 LocalToWorldRow2, float3 LocalToWorldRow3)
+{
+	float3 dC = WorldCameraOrigin - (LocalToWorldRow2 * 80.0 + LocalToWorldRow3);
+	float  d01 = min(sqrt(dot(dC, dC)) * 0.001, 1.0);
+	float  e = (d01 * 0.4 + 0.25) * 0.6 + 0.1;
+	float3 P = float3(UV0.x * 16.0, UV0.y * 16.0, GameTime * asfloat(0x3E8F5C29u));
+	float3 Pf = frac(P);
+	float3 Pi = floor(P);
+	float  ie = 1.0 / e;
+	float  best = asfloat(0x4E6E6B28u);
+	[loop] for (float cz = -1.0; cz <= 1.0; cz += 1.0)
+	{
+		[loop] for (float cy = -1.0; cy <= 1.0; cy += 1.0)
+		{
+			[loop] for (float cx = -1.0; cx <= 1.0; cx += 1.0)
+			{
+				float3 o = float3(cx, cy, cz);
+				float3 dd = o - Pf;
+				float3 c = Pi + o;
+				float3 h = float3(dot(c, float3(1.0, 57.0, 113.0)), dot(c, float3(57.0, 113.0, 1.0)), dot(c, float3(113.0, 1.0, 57.0)));
+				dd = dd + frac(sin(h) * 43.0);
+				dd = exp2(log2(abs(dd)) * e);
+				float s = dd.z + (dd.y + dd.x);
+				s = min(exp2(log2(s) * ie), 1.0);
+				best = min(s, best);
+			}
+		}
+	}
+	float st = (1.0 - best) * StarIntensity;
+	return st * st;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// UseDiamond body (D1-570)
+// ---------------------------------------------------------------------------------------------------------------------
+FWuwaToonGBuffer WuwaToonSpecialDiamondBasePass_Impl(const bool bToonPlus, const bool bToonSpec, const bool bEffectMask,
+	Texture2D Normal_Roughness_Metallic, SamplerState Normal_Roughness_MetallicSampler,
+	Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D MaskTex, SamplerState MaskTexSampler,
+	Texture2D MatCapTex, SamplerState MatCapTexSampler,
+	Texture2D Diamond_MainTex, SamplerState Diamond_MainTexSampler,
+	Texture2D R_Noise_A_Mask, SamplerState R_Noise_A_MaskSampler,
+	Texture2D Ramp, SamplerState RampSampler,
+	float2 UV0, float2 UV2, float2 UV3, float VertexColorR, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 TranslatedWorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask,
+	float NormalStrength, float Diamond_MaskHardness, float Diamond_MaskHeight, float3 Diamond_MaskColor,
+	float3 SkinColor, float DefaultSkinFactor, float3 BaseColorTint, float RaytracingReflectionFix,
+	float Roughness, float Metalllic, float MetallicIntensityDebug, float RoughnessIntensityDebug,
+	float SpecularPower, float MetalSpecularPower, float LightOffset_Pitch, float ShadowProcess, float ShadowWidth,
+	float AniSwitch_FaceShadow, float SolidShadowProcess, float ShadowOffsetAdjustFactor, float ShadowOffsetPower,
+	float MaskShadowOffsetStrength, float SolidShadowWidth, float SpecStrength, float PBRRate,
+	float MatCapInt, float MetalMatCapBack, float MetalMatCapInt,
+	float AniSwitch_ShadowColorBright, float AniSwitch_ShadowColorDark, float StarIntensity,
+	float Diamond_PannerSpeed_X, float Diamond_PannerSpeed_Y, float Diamond_UVSelect, float Diamond_Tiling, float UseDiamond_UV_Switch,
+	float3 Diamond_RefractDir, float Diamond_Intensity, float DiamondFlash_Period, float DiamondFlash_Speed, float DiamondFlash_Intensity,
+	float3 DiamondFlash_Color, float Diamond_Blend, float DiamondEmissiveStrength,
+	float MetalEmissionStrength, float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor,
+	float EffectMaskTexUV2Switch, float Effect_Progress, float3 EffectMaskColor,
+	float SolidShadow_RampPosition, float RampPosition, float RampInt, float SolidShadowStrength, float OpacityIntensity,
+	float3 SubsurfaceColor, float ToonRimWidth, float MPC_GlobalCharSkyLightIntensity,
+	float CPD1, float CPD13, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float4x4 TranslatedWorldToView, float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask, float GameTime, float3 WorldCameraOrigin, float3 LocalToWorldRow2, float3 LocalToWorldRow3)
+{
+	FWuwaToonGBuffer G;
+	const float3 V = CameraVector;
+
+	// D65-67: bitangent
+	float3 TangentY = cross(WorldNormal, WorldTangent) * TangentSign;
+
+	// D77-88: normal map (xy), View[144].w blend, normalise
+	float4 NRM = Normal_Roughness_Metallic.SampleBias(Normal_Roughness_MetallicSampler, UV0, MaterialTextureMipBias);
+	float2 nxy = (NRM.xy * 2.0 + -1.0) * NormalStrength;
+	float3 Nmap = TangentY * nxy.y;
+	Nmap = nxy.x * WorldTangent + Nmap;
+	Nmap = Nmap + WorldNormal;
+	float  nw = NormalOverrideParameter.w;
+	float3 Nraw = Nmap * nw + (1.0 - nw) * WorldNormal;
+	float  NrawRsq = rsqrt(dot(Nraw, Nraw));
+	float3 N = Nraw * NrawRsq;
+
+	// D89-90: diamond local mask
+	float3 DMask = saturate(UV3.y * Diamond_MaskHardness + Diamond_MaskHeight) * Diamond_MaskColor;
+
+	// D91-95: skin tint (DefaultSkinFactor), base colour
+	float3 SkinTint = DefaultSkinFactor * (SkinColor + -1.0) + 1.0;
+	float4 MT = MainTex.SampleBias(MainTexSampler, UV0, MaterialTextureMipBias);
+	float3 TexColor  = MT.rgb * BaseColorTint;
+	float3 BaseColor = SkinTint * TexColor;
+
+	float Metallic, Rough;
+	if (bToonPlus)
+	{
+		Metallic = NRM.z * MetallicIntensityDebug;      // D96
+		Rough    = NRM.w * RoughnessIntensityDebug;
+	}
+	else
+	{
+		Metallic = Metalllic;
+		Rough    = Roughness;
+	}
+
+	// D97-98: shading normal N2
+	float3 N2 = RaytracingReflectionFix * (-Nraw * NrawRsq + WorldNormal) + N;
+
+	// D170-177: MaskTex at the AniSwitch_FaceShadow atlas cell (preshader float2(floor(FS - 1), floor((FS - 1) / 2)))
+	float  fs1 = AniSwitch_FaceShadow - 1.0;
+	float2 cell = float2(floor(fs1), floor(fs1 / 2.0));
+	float2 fuv = frac((UV0 + cell) * float2(0.5, 0.25));
+	float  fsOn = (AniSwitch_FaceShadow >= 0.1) ? 1.0 : 0.0;
+	float2 MaskUV = fsOn * (fuv - UV0) + UV0;
+	float3 MK = MaskTex.SampleBias(MaskTexSampler, MaskUV, MaterialTextureMipBias).rgb;
+
+	// H89-98: UseToonSpecular view term, added to the base colour of the non-PBR part
+	float3 BaseTS = BaseColor;
+	if (bToonSpec)
+	{
+		float NoV  = saturate(dot(N2, V));
+		float tsI  = NoV * SpecStrength;
+		float iNoV = 1.0 - NoV;
+		float tsm  = min(max(iNoV, MK.x), 1.0) - iNoV;
+		float tsr  = tsm / max(1.0 - iNoV, asfloat(0x38D1B717u));
+		BaseTS = tsI * tsr + BaseColor;
+	}
+
+	// D99-110: roughness -> spec exponent / intensity, metal flag, spec power
+	float r01 = (asfloat(0x33000002u) >= Rough) ? 0.0 : exp2(log2(Rough) * 0.1);
+	float SpecIntensity = (1.0 - r01) * 19.9 + 0.1;
+	float SpecExponent  = r01 * -999.0 + 1000.0;
+	float IsMetal = (Metallic >= 0.85) ? 1.0 : 0.0;
+	float SpecPow = IsMetal * (MetalSpecularPower - SpecularPower) + SpecularPower;
+
+	// D111-169: light direction (verified M_Char_Com structure, local-light target = pixel world position)
+	float3 L = WuwaBPMainLightDir(LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+
+	// D178-210 (G/M: Starry form, SolidShadowWidth 0.1 folded): half-Lambert step x solid-shadow term
+	float NoL = dot(N2, L);
+	float HL, Shadow, SolidRatio;
+	bool  bLit;
+	float Lo = (ShadowProcess + 0.0) - ShadowWidth;
+	float Hi = ShadowWidth + (ShadowProcess + 0.0);
+	SolidRatio = min(MK.y, SolidShadowProcess) / max(SolidShadowProcess, 0.01);
+	if (bToonPlus)
+	{
+		float so = saturate((1.0 / (1.0 - SolidShadowProcess)) * (MK.y - SolidShadowProcess));
+		so = WuwaSPSmooth(so) * ShadowOffsetAdjustFactor;
+		so = (asfloat(0x33000002u) >= so) ? 0.0 : exp2(log2(so) * ShadowOffsetPower) * MaskShadowOffsetStrength;
+		HL = (NoL * 0.5 + so) + 0.5;
+		Shadow = WuwaSPSmooth(saturate((HL - Lo) * (1.0 / (Hi - Lo))));
+		float isw = 1.0 - SolidShadowWidth;
+		Shadow = Shadow * ((min(max(SolidRatio, isw), 1.0) - isw) / max(1.0 - isw, 0.0001));
+		bLit = (Shadow >= 0.4);
+	}
+	else
+	{
+		HL = NoL * 0.5 + 0.5;
+		Shadow = WuwaSPSmooth(saturate((HL - Lo) * (1.0 / (Hi - Lo))));
+		Shadow = Shadow * (min(max(SolidRatio, asfloat(0x3F666666u)), 1.0) + asfloat(0xBF666666u));
+		bLit = (Shadow >= asfloat(0x3D23D70Cu));
+	}
+	float IsLit = bLit ? 1.0 : 0.0;
+
+	// D211-237: toon specular (as the Starry port)
+	float3 Lm = (IsLit * L) * float3(2.0, 2.0, 0.0);
+	Lm = L * float3(-1.0, -1.0, 1.0) + Lm;
+	float3 H1 = V + Lm;
+	H1 = H1 / sqrt(dot(H1, H1));
+	float  NoH1 = saturate(dot(H1, N));
+	float3 H = V + L;
+	H = H / sqrt(dot(H, H));
+	float  NoH = saturate(dot(N2, H));
+	float  NoHs = IsMetal * (NoH - NoH1) + NoH1;
+	float  Spec = exp2(log2(NoHs) * SpecExponent);
+	Spec = SpecPow * Spec;
+	Spec = Spec * (SpecPow + 2.0);
+	Spec = saturate((Spec * asfloat(0x3E22F983u) + -0.6) * asfloat(0x3F555556u));
+	Spec = WuwaSPSmooth(Spec) * SpecIntensity;
+
+	// D238-255: PBR terms
+	float  F0d = (Metallic * 0.5 + 0.5) * 0.08;
+	float3 MetalBase = BaseColor * Metallic;
+	float3 SpecColor = Metallic * (SkinTint * TexColor - F0d) + F0d;
+	float4 eb = Rough * float4(-1.0, -0.0275, -0.572, 0.022) + float4(1.0, 0.0425, 1.04, -0.04);
+	float  a004 = min(eb.x * eb.x, asfloat(0x3AD2D6DFu)) * eb.x + eb.y;
+	float2 AB = a004 * float2(-1.04, 1.04) + eb.zw;
+	AB.y = saturate(SpecColor.g * 50.0) * AB.y;
+	float3 EnvBRDF = SpecColor * AB.x + AB.y;
+	float3 SpecColorP = SpecColor * PBRRate;
+	float3 MetalHL = Spec * SpecColorP;
+	float3 Diffuse = PBRRate * -MetalBase + BaseColor;
+	float3 Lit = SpecColorP * Spec + Diffuse;
+	if (bToonPlus)
+	{
+		Lit = PBRRate * EnvBRDF + Lit;
+	}
+	else
+	{
+		// G/M (UseToonPlus off): view-space matcap (Starry port), roughness selects one of four channels, lit / shadow / metal intensity
+		EnvBRDF = EnvBRDF * PBRRate;
+		float3 Pv = mul(float4(TranslatedWorldPosition, 1.0), TranslatedWorldToView).xyz;
+		float3 PvYZX = min(Pv.yzx, 3.402823466e+38);
+		Pv = Pv / sqrt(dot(PvYZX, PvYZX));
+		float3 Nv = mul(N, (float3x3)TranslatedWorldToView);
+		float2 MatCapUV = float2(Pv.z * Nv.x - Pv.x * Nv.z, Pv.y * Nv.z - Pv.z * Nv.y) * 0.5 + 0.5;
+		float4 MC = MatCapTex.SampleBias(MatCapTexSampler, MatCapUV, MaterialTextureMipBias);
+		float  mc = saturate(Rough * 3.0) * (MC.y - MC.x) + MC.x;
+		float2 ab = saturate(Rough * float2(3.0, 3.0) + float2(-1.0, -2.0));
+		mc = ab.x * (MC.z - mc) + mc;
+		mc = ab.y * (MC.w - mc) + mc;
+		float backI = IsMetal * (MetalMatCapBack - MatCapInt) + MatCapInt;
+		float inSh  = bLit ? 0.0 : 1.0;
+		float shI   = inSh * backI;
+		float litI  = IsMetal * (MetalMatCapInt - MatCapInt) + MatCapInt;
+		float mcI   = IsLit * (-backI * inSh + litI) + shI;
+		mc = mc * mcI;
+		Lit = EnvBRDF * mc + Lit;
+	}
+
+	// D256-272: PBR mask (vertex-colour band vs DefaultSkinFactor, rough >= 0.01), composite
+	float BandMask;
+	WuwaBPBandClassify(VertexColorR, BandMask);
+	float PBRMask = (1.0 - max(BandMask, DefaultSkinFactor)) * (((1.0 - Rough) >= 0.01) ? 1.0 : 0.0);
+	if (bToonSpec)
+	{
+		Lit = Lit - BaseTS;
+		Lit = PBRMask * Lit + BaseTS;
+	}
+	else
+	{
+		Lit = -SkinTint * TexColor + Lit;
+		Lit = PBRMask * Lit + BaseColor;
+	}
+	float3 LitB;
+	if (bToonSpec)
+	{
+		float3 LD = Lit * AniSwitch_ShadowColorDark;      // H276-278: lerp(Lit * Dark, Lit * Bright, MaskTex.b)
+		LitB = MK.z * (Lit * AniSwitch_ShadowColorBright - LD) + LD;
+	}
+	else
+	{
+		LitB = Lit * AniSwitch_ShadowColorBright;
+	}
+
+	// D274-333: star
+	float st = WuwaSDStar(UV0, GameTime, StarIntensity, WorldCameraOrigin, LocalToWorldRow2, LocalToWorldRow3);
+
+	// D334-352: refract(V, N, 0.750188) in view space, lerped with the tiled / panned lerp(UV0, UV3) -> Diamond_MainTex
+	float  vn = dot(V, N);
+	float  rk = -vn * vn + 1.0;
+	rk = -rk * asfloat(0x3F101271u) + 1.0;
+	float  rm = vn * asfloat(0x3F400C4Bu) + sqrt(rk);
+	float3 R = V * asfloat(0x3F400C4Bu) - N * rm;
+	if (!(rk >= 0.0))
+		R = float3(0.0, 0.0, 0.0);
+	float2 Rv = mul(R, (float3x3)TranslatedWorldToView).xy;
+	float2 duv = Diamond_UVSelect * (UV3 - UV0) + UV0;
+	duv = duv * Diamond_Tiling + GameTime * float2(Diamond_PannerSpeed_X, Diamond_PannerSpeed_Y);
+	duv = UseDiamond_UV_Switch * (duv - Rv) + Rv;
+	float3 D = Diamond_MainTex.SampleBias(Diamond_MainTexSampler, duv, MaterialTextureMipBias).rgb;
+
+	// D353-368: glint pow(dot(Nv, normalize(Diamond_RefractVector)), 12) above 0.1333
+	float3 NvD = mul(N, (float3x3)TranslatedWorldToView);
+	float  gd = dot(NvD, Diamond_RefractDir);
+	float  g = exp2(log2(gd) * 12.0) * ((gd >= asfloat(0x3E087FCCu)) ? 1.0 : 0.0);
+	g = min(g * 1000.0, 20.0) * Diamond_Intensity;
+	g = (asfloat(0x33000002u) >= gd) ? 0.0 : g;
+	D = D * g + D;
+
+	// D369-382: flash band on UV2.y, period 1.1 / DiamondFlash_Speed
+	float ft = fmod(GameTime, DiamondFlash_Period);
+	float fa = ft * DiamondFlash_Speed;
+	float fl = ((ft * DiamondFlash_Speed + 0.05 >= UV2.y) ? 1.0 : 0.0) + ((fa >= UV2.y) ? -1.0 : -0.0);
+	float3 FC = (fl * DiamondFlash_Intensity) * DiamondFlash_Color;
+	D = FC * LitB + D;
+
+	// D383-386: masked diamond colour, lerped toward LitB * mask
+	float3 Dm = DMask * (LitB * st + D);
+	float3 Diamond = Diamond_Blend * (LitB * DMask - Dm) + Dm;
+
+	// D387-394: emissive
+	float3 EffE = MotionEmissiveMask * E_Motion_Emissive;
+	if (bEffectMask)
+	{
+		float2 euv = EffectMaskTexUV2Switch * (UV2 - UV0) + UV0;
+		float  em = R_Noise_A_Mask.SampleBias(R_Noise_A_MaskSampler, euv, MaterialTextureMipBias).a;
+		float3 ec = exp2(log2(em) * (1.0 - Effect_Progress)) * (EffectMaskColor + 0.0);
+		ec = (asfloat(0x33000002u) >= em) ? float3(0.0, 0.0, 0.0) : ec;
+		EffE = MotionEmissiveMask * E_Motion_Emissive + ec;
+	}
+	float3 E = EmissionColor * BaseColor + PBRMask * ((IsMetal * MetalHL) * MetalEmissionStrength);
+	if (bEffectMask)
+		E = E + EffE;
+	else
+		E = MotionEmissiveMask * E_Motion_Emissive + E;
+	float3 Em = Diamond * DiamondEmissiveStrength + E;
+	Em = SelectionColor.a * (SelectionColor.rgb - Em) + Em;
+	G.Emissive = WuwaBPFinalEmissive(Em, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+
+	// D496-569: GBuffer
+	float az = -(1.0 - SolidRatio) * SolidShadowStrength + 1.0;
+	if (bToonPlus)
+		G.A.z = az * (Shadow * 0.5 + 0.5);
+	else
+		G.A.z = az * (Shadow * asfloat(0x409FFFFEu) + 0.5);
+	G.A.xy = WuwaBPOctEncode(N);
+	float rp = min(max(HL, 0.0), SolidShadow_RampPosition);
+	rp = SolidRatio * (HL - rp) + rp;
+	rp = rp + 0.5;
+	float2 RampUV = float2(saturate(rp - (ShadowProcess + 0.0)), DefaultSkinFactor * (0.1 - RampPosition) + RampPosition);
+	float3 RampC = Ramp.SampleBias(RampSampler, RampUV, MaterialTextureMipBias).rgb;
+	float  RampW = ((MPC_GlobalCharSkyLightIntensity >= 0.05) ? 1.0 : 0.0) * RampInt;
+	G.B.rgb = sqrt(saturate(Diamond + (RampW * (RampC - SubsurfaceColor) + SubsurfaceColor)));
+	G.B.a = WuwaBPShadingModelByte(LightingChannelMask, 12u);
+	G.C.rgb = LitB + Diamond;
+	if (KuroGBufferMode == 1.0)
+	{
+		G.C.a = WuwaBPRimByteEven(ToonRimWidth);
+		G.D = float4(0.0, 0.0, 0.0, 0.0);
+		G.A.w = 1.0;
+	}
+	else
+	{
+		G.C.a = MT.a * OpacityIntensity;
+		G.D = float4(ToonRimWidth, 0.0, 0.0, 0.0);
+		G.A.w = 0.0;
+	}
+	return G;
+}
+
+// ---- GENERATED by tools/shaderdiff/weapons/r3/diamond_gen_entries.py - do not edit by hand ----
+// PS 13da21c481 (#158105) MI_R2T1KamolaMd10011Bangs_2 / Md20011Bangs_2; switches: bToonPlus=1, bToonSpec=0, bEffectMask=0
+FWuwaToonGBuffer WuwaToonSpecialDiamondBasePass_ToonPlus(
+	Texture2D Normal_Roughness_Metallic,
+	SamplerState Normal_Roughness_MetallicSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MaskTex,
+	SamplerState MaskTexSampler,
+	Texture2D Diamond_MainTex,
+	SamplerState Diamond_MainTexSampler,
+	Texture2D Ramp,
+	SamplerState RampSampler,
+	float2 UV0,
+	float2 UV2,
+	float2 UV3,
+	float VertexColorR,
+	float3 WorldTangent,
+	float3 WorldNormal,
+	float TangentSign,
+	float3 WorldPosition,
+	float3 TranslatedWorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float NormalStrength,
+	float Diamond_MaskHardness,
+	float Diamond_MaskHeight,
+	float3 Diamond_MaskColor,
+	float3 SkinColor,
+	float DefaultSkinFactor,
+	float3 BaseColorTint,
+	float RaytracingReflectionFix,
+	float MetallicIntensityDebug,
+	float RoughnessIntensityDebug,
+	float SpecularPower,
+	float MetalSpecularPower,
+	float LightOffset_Pitch,
+	float ShadowProcess,
+	float ShadowWidth,
+	float AniSwitch_FaceShadow,
+	float SolidShadowProcess,
+	float ShadowOffsetAdjustFactor,
+	float ShadowOffsetPower,
+	float MaskShadowOffsetStrength,
+	float SolidShadowWidth,
+	float PBRRate,
+	float AniSwitch_ShadowColorBright,
+	float StarIntensity,
+	float Diamond_PannerSpeed_X,
+	float Diamond_PannerSpeed_Y,
+	float Diamond_UVSelect,
+	float Diamond_Tiling,
+	float UseDiamond_UV_Switch,
+	float3 Diamond_RefractDir,
+	float Diamond_Intensity,
+	float DiamondFlash_Period,
+	float DiamondFlash_Speed,
+	float DiamondFlash_Intensity,
+	float3 DiamondFlash_Color,
+	float Diamond_Blend,
+	float DiamondEmissiveStrength,
+	float MetalEmissionStrength,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float SolidShadow_RampPosition,
+	float RampPosition,
+	float RampInt,
+	float SolidShadowStrength,
+	float OpacityIntensity,
+	float3 SubsurfaceColor,
+	float ToonRimWidth,
+	float MPC_GlobalCharSkyLightIntensity,
+	float CPD1,
+	float CPD13,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float4x4 TranslatedWorldToView,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float KuroGBufferMode,
+	float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale,
+	float OutOfBoundsMask,
+	float3 ObjectWorldPosition,
+	float3 ObjectBounds,
+	uint LightingChannelMask,
+	float GameTime,
+	float3 WorldCameraOrigin,
+	float3 LocalToWorldRow2,
+	float3 LocalToWorldRow3)
+{
+	return WuwaToonSpecialDiamondBasePass_Impl(true,
+		false,
+		false,
+		Normal_Roughness_Metallic,
+		Normal_Roughness_MetallicSampler,
+		MainTex,
+		MainTexSampler,
+		MaskTex,
+		MaskTexSampler,
+		MainTex,
+		MainTexSampler,
+		Diamond_MainTex,
+		Diamond_MainTexSampler,
+		MainTex,
+		MainTexSampler,
+		Ramp,
+		RampSampler,
+		UV0,
+		UV2,
+		UV3,
+		VertexColorR,
+		WorldTangent,
+		WorldNormal,
+		TangentSign,
+		WorldPosition,
+		TranslatedWorldPosition,
+		CameraVector,
+		LightDirVS,
+		MotionEmissiveMask,
+		NormalStrength,
+		Diamond_MaskHardness,
+		Diamond_MaskHeight,
+		Diamond_MaskColor,
+		SkinColor,
+		DefaultSkinFactor,
+		BaseColorTint,
+		RaytracingReflectionFix,
+		0.0,
+		0.0,
+		MetallicIntensityDebug,
+		RoughnessIntensityDebug,
+		SpecularPower,
+		MetalSpecularPower,
+		LightOffset_Pitch,
+		ShadowProcess,
+		ShadowWidth,
+		AniSwitch_FaceShadow,
+		SolidShadowProcess,
+		ShadowOffsetAdjustFactor,
+		ShadowOffsetPower,
+		MaskShadowOffsetStrength,
+		SolidShadowWidth,
+		0.0,
+		PBRRate,
+		0.0,
+		0.0,
+		0.0,
+		AniSwitch_ShadowColorBright,
+		0.0,
+		StarIntensity,
+		Diamond_PannerSpeed_X,
+		Diamond_PannerSpeed_Y,
+		Diamond_UVSelect,
+		Diamond_Tiling,
+		UseDiamond_UV_Switch,
+		Diamond_RefractDir,
+		Diamond_Intensity,
+		DiamondFlash_Period,
+		DiamondFlash_Speed,
+		DiamondFlash_Intensity,
+		DiamondFlash_Color,
+		Diamond_Blend,
+		DiamondEmissiveStrength,
+		MetalEmissionStrength,
+		EmissionColor,
+		E_Motion_Emissive,
+		SelectionColor,
+		0.0,
+		0.0,
+		float3(0.0, 0.0, 0.0),
+		SolidShadow_RampPosition,
+		RampPosition,
+		RampInt,
+		SolidShadowStrength,
+		OpacityIntensity,
+		SubsurfaceColor,
+		ToonRimWidth,
+		MPC_GlobalCharSkyLightIntensity,
+		CPD1,
+		CPD13,
+		MPC_GlobalCharacterAmbientSkinColor,
+		MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0,
+		ToonLight1,
+		ToonLight2,
+		ToonLight3,
+		TranslatedWorldToView,
+		MaterialTextureMipBias,
+		NormalOverrideParameter,
+		KuroGBufferMode,
+		KuroEmissiveScale,
+		KuroSkipEmissiveScale,
+		OutOfBoundsMask,
+		ObjectWorldPosition,
+		ObjectBounds,
+		LightingChannelMask,
+		GameTime,
+		WorldCameraOrigin,
+		LocalToWorldRow2,
+		LocalToWorldRow3);
+}
+
+// PS 2fbca3b2ff (#30441) MI_R2T1KamolaMd10011Hair_2 / Md20011Hair_2; switches: bToonPlus=1, bToonSpec=1, bEffectMask=1
+FWuwaToonGBuffer WuwaToonSpecialDiamondBasePass_ToonPlusToonSpecEffectMask(
+	Texture2D Normal_Roughness_Metallic,
+	SamplerState Normal_Roughness_MetallicSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MaskTex,
+	SamplerState MaskTexSampler,
+	Texture2D Diamond_MainTex,
+	SamplerState Diamond_MainTexSampler,
+	Texture2D R_Noise_A_Mask,
+	SamplerState R_Noise_A_MaskSampler,
+	Texture2D Ramp,
+	SamplerState RampSampler,
+	float2 UV0,
+	float2 UV2,
+	float2 UV3,
+	float VertexColorR,
+	float3 WorldTangent,
+	float3 WorldNormal,
+	float TangentSign,
+	float3 WorldPosition,
+	float3 TranslatedWorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float NormalStrength,
+	float Diamond_MaskHardness,
+	float Diamond_MaskHeight,
+	float3 Diamond_MaskColor,
+	float3 SkinColor,
+	float DefaultSkinFactor,
+	float3 BaseColorTint,
+	float RaytracingReflectionFix,
+	float MetallicIntensityDebug,
+	float RoughnessIntensityDebug,
+	float SpecularPower,
+	float MetalSpecularPower,
+	float LightOffset_Pitch,
+	float ShadowProcess,
+	float ShadowWidth,
+	float AniSwitch_FaceShadow,
+	float SolidShadowProcess,
+	float ShadowOffsetAdjustFactor,
+	float ShadowOffsetPower,
+	float MaskShadowOffsetStrength,
+	float SolidShadowWidth,
+	float SpecStrength,
+	float PBRRate,
+	float AniSwitch_ShadowColorBright,
+	float AniSwitch_ShadowColorDark,
+	float StarIntensity,
+	float Diamond_PannerSpeed_X,
+	float Diamond_PannerSpeed_Y,
+	float Diamond_UVSelect,
+	float Diamond_Tiling,
+	float UseDiamond_UV_Switch,
+	float3 Diamond_RefractDir,
+	float Diamond_Intensity,
+	float DiamondFlash_Period,
+	float DiamondFlash_Speed,
+	float DiamondFlash_Intensity,
+	float3 DiamondFlash_Color,
+	float Diamond_Blend,
+	float DiamondEmissiveStrength,
+	float MetalEmissionStrength,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float EffectMaskTexUV2Switch,
+	float Effect_Progress,
+	float3 EffectMaskColor,
+	float SolidShadow_RampPosition,
+	float RampPosition,
+	float RampInt,
+	float SolidShadowStrength,
+	float OpacityIntensity,
+	float3 SubsurfaceColor,
+	float ToonRimWidth,
+	float MPC_GlobalCharSkyLightIntensity,
+	float CPD1,
+	float CPD13,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float4x4 TranslatedWorldToView,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float KuroGBufferMode,
+	float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale,
+	float OutOfBoundsMask,
+	float3 ObjectWorldPosition,
+	float3 ObjectBounds,
+	uint LightingChannelMask,
+	float GameTime,
+	float3 WorldCameraOrigin,
+	float3 LocalToWorldRow2,
+	float3 LocalToWorldRow3)
+{
+	return WuwaToonSpecialDiamondBasePass_Impl(true,
+		true,
+		true,
+		Normal_Roughness_Metallic,
+		Normal_Roughness_MetallicSampler,
+		MainTex,
+		MainTexSampler,
+		MaskTex,
+		MaskTexSampler,
+		MainTex,
+		MainTexSampler,
+		Diamond_MainTex,
+		Diamond_MainTexSampler,
+		R_Noise_A_Mask,
+		R_Noise_A_MaskSampler,
+		Ramp,
+		RampSampler,
+		UV0,
+		UV2,
+		UV3,
+		VertexColorR,
+		WorldTangent,
+		WorldNormal,
+		TangentSign,
+		WorldPosition,
+		TranslatedWorldPosition,
+		CameraVector,
+		LightDirVS,
+		MotionEmissiveMask,
+		NormalStrength,
+		Diamond_MaskHardness,
+		Diamond_MaskHeight,
+		Diamond_MaskColor,
+		SkinColor,
+		DefaultSkinFactor,
+		BaseColorTint,
+		RaytracingReflectionFix,
+		0.0,
+		0.0,
+		MetallicIntensityDebug,
+		RoughnessIntensityDebug,
+		SpecularPower,
+		MetalSpecularPower,
+		LightOffset_Pitch,
+		ShadowProcess,
+		ShadowWidth,
+		AniSwitch_FaceShadow,
+		SolidShadowProcess,
+		ShadowOffsetAdjustFactor,
+		ShadowOffsetPower,
+		MaskShadowOffsetStrength,
+		SolidShadowWidth,
+		SpecStrength,
+		PBRRate,
+		0.0,
+		0.0,
+		0.0,
+		AniSwitch_ShadowColorBright,
+		AniSwitch_ShadowColorDark,
+		StarIntensity,
+		Diamond_PannerSpeed_X,
+		Diamond_PannerSpeed_Y,
+		Diamond_UVSelect,
+		Diamond_Tiling,
+		UseDiamond_UV_Switch,
+		Diamond_RefractDir,
+		Diamond_Intensity,
+		DiamondFlash_Period,
+		DiamondFlash_Speed,
+		DiamondFlash_Intensity,
+		DiamondFlash_Color,
+		Diamond_Blend,
+		DiamondEmissiveStrength,
+		MetalEmissionStrength,
+		EmissionColor,
+		E_Motion_Emissive,
+		SelectionColor,
+		EffectMaskTexUV2Switch,
+		Effect_Progress,
+		EffectMaskColor,
+		SolidShadow_RampPosition,
+		RampPosition,
+		RampInt,
+		SolidShadowStrength,
+		OpacityIntensity,
+		SubsurfaceColor,
+		ToonRimWidth,
+		MPC_GlobalCharSkyLightIntensity,
+		CPD1,
+		CPD13,
+		MPC_GlobalCharacterAmbientSkinColor,
+		MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0,
+		ToonLight1,
+		ToonLight2,
+		ToonLight3,
+		TranslatedWorldToView,
+		MaterialTextureMipBias,
+		NormalOverrideParameter,
+		KuroGBufferMode,
+		KuroEmissiveScale,
+		KuroSkipEmissiveScale,
+		OutOfBoundsMask,
+		ObjectWorldPosition,
+		ObjectBounds,
+		LightingChannelMask,
+		GameTime,
+		WorldCameraOrigin,
+		LocalToWorldRow2,
+		LocalToWorldRow3);
+}
+
+// PS 0278a11b3f (#332331) MI_R2T1KamolaMd10011Bangs_3; switches: bToonPlus=0, bToonSpec=0, bEffectMask=0
+FWuwaToonGBuffer WuwaToonSpecialDiamondBasePass_MatCap(
+	Texture2D Normal_Roughness_Metallic,
+	SamplerState Normal_Roughness_MetallicSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MaskTex,
+	SamplerState MaskTexSampler,
+	Texture2D MatCapTex,
+	SamplerState MatCapTexSampler,
+	Texture2D Diamond_MainTex,
+	SamplerState Diamond_MainTexSampler,
+	Texture2D Ramp,
+	SamplerState RampSampler,
+	float2 UV0,
+	float2 UV2,
+	float2 UV3,
+	float VertexColorR,
+	float3 WorldTangent,
+	float3 WorldNormal,
+	float TangentSign,
+	float3 WorldPosition,
+	float3 TranslatedWorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float NormalStrength,
+	float Diamond_MaskHardness,
+	float Diamond_MaskHeight,
+	float3 Diamond_MaskColor,
+	float3 SkinColor,
+	float DefaultSkinFactor,
+	float3 BaseColorTint,
+	float RaytracingReflectionFix,
+	float Roughness,
+	float Metalllic,
+	float SpecularPower,
+	float MetalSpecularPower,
+	float LightOffset_Pitch,
+	float ShadowProcess,
+	float ShadowWidth,
+	float AniSwitch_FaceShadow,
+	float SolidShadowProcess,
+	float PBRRate,
+	float MatCapInt,
+	float MetalMatCapBack,
+	float MetalMatCapInt,
+	float AniSwitch_ShadowColorBright,
+	float StarIntensity,
+	float Diamond_PannerSpeed_X,
+	float Diamond_PannerSpeed_Y,
+	float Diamond_UVSelect,
+	float Diamond_Tiling,
+	float UseDiamond_UV_Switch,
+	float3 Diamond_RefractDir,
+	float Diamond_Intensity,
+	float DiamondFlash_Period,
+	float DiamondFlash_Speed,
+	float DiamondFlash_Intensity,
+	float3 DiamondFlash_Color,
+	float Diamond_Blend,
+	float DiamondEmissiveStrength,
+	float MetalEmissionStrength,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float SolidShadow_RampPosition,
+	float RampPosition,
+	float RampInt,
+	float SolidShadowStrength,
+	float OpacityIntensity,
+	float3 SubsurfaceColor,
+	float ToonRimWidth,
+	float MPC_GlobalCharSkyLightIntensity,
+	float CPD1,
+	float CPD13,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float4x4 TranslatedWorldToView,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float KuroGBufferMode,
+	float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale,
+	float OutOfBoundsMask,
+	float3 ObjectWorldPosition,
+	float3 ObjectBounds,
+	uint LightingChannelMask,
+	float GameTime,
+	float3 WorldCameraOrigin,
+	float3 LocalToWorldRow2,
+	float3 LocalToWorldRow3)
+{
+	return WuwaToonSpecialDiamondBasePass_Impl(false,
+		false,
+		false,
+		Normal_Roughness_Metallic,
+		Normal_Roughness_MetallicSampler,
+		MainTex,
+		MainTexSampler,
+		MaskTex,
+		MaskTexSampler,
+		MatCapTex,
+		MatCapTexSampler,
+		Diamond_MainTex,
+		Diamond_MainTexSampler,
+		MainTex,
+		MainTexSampler,
+		Ramp,
+		RampSampler,
+		UV0,
+		UV2,
+		UV3,
+		VertexColorR,
+		WorldTangent,
+		WorldNormal,
+		TangentSign,
+		WorldPosition,
+		TranslatedWorldPosition,
+		CameraVector,
+		LightDirVS,
+		MotionEmissiveMask,
+		NormalStrength,
+		Diamond_MaskHardness,
+		Diamond_MaskHeight,
+		Diamond_MaskColor,
+		SkinColor,
+		DefaultSkinFactor,
+		BaseColorTint,
+		RaytracingReflectionFix,
+		Roughness,
+		Metalllic,
+		0.0,
+		0.0,
+		SpecularPower,
+		MetalSpecularPower,
+		LightOffset_Pitch,
+		ShadowProcess,
+		ShadowWidth,
+		AniSwitch_FaceShadow,
+		SolidShadowProcess,
+		0.0,
+		0.0,
+		0.0,
+		0.0,
+		0.0,
+		PBRRate,
+		MatCapInt,
+		MetalMatCapBack,
+		MetalMatCapInt,
+		AniSwitch_ShadowColorBright,
+		0.0,
+		StarIntensity,
+		Diamond_PannerSpeed_X,
+		Diamond_PannerSpeed_Y,
+		Diamond_UVSelect,
+		Diamond_Tiling,
+		UseDiamond_UV_Switch,
+		Diamond_RefractDir,
+		Diamond_Intensity,
+		DiamondFlash_Period,
+		DiamondFlash_Speed,
+		DiamondFlash_Intensity,
+		DiamondFlash_Color,
+		Diamond_Blend,
+		DiamondEmissiveStrength,
+		MetalEmissionStrength,
+		EmissionColor,
+		E_Motion_Emissive,
+		SelectionColor,
+		0.0,
+		0.0,
+		float3(0.0, 0.0, 0.0),
+		SolidShadow_RampPosition,
+		RampPosition,
+		RampInt,
+		SolidShadowStrength,
+		OpacityIntensity,
+		SubsurfaceColor,
+		ToonRimWidth,
+		MPC_GlobalCharSkyLightIntensity,
+		CPD1,
+		CPD13,
+		MPC_GlobalCharacterAmbientSkinColor,
+		MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0,
+		ToonLight1,
+		ToonLight2,
+		ToonLight3,
+		TranslatedWorldToView,
+		MaterialTextureMipBias,
+		NormalOverrideParameter,
+		KuroGBufferMode,
+		KuroEmissiveScale,
+		KuroSkipEmissiveScale,
+		OutOfBoundsMask,
+		ObjectWorldPosition,
+		ObjectBounds,
+		LightingChannelMask,
+		GameTime,
+		WorldCameraOrigin,
+		LocalToWorldRow2,
+		LocalToWorldRow3);
+}
+
+// PS b191fc1de0 (#1461) MI_R2T1KamolaMd10011Hair_3; switches: bToonPlus=0, bToonSpec=0, bEffectMask=1
+FWuwaToonGBuffer WuwaToonSpecialDiamondBasePass_MatCapEffectMask(
+	Texture2D Normal_Roughness_Metallic,
+	SamplerState Normal_Roughness_MetallicSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MaskTex,
+	SamplerState MaskTexSampler,
+	Texture2D MatCapTex,
+	SamplerState MatCapTexSampler,
+	Texture2D Diamond_MainTex,
+	SamplerState Diamond_MainTexSampler,
+	Texture2D R_Noise_A_Mask,
+	SamplerState R_Noise_A_MaskSampler,
+	Texture2D Ramp,
+	SamplerState RampSampler,
+	float2 UV0,
+	float2 UV2,
+	float2 UV3,
+	float VertexColorR,
+	float3 WorldTangent,
+	float3 WorldNormal,
+	float TangentSign,
+	float3 WorldPosition,
+	float3 TranslatedWorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float NormalStrength,
+	float Diamond_MaskHardness,
+	float Diamond_MaskHeight,
+	float3 Diamond_MaskColor,
+	float3 SkinColor,
+	float DefaultSkinFactor,
+	float3 BaseColorTint,
+	float RaytracingReflectionFix,
+	float Roughness,
+	float Metalllic,
+	float SpecularPower,
+	float MetalSpecularPower,
+	float LightOffset_Pitch,
+	float ShadowProcess,
+	float ShadowWidth,
+	float AniSwitch_FaceShadow,
+	float SolidShadowProcess,
+	float PBRRate,
+	float MatCapInt,
+	float MetalMatCapBack,
+	float MetalMatCapInt,
+	float AniSwitch_ShadowColorBright,
+	float StarIntensity,
+	float Diamond_PannerSpeed_X,
+	float Diamond_PannerSpeed_Y,
+	float Diamond_UVSelect,
+	float Diamond_Tiling,
+	float UseDiamond_UV_Switch,
+	float3 Diamond_RefractDir,
+	float Diamond_Intensity,
+	float DiamondFlash_Period,
+	float DiamondFlash_Speed,
+	float DiamondFlash_Intensity,
+	float3 DiamondFlash_Color,
+	float Diamond_Blend,
+	float DiamondEmissiveStrength,
+	float MetalEmissionStrength,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float EffectMaskTexUV2Switch,
+	float Effect_Progress,
+	float3 EffectMaskColor,
+	float SolidShadow_RampPosition,
+	float RampPosition,
+	float RampInt,
+	float SolidShadowStrength,
+	float OpacityIntensity,
+	float3 SubsurfaceColor,
+	float ToonRimWidth,
+	float MPC_GlobalCharSkyLightIntensity,
+	float CPD1,
+	float CPD13,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float4x4 TranslatedWorldToView,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float KuroGBufferMode,
+	float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale,
+	float OutOfBoundsMask,
+	float3 ObjectWorldPosition,
+	float3 ObjectBounds,
+	uint LightingChannelMask,
+	float GameTime,
+	float3 WorldCameraOrigin,
+	float3 LocalToWorldRow2,
+	float3 LocalToWorldRow3)
+{
+	return WuwaToonSpecialDiamondBasePass_Impl(false,
+		false,
+		true,
+		Normal_Roughness_Metallic,
+		Normal_Roughness_MetallicSampler,
+		MainTex,
+		MainTexSampler,
+		MaskTex,
+		MaskTexSampler,
+		MatCapTex,
+		MatCapTexSampler,
+		Diamond_MainTex,
+		Diamond_MainTexSampler,
+		R_Noise_A_Mask,
+		R_Noise_A_MaskSampler,
+		Ramp,
+		RampSampler,
+		UV0,
+		UV2,
+		UV3,
+		VertexColorR,
+		WorldTangent,
+		WorldNormal,
+		TangentSign,
+		WorldPosition,
+		TranslatedWorldPosition,
+		CameraVector,
+		LightDirVS,
+		MotionEmissiveMask,
+		NormalStrength,
+		Diamond_MaskHardness,
+		Diamond_MaskHeight,
+		Diamond_MaskColor,
+		SkinColor,
+		DefaultSkinFactor,
+		BaseColorTint,
+		RaytracingReflectionFix,
+		Roughness,
+		Metalllic,
+		0.0,
+		0.0,
+		SpecularPower,
+		MetalSpecularPower,
+		LightOffset_Pitch,
+		ShadowProcess,
+		ShadowWidth,
+		AniSwitch_FaceShadow,
+		SolidShadowProcess,
+		0.0,
+		0.0,
+		0.0,
+		0.0,
+		0.0,
+		PBRRate,
+		MatCapInt,
+		MetalMatCapBack,
+		MetalMatCapInt,
+		AniSwitch_ShadowColorBright,
+		0.0,
+		StarIntensity,
+		Diamond_PannerSpeed_X,
+		Diamond_PannerSpeed_Y,
+		Diamond_UVSelect,
+		Diamond_Tiling,
+		UseDiamond_UV_Switch,
+		Diamond_RefractDir,
+		Diamond_Intensity,
+		DiamondFlash_Period,
+		DiamondFlash_Speed,
+		DiamondFlash_Intensity,
+		DiamondFlash_Color,
+		Diamond_Blend,
+		DiamondEmissiveStrength,
+		MetalEmissionStrength,
+		EmissionColor,
+		E_Motion_Emissive,
+		SelectionColor,
+		EffectMaskTexUV2Switch,
+		Effect_Progress,
+		EffectMaskColor,
+		SolidShadow_RampPosition,
+		RampPosition,
+		RampInt,
+		SolidShadowStrength,
+		OpacityIntensity,
+		SubsurfaceColor,
+		ToonRimWidth,
+		MPC_GlobalCharSkyLightIntensity,
+		CPD1,
+		CPD13,
+		MPC_GlobalCharacterAmbientSkinColor,
+		MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0,
+		ToonLight1,
+		ToonLight2,
+		ToonLight3,
+		TranslatedWorldToView,
+		MaterialTextureMipBias,
+		NormalOverrideParameter,
+		KuroGBufferMode,
+		KuroEmissiveScale,
+		KuroSkipEmissiveScale,
+		OutOfBoundsMask,
+		ObjectWorldPosition,
+		ObjectBounds,
+		LightingChannelMask,
+		GameTime,
+		WorldCameraOrigin,
+		LocalToWorldRow2,
+		LocalToWorldRow3);
+}
+
+// =====================================================================================================================
+// ROUND 7 (singletons, research/roster/round7/singletons.md): M_FlashDiamond_MP vertex-animation-texture WPO of base-pass
+// VS #185988 (68344a278e; MI_EYounuoYuegongMd10011_Suishi, Iuno prop). The PS of that map is WuwaFlashDiamondMP_StructureDiamond
+// (WuwaToonBasePass_DepthFX.ush, round 3); this is only its always-on World Position Offset. V### = asm lines of
+// evidence/roster/shadermaps/weapons/asm/185988_*.asm.txt (V83-111):
+//   t = VertexAnim_TimeDebug * (VertexAnim_Frame - 1);  f = floor(t)
+//   s = lerp(Morph(UV1.x, f * inv + inv / 2), Morph(UV1.x, (f + 1) * inv + inv / 2), frac(t)),  inv = 1 / ceil(VertexAnim_Frame)
+//   WPO = (s.x * L2W[0] + s.y * L2W[1] + s.z * L2W[2]) * VertexAnim_Strength   (local vector -> world, scale included)
+// MorphTexture = Kuro VS t8 / s3, SampleLevel LOD -1 (vertex texture fetch as compiled); [I] the parameter name is inferred
+// (the only VS material texture, VAT layout; cooked maps carry no texture names for this slot). UV1X = texcoord 1 .x
+// (GPU-skin passthrough fetch of texcoord min(NumTexCoords - 1, 1)). (VertexAnim_Frame - 1), 1 / ceil(VertexAnim_Frame) and
+// (1 / ceil(VertexAnim_Frame)) * 0.5 are CPU preshader values (uniform expressions). All arithmetic is `precise` like the original.
+// UE contract: connect to World Position Offset (absolute-space offset added to the translated world position).
+// ---------------------------------------------------------------------------------------------------------------------
+float3 WuwaFlashDiamondMPVATWPO(Texture2D MorphTexture, SamplerState MorphTextureSampler, float UV1X,
+	float3 LocalToWorldRow0, float3 LocalToWorldRow1, float3 LocalToWorldRow2,
+	float VertexAnim_TimeDebug, float VertexAnim_FrameMinus1, float VertexAnim_InvFrames, float VertexAnim_HalfInvFrames,
+	float VertexAnim_Strength)
+{
+	precise float t = VertexAnim_TimeDebug * VertexAnim_FrameMinus1;             // V83
+	precise float f = floor(t);                                                  // V84 round_ni
+	precise float v0 = f * VertexAnim_InvFrames;
+	v0 = v0 + VertexAnim_HalfInvFrames;
+	precise float3 s0 = MorphTexture.SampleLevel(MorphTextureSampler, float2(UV1X, v0), -1.0).xyz;   // V88
+	precise float f1 = f + 1.0;
+	f1 = f1 * VertexAnim_InvFrames;
+	precise float v1 = f1 + VertexAnim_HalfInvFrames;
+	precise float3 s1 = MorphTexture.SampleLevel(MorphTextureSampler, float2(UV1X, v1), -1.0).xyz;   // V92
+	precise float fr = frac(t);
+	precise float3 s = s1 - s0;
+	s = fr * s;
+	s = s + s0;                                                                   // V96
+	precise float3 w = s.x * LocalToWorldRow0;
+	precise float3 w1 = s.y * LocalToWorldRow1;
+	w = w1 + w;
+	precise float3 w2 = s.z * LocalToWorldRow2;
+	w = w + w2;
+	w = w * VertexAnim_Strength;                                                  // V102 x cb5[48].x
+	return w;
+}
+
+#endif // WUWA_SPECIAL_DIAMOND_USH

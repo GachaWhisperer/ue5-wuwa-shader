@@ -1,0 +1,756 @@
+// WuwaToonBasePass_MiscProps.ush — round-3 "misc" batch (research/roster/Port_Weapons_Specials.md, round 3):
+//   * M_MonsterOutline      (MSM_ToonOutline, GBufferB id 13): Phrolova's Hekate outlines (PS 338608ecdc #121220, VS #121222)
+//                           and Yangyang's Xuanling bird outline (PS 4847fc74d2 #51831 = same PS code, VS #51848).
+//                           PS: WuwaToonMonsterOutlineBasePass_MainTex. VS outline extrusion: WuwaMonsterOutlineWPO_InnerB / _Push.
+//   * M_Char_Com_WaterSword_Sword / _Water (Cartethyia's sword), M_EffectSpaceWrite_CharacterUse (Denia): see their sections.
+// Line references "MO-PS:n" are into evidence/roster/shadermaps/weapons/asm_hex/121220_338608ec*.asm.txt, "MO-VS:n" into
+// 121222_3ba0d372*.asm.txt (current-frame part after the velocity branch). New file; the verified headers are only included.
+#pragma once
+#ifndef WUWA_MISC_PROPS_USH
+#define WUWA_MISC_PROPS_USH
+
+#include "WuwaToonBasePass_WeaponShared.ush"
+
+// =====================================================================================================================
+// M_MonsterOutline PS (53 instr): MSM_ToonOutline GBuffer, no lighting, no discard.
+//   Emissive = lerp(UseShadowLordMaterialDynamic * ShadowLord_ColorTex(UV3 scrolled) * ShadowLord_ColorMulti
+//                   + AttackFresnelRimColor * AttackFresnelRimIntensity * FresnelAttackFactor, SelectionColor.rgb, SelectionColor.a)
+//   Colour   = MainTex(UV0) * OutlineColorTint * BaseColorTint; GBufferB = sqrt(saturate(Colour)), id 13;
+//   GBufferC = lerp(Colour, lum(Colour), Main_Desaturation), C.a = 0; A = (oct N, 1, mode flag); D = 0.
+// =====================================================================================================================
+FWuwaToonGBuffer WuwaToonMonsterOutlineBasePass_MainTex(
+	Texture2D ShadowLord_ColorTex, SamplerState ShadowLord_ColorTexSampler, Texture2D MainTex, SamplerState MainTexSampler,
+	float2 UV0, float2 UV3, float3 WorldTangent, float3 WorldNormal, float TangentSign, float3 WorldPosition,
+	float4 ShadowLord_ColorTiling, float3 ShadowLord_ColorMulti, float UseShadowLordMaterialDynamic,
+	float3 AttackFresnelRimColor, float AttackFresnelRimIntensity, float FresnelAttackFactor, float4 SelectionColor,
+	float3 OutlineColorTint, float3 BaseColorTint, float Main_Desaturation,
+	float GameTime, float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode, float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds, uint LightingChannelMask)
+{
+	FWuwaToonGBuffer G;
+	// MO-PS:51-63 shading normal
+	float3 Bt = cross(WorldNormal, WorldTangent) * TangentSign;
+	float3 N = WuwaWShadingNormal(WorldTangent, Bt, WorldNormal, NormalOverrideParameter);
+
+	// MO-PS:64-71 emissive: ShadowLord colour layer (UV3, scrolled by GameTime * Tiling.zw, then tiled) + attack rim
+	float2 slUV = (GameTime * ShadowLord_ColorTiling.zw + UV3) * ShadowLord_ColorTiling.xy;
+	float3 sl = ShadowLord_ColorTex.SampleBias(ShadowLord_ColorTexSampler, slUV, MaterialTextureMipBias).rgb * ShadowLord_ColorMulti;
+	float3 rim = (AttackFresnelRimColor * AttackFresnelRimIntensity) * FresnelAttackFactor;    // preshaders cb2[40], cb2[50].x
+	float3 E = UseShadowLordMaterialDynamic * sl + rim;
+	E = SelectionColor.a * (SelectionColor.rgb - E) + E;
+
+	// MO-PS:72-77 outline colour
+	float3 c  = MainTex.SampleBias(MainTexSampler, UV0, MaterialTextureMipBias).rgb * OutlineColorTint;
+	float3 cb = c * BaseColorTint;
+	float lum = dot(cb, float3(0.3, 0.59, 0.11));
+	float3 C = lerp(cb, float3(lum, lum, lum), Main_Desaturation);
+
+	G.Emissive = WuwaBPFinalEmissive(E, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+	G.A = float4(WuwaBPOctEncode(N), 1.0, (KuroGBufferMode == 1.0) ? 1.0 : 0.0);
+	G.B = float4(sqrt(saturate(cb)), WuwaBPShadingModelByte(LightingChannelMask, 13u));
+	G.C = float4(C, 0.0);
+	G.D = float4(0.0, 0.0, 0.0, 0.0);
+	return G;
+}
+
+// =====================================================================================================================
+// M_MonsterOutline VS: inverted-hull extrusion (MO-VS current-frame part) = the M_CharacterOutline extrusion
+// (WuwaToonBasePass_Outline.ush, UseOutlineMax + UseVertexGreen_OutlineWidth) with three differences:
+//   * "attack outline": the width and the max cap are lerp(OutlineClipWidth | OutlineMax, a, FresnelAttackFactor) with
+//     a = clamp(pow(1 - UV3.y, AttackDarkScale), 0.1, 1) * frac(sin(dot(floor(screenUV * (3,6) * 123.456787),
+//     (12.9898, 78.233)) * 2pi) * 43758.5469) * (AttackOutlineMax + AttackOutlineMaxLocalSet), screenUV of the un-extruded vertex;
+//   * the camera push is -0.01 * B * InnerOutlineMulti * InnerOutlineOffset (bInnerB, UseVertexColorB_InnerOutline) or
+//     -0.01 * lerp(InnerOutlineOffset, 15000, FresnelAttackFactor) (Xuanling, UseVertexColorB_InnerOutline off);
+//   * + the E_UV3Dissolve WPO (direction + sin/cos warp, smoothstep(UV3.y) masks), x UseShadowLordMaterialDynamic.
+// Kuro works in ABSOLUTE world space here (View[4..7] WorldToClip, View[8..11] ClipToWorld, View[67] WorldCameraOrigin,
+// position = TWP - PreViewTranslation): the port takes the same inputs so it is bit-exact for any PreViewTranslation.
+// Returns the world-space offset (UE WPO); Kuro then adds the translated world position and its primitive offset
+// (Primitive[44], gated by View[308].x) in that order: P = KuroOffset + (WPO + TWP).
+// Inputs (UE side): TranslatedWorldToClip = View.TranslatedWorldToClip; WorldToClip / ClipToWorld = Kuro absolute matrices
+// (UE5: TranslatedWorldToClip / ClipToTranslatedWorld re-based by PreViewTranslation, LWC-demoted [U: not stock members]);
+// ScreenPositionScaleBias = View.ScreenPositionScaleBias (Kuro VS View[66]); BufferSize = View.BufferSizeAndInvSize.xy
+// (Kuro VS View[138].xy [U]); ViewRectMin / ViewSizeAndInvSize = View[134].xy / View[135]; ClipToView00/11 = View[36].x / [37].y;
+// KuroOutlinePixelScale = View[280].y [U]; ObjectAxisScale = |LocalToWorld rows| (Kuro computes it from Primitive[0..2]).
+// =====================================================================================================================
+float3 WuwaMonsterOutlineWPO_Impl(const bool bInnerB,
+	float2 UV1, float UV3Y, float4 VertexColor, float3 VertexTangentWS, float3 VertexBitangentWS, float3 VertexNormalWS,
+	float3 ObjectAxisScale, float3 LocalToWorldRow0, float3 LocalToWorldRow1, float3 LocalToWorldRow2,
+	float3 TranslatedWorldPosition, float3 PreViewTranslation, float3 WorldCameraOrigin,
+	float4x4 TranslatedWorldToClip, float4x4 WorldToClip, float4x4 ClipToWorld,
+	float4 ScreenPositionScaleBias, float2 BufferSize, float2 ViewRectMin, float4 ViewSizeAndInvSize,
+	float ClipToView00, float ClipToView11, float KuroOutlinePixelScale, float GameTime,
+	float3 E_UV3Dissolve_WPOVector, float E_UV3Dissolve_VectorWPOStrength, float E_UV3Dissolve_Position, float E_UV3Dissolve_Radius,
+	float E_UV3Dissolve_Reverse, float E_UV3Dissolve_WarpWPOWavySize, float E_UV3Dissolve_WarpWPOTimeSpeed, float E_UV3Dissolve_WarpWPOSize,
+	float E_UV3Dissolve_WPOPosition, float UseShadowLordMaterialDynamic,
+	float AttackOutlineMax, float AttackOutlineMaxLocalSet, float AttackDarkScale, float FresnelAttackFactor,
+	float OutlineClipWidth, float VertexGMinWidthFactor, float OutlineMax, float OutlineHoldDistance,
+	float InnerOutlineMulti, float InnerOutlineOffset)
+{
+	// ---- UV3 dissolve WPO: direction = normalize(LocalToWorld3x3 * WPOVector) * strength -----------------------------
+	precise float3 dv  = LocalToWorldRow0 * E_UV3Dissolve_WPOVector.x;
+	precise float3 dv1 = LocalToWorldRow1 * E_UV3Dissolve_WPOVector.y;
+	dv = dv + dv1;
+	precise float3 dv2 = LocalToWorldRow2 * E_UV3Dissolve_WPOVector.z;
+	dv = dv + dv2;
+	dv = dv / sqrt(dot(dv, dv));
+	dv = dv * E_UV3Dissolve_VectorWPOStrength;
+	// s1 = smoothstep(Position, Position + Radius, lerp(1 - UV3.y, UV3.y, Reverse))
+	precise float a  = 1.0 - UV3Y;
+	precise float s1 = UV3Y - a;
+	s1 = s1 * E_UV3Dissolve_Reverse;
+	s1 = a + s1;
+	precise float pr  = E_UV3Dissolve_Position + E_UV3Dissolve_Radius;     // preshader cb[47].x
+	precise float rng = pr - E_UV3Dissolve_Position;
+	s1 = s1 - E_UV3Dissolve_Position;
+	rng = 1.0 / rng;
+	s1 = saturate(s1 * rng);
+	precise float k1 = s1 * -2.0;
+	k1 = k1 + 3.0;
+	s1 = s1 * s1;
+	s1 = s1 * k1;
+	s1 = min(s1, 1.0);
+	dv = s1 * dv;
+	// warp = (sin, cos, 0)(2pi * ((1 - smoothstep(saturate((UV3.y*0.5+0.5)*1.25))) * WavySize + GameTime * TimeSpeed)) * WarpSize * s1
+	precise float wv = UV3Y * 0.5;
+	wv = wv + 0.5;
+	wv = saturate(wv * 1.25);
+	precise float wk = wv * -2.0;
+	wk = wk + 3.0;
+	wv = wv * wv;
+	wv = wv * wk;
+	wv = 1.0 - wv;
+	wv = wv * E_UV3Dissolve_WarpWPOWavySize;
+	precise float wt = GameTime * E_UV3Dissolve_WarpWPOTimeSpeed;
+	wv = wv + wt;
+	wv = wv * asfloat(0x40C90FDBu);
+	precise float sn, cs;
+	sincos(wv, sn, cs);
+	precise float3 warp = float3(sn * E_UV3Dissolve_WarpWPOSize, cs * E_UV3Dissolve_WarpWPOSize, 0.0);
+	warp = s1 * warp;
+	dv = dv + warp;
+	// s2 = smoothstep(1 - WPOPosition, 1, s1)
+	precise float omp = 1.0 - E_UV3Dissolve_WPOPosition;                    // preshader cb[48].y
+	precise float r2  = 1.0 - omp;
+	precise float s2  = s1 - omp;
+	r2 = 1.0 / r2;
+	s2 = saturate(s2 * r2);
+	precise float k2 = s2 * -2.0;
+	k2 = k2 + 3.0;
+	s2 = s2 * s2;
+	s2 = s2 * k2;
+	s2 = min(s2, 1.0);
+	dv = dv * s2;
+	dv = dv * UseShadowLordMaterialDynamic;
+
+	// ---- octahedral decode of the smoothed normal in UV1, to world with the skinned basis (= Outline VS-A:206-223) --------
+	precise float z  = abs(UV1.y) + abs(UV1.x);
+	z = 1.0 - z;
+	precise float t  = saturate(z * -1.0);
+	precise float nt = t * -1.0;
+	precise float2 ge = float2((UV1.x >= 0.0) ? 1.0 : 0.0, (UV1.y >= 0.0) ? 1.0 : 0.0);
+	nt = -t + nt;
+	precise float2 nxy = nt * ge;
+	nxy = t + nxy;
+	nxy = UV1 + nxy;
+	precise float3 n  = VertexTangentWS * nxy.x;
+	precise float3 nb = VertexBitangentWS * nxy.y;
+	n = nb + n;
+	precise float3 nn = VertexNormalWS * z;
+	n = n + nn;
+	n = n / sqrt(dot(n, n));
+
+	// ---- attack-outline screen hash of the un-extruded vertex ----------------------------------------------------------
+	precise float3 h0 = TranslatedWorldPosition.x * TranslatedWorldToClip[0].xyw;
+	precise float3 h1 = TranslatedWorldPosition.y * TranslatedWorldToClip[1].xyw;
+	h0 = h0 + h1;
+	precise float3 h2 = TranslatedWorldPosition.z * TranslatedWorldToClip[2].xyw;
+	h0 = h0 + h2;
+	h0 = h0 + TranslatedWorldToClip[3].xyw;
+	precise float2 sp = h0.xy / h0.z;
+	sp = sp * ScreenPositionScaleBias.xy;
+	sp = sp + ScreenPositionScaleBias.wz;
+	sp = sp * BufferSize;
+	sp = sp - ViewRectMin;
+	sp = sp * ViewSizeAndInvSize.zw;
+	sp = sp * float2(3.0, 6.0);
+	sp = sp * asfloat(0x42F6E9E0u);                                          // 123.456787
+	sp = floor(sp);
+	precise float hs = dot(sp, float2(asfloat(0x414FD639u), asfloat(0x429C774Cu)));   // (12.9898, 78.233)
+	hs = hs * asfloat(0x40C90FDBu);
+	hs = sin(hs);
+	hs = hs * asfloat(0x472AEE8Cu);                                          // 43758.5469
+	hs = frac(hs);
+	hs = max(hs, 0.0);
+	precise float amax = AttackOutlineMax + AttackOutlineMaxLocalSet;        // preshader cb[49].y
+	hs = hs * amax;
+	precise float dk = exp2(log2(a) * AttackDarkScale);
+	dk = max(dk, 0.1);
+	dk = min(dk, 1.0);
+	dk = (asfloat(0x33000002u) >= a) ? 0.1 : dk;
+	precise float att = dk * hs;
+	precise float2 lw = att - float2(OutlineClipWidth, OutlineMax);
+	lw = lw * FresnelAttackFactor;                                           // preshader (1 * FresnelAttackFactor)
+	lw = lw + float2(OutlineClipWidth, OutlineMax);
+
+	// ---- width (UseVertexGreen_OutlineWidth) x per-axis object scale -------------------------------------------------------
+	precise float W = 1.0 - VertexGMinWidthFactor;
+	W = VertexColor.g * W;
+	W = W + VertexGMinWidthFactor;
+	W = W * lw.x;
+	precise float3 widthVec = W * ObjectAxisScale;
+
+	// ---- clip.w of the un-extruded vertex (absolute WorldToClip) ---------------------------------------------------------
+	precise float3 absP = TranslatedWorldPosition - PreViewTranslation;
+	precise float clipW = absP.x * WorldToClip[0].w;
+	precise float cw1 = absP.y * WorldToClip[1].w;
+	clipW = clipW + cw1;
+	precise float cw2 = absP.z * WorldToClip[2].w;
+	clipW = clipW + cw2;
+	clipW = clipW + WorldToClip[3].w;
+
+	// ---- normal -> clip, aspect / FOV normalisation, pixel floor with OutlineMax cap (= Outline VS-A:251-286) ------------
+	precise float3 c0 = n.x * WorldToClip[0].xyz;
+	precise float3 c1 = n.y * WorldToClip[1].xyz;
+	precise float3 nClip = c1 + c0;
+	precise float3 c2 = n.z * WorldToClip[2].xyz;
+	nClip = nClip + c2;
+	precise float aspectK = ClipToView11 / (ClipToView00 * 0.5625);
+	precise float fovK    = asfloat(0x3F446F8Bu) / ClipToView11;
+	precise float2 pixel  = (clipW * 2.0) * ViewSizeAndInvSize.zw;
+	pixel = pixel * KuroOutlinePixelScale;
+	nClip = rsqrt(dot(nClip, nClip)) * nClip;
+	precise float3 off = widthVec * nClip;
+	off = off * 0.1;
+	off = fovK * off;
+	off.xy = aspectK * off.xy;
+	precise float2 sgn = float2((0.0 < off.x) ? 1.0 : -1.0, (0.0 < off.y) ? 1.0 : -1.0);
+	precise float hold = OutlineHoldDistance * 0.1;
+	precise float2 aoff = abs(off.xy);
+	precise float2 floored = max(pixel, aoff);
+	precise float2 cap = lw.y * pixel;
+	floored = min(cap, floored);
+	precise float2 tt = pixel * hold;
+	tt = 1.0 / tt;
+	tt = saturate(aoff * tt);
+	precise float2 kk = tt * -2.0;
+	kk = kk + 3.0;
+	tt = tt * tt;
+	tt = tt * kk;
+	floored = -aoff + floored;
+	floored = floored * tt;
+	precise float2 oxy = aoff + floored;
+	oxy = oxy * sgn;
+
+	// ---- back to world with ClipToWorld (w = 0) -----------------------------------------------------------------------
+	precise float3 w0 = oxy.x * ClipToWorld[0].xyz;
+	precise float3 w1 = oxy.y * ClipToWorld[1].xyz;
+	precise float3 offWS = w0 + w1;
+	precise float3 w2 = off.z * ClipToWorld[2].xyz;
+	offWS = offWS + w2;
+	precise float3 w3 = ClipToWorld[3].xyz * 0.0;
+	offWS = offWS + w3;
+
+	// ---- camera push -----------------------------------------------------------------------------------------------------
+	precise float3 camDir = WorldCameraOrigin - absP;
+	camDir = camDir / sqrt(dot(camDir, camDir));
+	precise float D;
+	if (bInnerB)
+	{
+		D = VertexColor.b * InnerOutlineMulti;
+		D = D * InnerOutlineOffset;
+		D = D * asfloat(0xBC23D70Au);                                       // -0.01
+	}
+	else
+	{
+		D = 15000.0 - InnerOutlineOffset;
+		D = D * FresnelAttackFactor;
+		D = D + InnerOutlineOffset;
+		D = D * asfloat(0xBC23D70Au);
+	}
+	precise float3 push = D * camDir;
+	offWS = offWS + push;
+	offWS = offWS + dv;
+	return offWS;
+}
+
+#define WUWA_MONSTER_OUTLINE_WPO_PARAMS \
+	float2 UV1, float UV3Y, float4 VertexColor, float3 VertexTangentWS, float3 VertexBitangentWS, float3 VertexNormalWS, \
+	float3 ObjectAxisScale, float3 LocalToWorldRow0, float3 LocalToWorldRow1, float3 LocalToWorldRow2, \
+	float3 TranslatedWorldPosition, float3 PreViewTranslation, float3 WorldCameraOrigin, \
+	float4x4 TranslatedWorldToClip, float4x4 WorldToClip, float4x4 ClipToWorld, \
+	float4 ScreenPositionScaleBias, float2 BufferSize, float2 ViewRectMin, float4 ViewSizeAndInvSize, \
+	float ClipToView00, float ClipToView11, float KuroOutlinePixelScale, float GameTime, \
+	float3 E_UV3Dissolve_WPOVector, float E_UV3Dissolve_VectorWPOStrength, float E_UV3Dissolve_Position, float E_UV3Dissolve_Radius, \
+	float E_UV3Dissolve_Reverse, float E_UV3Dissolve_WarpWPOWavySize, float E_UV3Dissolve_WarpWPOTimeSpeed, float E_UV3Dissolve_WarpWPOSize, \
+	float E_UV3Dissolve_WPOPosition, float UseShadowLordMaterialDynamic, \
+	float AttackOutlineMax, float AttackOutlineMaxLocalSet, float AttackDarkScale, float FresnelAttackFactor, \
+	float OutlineClipWidth, float VertexGMinWidthFactor, float OutlineMax, float OutlineHoldDistance
+#define WUWA_MONSTER_OUTLINE_WPO_ARGS \
+	UV1, UV3Y, VertexColor, VertexTangentWS, VertexBitangentWS, VertexNormalWS, ObjectAxisScale, LocalToWorldRow0, LocalToWorldRow1, \
+	LocalToWorldRow2, TranslatedWorldPosition, PreViewTranslation, WorldCameraOrigin, TranslatedWorldToClip, WorldToClip, ClipToWorld, \
+	ScreenPositionScaleBias, BufferSize, ViewRectMin, ViewSizeAndInvSize, ClipToView00, ClipToView11, KuroOutlinePixelScale, GameTime, \
+	E_UV3Dissolve_WPOVector, E_UV3Dissolve_VectorWPOStrength, E_UV3Dissolve_Position, E_UV3Dissolve_Radius, E_UV3Dissolve_Reverse, \
+	E_UV3Dissolve_WarpWPOWavySize, E_UV3Dissolve_WarpWPOTimeSpeed, E_UV3Dissolve_WarpWPOSize, E_UV3Dissolve_WPOPosition, \
+	UseShadowLordMaterialDynamic, AttackOutlineMax, AttackOutlineMaxLocalSet, AttackDarkScale, FresnelAttackFactor, \
+	OutlineClipWidth, VertexGMinWidthFactor, OutlineMax, OutlineHoldDistance
+
+// VS #121222 (Phrolova Hekate *_OL, UseVertexColorB_InnerOutline): push -0.01 * B * InnerOutlineMulti * InnerOutlineOffset.
+float3 WuwaMonsterOutlineWPO_InnerB(WUWA_MONSTER_OUTLINE_WPO_PARAMS, float InnerOutlineMulti, float InnerOutlineOffset)
+{
+	return WuwaMonsterOutlineWPO_Impl(true, WUWA_MONSTER_OUTLINE_WPO_ARGS, InnerOutlineMulti, InnerOutlineOffset);
+}
+
+// VS #51848 (Xuanling bird _OL, UseClipSpaceOutline, no InnerB): push -0.01 * lerp(InnerOutlineOffset, 15000, FresnelAttackFactor).
+float3 WuwaMonsterOutlineWPO_Push(WUWA_MONSTER_OUTLINE_WPO_PARAMS, float InnerOutlineOffset)
+{
+	return WuwaMonsterOutlineWPO_Impl(false, WUWA_MONSTER_OUTLINE_WPO_ARGS, 0.0, InnerOutlineOffset);
+}
+
+#undef WUWA_MONSTER_OUTLINE_WPO_PARAMS
+#undef WUWA_MONSTER_OUTLINE_WPO_ARGS
+
+// =====================================================================================================================
+// M_Char_Com_WaterSword_Sword (PS 4cf7d2c854 #88938, "WS-S:n") / _Water (PS e1349d0b52 #96067, "WS-W:n"): Cartethyia's
+// summoned water sword (MI_EFuludelisiDajianMd10011_Jian / _Shui). Masked, two-sided MSM_ToonCommon (GBufferB id 12).
+// Shared M_Char_Com-style body: no normal map, vertex-colour skin band, M_Char_Com light direction (WuwaBPMainLightDir),
+// constant solid-shadow terms (CPU preshaders -> uniform expressions SolidShadowClampRatio / SolidShadowAZ), GBuffer packing
+// as M_Char_Com mode 0/1. Differences: Sword puts the water layer into GBufferC (C.rgb = desat(BaseColor * Bright) * water),
+// Water puts its flipbook colour into the emissive and multiplies GBufferC by it. Both clip inside the entry: the material
+// mask + a screen dither ((sv.x + 2 sv.y + TAA) mod 5 + DitherTex(sv / 64).x) / 6 with the clip value folded in, min'ed
+// with the Kuro primitive dither (WuwaPrimDitherClip); discard when < 0.
+// =====================================================================================================================
+
+// WS-S:169-178 screen dither in [0, 1): ((ftou(sv - ViewRectMin + TAA) . (1, 2)) mod 5 + DitherTex((sv - ViewRectMin) / 64).x) / 6
+float WuwaWSScreenDither(Texture2D DitherTex, SamplerState DitherTexSampler, float2 SvPositionXY, float2 ViewRectMin,
+	float TemporalAAParamsX, float MaterialTextureMipBias)
+{
+	float2 p = SvPositionXY - ViewRectMin;
+	uint2 q = (uint2)(p + TemporalAAParamsX);
+	uint k = ((q.y << 1) + q.x) % 5u;
+	float t = DitherTex.SampleBias(DitherTexSampler, p * 0.015625, MaterialTextureMipBias).x;
+	return (t + (float)k) * asfloat(0x3E2AAAABu);
+}
+
+// WS-S:1-36 shared prefix: normal, skin factor, base colour
+void WuwaWSPrefix(Texture2D MainTex, SamplerState MainTexSampler, float2 UV0, float VertexColorR, float3 WorldNormal,
+	float4 NormalOverrideParameter, float MaterialTextureMipBias, float3 SkinColor, float DefaultSkinFactor, float UseSkinMask_DYN,
+	float UseFaceAni_SkinMask, float3 BaseColorTint, out float3 N, out float Skin, out float4 MT, out float3 BaseColor)
+{
+	float  nw = NormalOverrideParameter.w;
+	float3 Nraw = WorldNormal * nw + (1.0 - nw) * WorldNormal;
+	N = Nraw * rsqrt(dot(Nraw, Nraw));
+	float band;
+	Skin = WuwaBPSkinFactor(WuwaBPBandClassify(VertexColorR, band), UseSkinMask_DYN, DefaultSkinFactor, UseFaceAni_SkinMask);
+	float3 SkinTint = Skin * (SkinColor + -1.0) + 1.0;
+	MT = MainTex.SampleBias(MainTexSampler, UV0, MaterialTextureMipBias);
+	BaseColor = SkinTint * (MT.rgb * BaseColorTint);
+}
+
+// WS-S:232-410 shared tail: emissive tail, GBufferB, toon shadow (GBufferA.z), packing. Crgb = GBufferC.rgb, Alpha = C.a (mode 0).
+FWuwaToonGBuffer WuwaWSToonTail(float3 E, float3 Crgb, float Alpha, float3 N, float Skin, float3 WorldNormal, float TwoSidedSign,
+	float3 WorldPosition, float3 LightDirVS,
+	float3 SkinSubsurfaceColor, float3 SubsurfaceColor, float Desaturation, float SolidShadowProcess, float ShadowOffsetAdjustFactor,
+	float ShadowOffsetPower, float MaskShadowOffsetStrength, float RaytracingReflectionFix, float LightOffset_Pitch, float ShadowProcess,
+	float ShadowWidth, float SolidShadowClampRatio, float SolidShadowAZ, float ToonRimWidth, float HairLumenIntensity, float GiBlend,
+	float CPD1, float CPD13, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float KuroGBufferMode, float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition,
+	float3 ObjectBounds, uint LightingChannelMask)
+{
+	FWuwaToonGBuffer G;
+	G.Emissive = WuwaBPFinalEmissive(E, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+	// WS-S:250-254 GBufferB colour
+	float3 SS = Skin * (SkinSubsurfaceColor - SubsurfaceColor) + SubsurfaceColor;
+	SS = WuwaBPDesaturate(SS, Desaturation);
+	// WS-S:255-268 constant shadow offset: pow(smoothstep(SSP, 1, 0.001 + SSP) * Adjust, Power) * Strength
+	// (0.001 + SSP) is a preshader: `precise` keeps fxc from folding (0.001 + SSP) - SSP into 0.001.
+	precise float sp1 = 0.001 + SolidShadowProcess;
+	precise float sp2 = sp1 - SolidShadowProcess;
+	float so = saturate(sp2 * (1.0 / (1.0 - SolidShadowProcess)));
+	so = (so * so) * (so * -2.0 + 3.0);
+	so = so * ShadowOffsetAdjustFactor;
+	so = (asfloat(0x33000002u) >= so) ? 0.0 : exp2(log2(so) * ShadowOffsetPower) * MaskShadowOffsetStrength;
+	// WS-S:269-271 two-sided shading normal
+	float3 N2 = RaytracingReflectionFix * (-N * TwoSidedSign + WorldNormal) + N * TwoSidedSign;
+	// WS-S:272-330 light direction
+	float3 L = WuwaBPMainLightDir(LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+	// WS-S:331-347 half-Lambert step x constant solid-shadow ratio
+	float HL = dot(N2, L) * 0.5 + so;
+	HL = HL + 0.5;
+	float Shadow = WuwaWSmoothStep(ShadowProcess - ShadowWidth, ShadowProcess + ShadowWidth, HL);
+	G.A.z = (SolidShadowClampRatio * Shadow * 0.5 + 0.5) * SolidShadowAZ;
+	G.A.xy = WuwaBPOctEncode(N);
+	G.B = float4(sqrt(saturate(SS)), WuwaBPShadingModelByte(LightingChannelMask, 12u));
+	G.C.rgb = Crgb;
+	if (KuroGBufferMode == 1.0)
+	{
+		G.C.a = WuwaBPRimByteEven(ToonRimWidth);
+		G.D = float4(0.0, 0.0, 0.0, 0.0);
+		G.A.w = 1.0;
+	}
+	else
+	{
+		G.A.w = (Skin >= 0.5) ? asfloat(0x3F2A7EFAu) : 0.0;
+		G.C.a = Alpha;
+		G.D = float4(ToonRimWidth, WuwaPackU8Lo4(saturate(HairLumenIntensity), saturate(GiBlend)), 0.0, 0.0);
+	}
+	return G;
+}
+
+#define WUWA_WS_TAIL_PARAMS \
+	float3 SkinSubsurfaceColor, float3 SubsurfaceColor, float Desaturation, float SolidShadowProcess, float ShadowOffsetAdjustFactor, \
+	float ShadowOffsetPower, float MaskShadowOffsetStrength, float RaytracingReflectionFix, float LightOffset_Pitch, float ShadowProcess, \
+	float ShadowWidth, float SolidShadowClampRatio, float SolidShadowAZ, float ToonRimWidth, float HairLumenIntensity, float GiBlend, \
+	float CPD1, float CPD13, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection, \
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3, \
+	float KuroGBufferMode, float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, \
+	float3 ObjectBounds, uint LightingChannelMask
+#define WUWA_WS_TAIL_ARGS \
+	SkinSubsurfaceColor, SubsurfaceColor, Desaturation, SolidShadowProcess, ShadowOffsetAdjustFactor, ShadowOffsetPower, \
+	MaskShadowOffsetStrength, RaytracingReflectionFix, LightOffset_Pitch, ShadowProcess, ShadowWidth, SolidShadowClampRatio, SolidShadowAZ, \
+	ToonRimWidth, HairLumenIntensity, GiBlend, CPD1, CPD13, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, \
+	ToonLight0, ToonLight1, ToonLight2, ToonLight3, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, \
+	ObjectWorldPosition, ObjectBounds, LightingChannelMask
+
+// ---- M_Char_Com_WaterSword_Sword (PS 4cf7d2c854): water layer (two scrolled / rotated MainWaterTex taps blended by a
+// height term, dispersion, vertex-G foam with two WaterNoiseTex taps, sparkle, Main_Tex blend by UV3.y, height mask) in GBufferC.
+FWuwaToonGBuffer WuwaToonWaterSwordBasePass_Sword(
+	Texture2D MainTex, SamplerState MainTexSampler, Texture2D DisturbanceTex, SamplerState DisturbanceTexSampler,
+	Texture2D MainWaterTex, SamplerState MainWaterTexSampler, Texture2D DispersionTex, SamplerState DispersionTexSampler,
+	Texture2D WaterNoiseTex, SamplerState WaterNoiseTexSampler, Texture2D Main_Tex, SamplerState Main_TexSampler,
+	Texture2D R_AlphaMask_G_FlowMask, SamplerState R_AlphaMask_G_FlowMaskSampler, Texture2D DitherTex, SamplerState DitherTexSampler,
+	float2 UV0, float2 UV2, float UV3Y, float VertexColorR, float VertexColorG, float3 WorldNormal, float3 WorldPosition,
+	float TwoSidedSign, float3 LightDirVS, float MotionEmissiveMask, float2 SvPositionXY, float2 ViewRectMin, float TemporalAAParamsX,
+	float3 SkinColor, float DefaultSkinFactor, float UseSkinMask_DYN, float UseFaceAni_SkinMask, float3 BaseColorTint,
+	float EmissionIntensity, float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor,
+	float4 DisturbanceUV, float4 MainWaterTex_UV, float WaterAngle_RotCos, float WaterAngle_RotSin, float MainWaterTex_SpeedDifference,
+	float SpeedDifferenceHeight, float4 DispersionUV, float DispersionIntensity, float DispersionLighten, float4 WaterNoiseTex_UV,
+	float FoamRange, float MainTexBlend_Highth, float MainTexBlend_Hardness, float MainTex_DisturbanceIntensity, float3 MainTexColor,
+	float Emissive, float UseMaskReverse, float HightMask_Highth, float HightMask_Hardness, float HightMask_Lighten,
+	float HightMask_Intensity, float AniSwitch_ShadowColorBright, float OpacityDisturbance, float OpacityIntensity,
+	WUWA_WS_TAIL_PARAMS, float KuroPrimDitherEnable, float KuroPrimDitherFade, float GameTime, float MaterialTextureMipBias,
+	float4 NormalOverrideParameter)
+{
+	float3 N, BaseColor;
+	float  Skin;
+	float4 MT;
+	WuwaWSPrefix(MainTex, MainTexSampler, UV0, VertexColorR, WorldNormal, NormalOverrideParameter, MaterialTextureMipBias,
+		SkinColor, DefaultSkinFactor, UseSkinMask_DYN, UseFaceAni_SkinMask, BaseColorTint, N, Skin, MT, BaseColor);
+	// WS-S:36-41 emissive
+	float3 E = EmissionColor * (BaseColor * EmissionIntensity) + MotionEmissiveMask * E_Motion_Emissive;
+	E = SelectionColor.a * (SelectionColor.rgb - E) + E;
+
+	// WS-S:42-64 disturbed UV2, two rotated MainWaterTex taps, blended by a height term
+	float2 duv = UV2 * DisturbanceUV.xy;
+	duv = GameTime * DisturbanceUV.zw + duv;
+	float d = DisturbanceTex.SampleBias(DisturbanceTexSampler, duv, MaterialTextureMipBias).x;
+	float2 wuv = (UV2 * d - UV2) * 0.05 + UV2;
+	float2 wa = wuv * MainWaterTex_UV.xy;
+	float2 w1 = GameTime * MainWaterTex_UV.zw + wa;
+	float2 rc = float2(WaterAngle_RotCos, -WaterAngle_RotSin);
+	float2 rs = float2(WaterAngle_RotSin, WaterAngle_RotCos);
+	float3 c1 = MainWaterTex.SampleBias(MainWaterTexSampler, float2(dot(w1, rc), dot(w1, rs)), MaterialTextureMipBias).rgb;
+	float2 w2 = GameTime * (MainWaterTex_UV.zw * MainWaterTex_SpeedDifference) + wa;
+	float3 c2 = MainWaterTex.SampleBias(MainWaterTexSampler, float2(dot(w2, rc), dot(w2, rs)), MaterialTextureMipBias).rgb;
+	float g  = dot(wuv, float2(asfloat(0x3E9E377Au), asfloat(0x3F737871u)));          // (0.309017, 0.951057)
+	float g4 = g * g;
+	g4 = g4 * g4;
+	float sd = saturate((g * g4) * SpeedDifferenceHeight);
+	sd = (asfloat(0x33000002u) >= g) ? 0.0 : sd;
+	float3 wc = sd * (c2 - c1) + c1;
+
+	// WS-S:65-79 dispersion (UV2, fixed 36 deg rotation)
+	float2 du = UV2 * DispersionUV.xy + -0.5;
+	float2 dr = float2(dot(du, float2(asfloat(0x3F4F1BBDu), asfloat(0x3F167918u))), dot(du, float2(asfloat(0xBF167918u), asfloat(0x3F4F1BBDu))));
+	dr = GameTime * DispersionUV.zw + dr;
+	dr = dr + 0.5;
+	float3 dc = DispersionTex.SampleBias(DispersionTexSampler, dr, MaterialTextureMipBias).rgb;
+	float di = saturate((wc.x * asfloat(0x3F733333u) + asfloat(0xBDCCCCCDu)) * asfloat(0x3F8E38E4u));
+	float dk = di * -2.0 + 3.0;
+	di = di * di;
+	di = di * dk;
+	di = min(di, 1.0) * DispersionIntensity;
+	wc = di * (dc * DispersionLighten - wc) + wc;
+
+	// WS-S:80-103 foam (vertex colour G)
+	float vg = VertexColorG;
+	float sq = (asfloat(0x33000002u) >= vg) ? 0.0 : 1.0 / rsqrt(vg);
+	float2 nu = UV0 * WaterNoiseTex_UV.xy;
+	nu = nu * float2(6.0, 4.0) + -0.5;
+	nu = float2(dot(nu, float2(asfloat(0x3F4F1BBDu), asfloat(0x3F167918u))), dot(nu, float2(asfloat(0xBF167918u), asfloat(0x3F4F1BBDu))));
+	nu = nu + 0.5;
+	precise float2 sz = WaterNoiseTex_UV.z * float2(0.0, asfloat(0xBF90AEDAu));      // preshaders (`precise`: no reassociation
+	precise float2 sw = WaterNoiseTex_UV.w * float2(0.0, asfloat(0xBF6BEC46u));      // with GameTime)
+	float2 nu1 = GameTime * sz + nu;
+	float n1 = WaterNoiseTex.SampleBias(WaterNoiseTexSampler, nu1, MaterialTextureMipBias).x;
+	float fo = sq * n1 + vg;
+	float2 nu2 = GameTime * sw + nu;
+	float2 n2 = WaterNoiseTex.SampleBias(WaterNoiseTexSampler, nu2, MaterialTextureMipBias).xy;
+	fo = min(n1, n2.x) * FoamRange + fo;
+	float ff = saturate((fo * fo + asfloat(0xBE4CCCCDu)) * 1.25);
+	ff = (asfloat(0x33000002u) >= fo) ? 0.0 : ff;
+	float fk = ff * -2.0 + 3.0;
+	ff = ff * ff;
+	float foam = dot(float2(fk, fk), float2(ff, ff));
+	wc = max(foam, wc);
+
+	// WS-S:104-125 sparkle
+	float sn = sin(GameTime * asfloat(0x3F20D97Cu));
+	float s1 = (sn * 0.5 + 2.0) * n2.y;
+	float s1g = ((s1 * s1) >= asfloat(0x3ECCCCCDu)) ? 1.0 : 0.0;
+	s1g = (asfloat(0x33000002u) >= s1) ? 0.0 : s1g;
+	float s2 = n2.y * sn;
+	float p10 = exp2(log2(s2 + s2) * 10.0);
+	float s2g = (p10 >= asfloat(0x3E4CCCCDu)) ? 1.0 : 0.0;
+	s2g = (asfloat(0x32800002u) >= s2) ? 0.0 : s2g;
+	float sp = (s2g + s1g) * asfloat(0x3ECCCCCDu);
+	wc = sp * (wc * sp - wc) + wc;
+
+	// WS-S:126-152 Main_Tex blend by UV3.y, height mask
+	float bt = UV3Y + MainTexBlend_Highth;
+	float bl = min(exp2(log2(bt) * MainTexBlend_Hardness), 1.0);
+	bl = (asfloat(0x33000002u) >= bt) ? 0.0 : bl;
+	float bd = bl * MainTex_DisturbanceIntensity;
+	float2 muv = bd * (UV0 * d - UV0) + UV0;
+	float3 mc = Main_Tex.SampleBias(Main_TexSampler, muv, MaterialTextureMipBias).rgb;
+	wc = (1.0 - bl) * (mc * MainTexColor - wc) + wc;
+	wc = wc * Emissive;
+	float h1 = 1.0 - UV3Y;
+	float hm = UseMaskReverse * (UV3Y - h1) + h1;
+	hm = hm / HightMask_Highth;
+	float hp = min(exp2(log2(hm) * HightMask_Hardness), 1.0);
+	hp = (asfloat(0x33000002u) >= hm) ? 0.0 : hp;
+	wc = HightMask_Intensity * ((wc * hp) * HightMask_Lighten - wc) + wc;
+
+	// WS-S:153-157 GBufferC = desaturate(BaseColor * Bright) * water
+	float3 cb = BaseColor * AniSwitch_ShadowColorBright;
+	float lum = dot(cb, float3(0.3, 0.59, 0.11));
+	float3 Crgb = lerp(cb, float3(lum, lum, lum), Desaturation) * wc;
+
+	// WS-S:158-198 opacity mask (R_AlphaMask, UV0 disturbed by d^5) + screen dither, clip value folded (-0.8333); primitive dither
+	float d5 = d * d;
+	d5 = d5 * d5;
+	d5 = d * d5;
+	float2 ouv = d5 * UV0;
+	if (asfloat(0x33000002u) >= d)
+	{
+		ouv = float2(0.0, 0.0);
+	}
+	ouv = OpacityDisturbance * (ouv - UV0) + UV0;
+	float om = saturate(R_AlphaMask_G_FlowMask.SampleBias(R_AlphaMask_G_FlowMaskSampler, ouv, MaterialTextureMipBias).x);
+	float Alpha = MT.a * OpacityIntensity;
+	float mask = om * Alpha + WuwaWSScreenDither(DitherTex, DitherTexSampler, SvPositionXY, ViewRectMin, TemporalAAParamsX, MaterialTextureMipBias);
+	mask = mask + asfloat(0xBF555326u);
+	clip(min(mask, WuwaPrimDitherClip(KuroPrimDitherEnable, KuroPrimDitherFade, SvPositionXY)));
+
+	return WuwaWSToonTail(E, Crgb, Alpha, N, Skin, WorldNormal, TwoSidedSign, WorldPosition, LightDirVS, WUWA_WS_TAIL_ARGS);
+}
+
+// ---- M_Char_Com_WaterSword_Water (PS e1349d0b52): distorted water mask (two noise taps), Param-tinted cube + flipbook
+// colour (ColorfulTex, RowColums x RowColums frames) into the emissive and GBufferC; opacity = mask^OpacityExp x centre mask x
+// cos / smoothstep edge fades.
+FWuwaToonGBuffer WuwaToonWaterSwordBasePass_Water(
+	Texture2D MainTex, SamplerState MainTexSampler, Texture2D DistortNoiseTex, SamplerState DistortNoiseTexSampler,
+	Texture2D DistortNoiseDetailedTex, SamplerState DistortNoiseDetailedTexSampler, Texture2D WaterMaskTex, SamplerState WaterMaskTexSampler,
+	Texture2D ColorfulTex, SamplerState ColorfulTexSampler, Texture2D DitherTex, SamplerState DitherTexSampler,
+	float2 UV0, float2 UV2, float VertexColorR, float3 WorldNormal, float3 WorldPosition,
+	float TwoSidedSign, float3 LightDirVS, float MotionEmissiveMask, float2 SvPositionXY, float2 ViewRectMin, float TemporalAAParamsX,
+	float3 SkinColor, float DefaultSkinFactor, float UseSkinMask_DYN, float UseFaceAni_SkinMask, float3 BaseColorTint,
+	float EmissionIntensity, float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor,
+	float Speed, float TexScaleX, float TexScaleY, float DistortNoiseScale, float DistortNoiseScaleDetailed, float DistortAmount,
+	float DistortAmountDetailed, float3 Param, float RowColums, float RowColums_FrameFraction, float Colorful_Inensity, float Emissive,
+	float AniSwitch_ShadowColorBright, float WaterCenterMaskHardness, float WaterCenterMaskRange, float OpacityExp, float OpacityIntensity,
+	float Opacity,
+	WUWA_WS_TAIL_PARAMS, float KuroPrimDitherEnable, float KuroPrimDitherFade, float GameTime, float MaterialTextureMipBias,
+	float4 NormalOverrideParameter)
+{
+	float3 N, BaseColor;
+	float  Skin;
+	float4 MT;
+	WuwaWSPrefix(MainTex, MainTexSampler, UV0, VertexColorR, WorldNormal, NormalOverrideParameter, MaterialTextureMipBias,
+		SkinColor, DefaultSkinFactor, UseSkinMask_DYN, UseFaceAni_SkinMask, BaseColorTint, N, Skin, MT, BaseColor);
+	// WS-W:36-38 emissive base
+	float3 E = EmissionColor * (BaseColor * EmissionIntensity) + MotionEmissiveMask * E_Motion_Emissive;
+
+	// WS-W:39-56 scrolled / scaled UV0, two noise taps, distorted water mask
+	float2 uva = GameTime * float2(0.0, Speed) + float2(TexScaleX * UV0.x + (1.0 - TexScaleX) * 0.5, UV0.y * TexScaleY);
+	float n1 = DistortNoiseTex.SampleBias(DistortNoiseTexSampler, UV0 * (float2(1.0, TexScaleY) * DistortNoiseScale), MaterialTextureMipBias).x + -0.5;
+	float n2 = DistortNoiseDetailedTex.SampleBias(DistortNoiseDetailedTexSampler, UV0 * (float2(1.0, TexScaleY) * DistortNoiseScaleDetailed),
+		MaterialTextureMipBias).x + -0.5;
+	float3 vy = UV0.y + float3(-0.5, asfloat(0xBCF5C28Fu), asfloat(0xBF333333u));          // (-0.5, -0.03, -0.7)
+	float dt = n2 * abs(vy.x + vy.x);
+	dt = dt * DistortAmountDetailed;
+	dt = n1 * DistortAmount + dt;
+	float m = WaterMaskTex.SampleBias(WaterMaskTexSampler, dt + uva, MaterialTextureMipBias).x;
+	bool mg = (asfloat(0x33000002u) >= m);
+
+	// WS-W:57-77 colour: 12 m^3 Param cube, flipbook frame of ColorfulTex
+	float m3 = m * m;
+	m3 = m * m3;
+	m3 = m3 * 12.0;
+	float3 pc = m3 * Param;
+	if (mg)
+	{
+		pc = float3(0.0, 0.0, 0.0);
+	}
+	float3 pl = (pc - Param) * asfloat(0x3F4E04D1u) + Param;                             // lerp(Param, pc, 0.804761)
+	float2 fr = frac(uva);
+	float ft = frac(frac(GameTime) * RowColums_FrameFraction);
+	float2 fi = floor(ft * float2(RowColums * RowColums, RowColums));
+	float4 fq = float4(fr, fi) / float2(RowColums, RowColums).xyxy;
+	float3 cf = ColorfulTex.SampleBias(ColorfulTexSampler, fq.zw + fq.xy, MaterialTextureMipBias).rgb;
+	pl = cf + pl;
+	float3 wcol = cf * Colorful_Inensity + pc;
+	wcol = wcol + pl;
+	E = Emissive * wcol + E;
+	E = SelectionColor.a * (SelectionColor.rgb - E) + E;
+
+	// WS-W:80-84 GBufferC = water colour x desaturate(BaseColor * Bright)
+	float3 cb = BaseColor * AniSwitch_ShadowColorBright;
+	float lum = dot(cb, float3(0.3, 0.59, 0.11));
+	float3 Crgb = wcol * lerp(cb, float3(lum, lum, lum), Desaturation);
+
+	// WS-W:85-130 opacity: pow(m, OpacityExp) * 12 x centre mask x (1 - cos(2pi u)) / 2 x smoothstep edge fades
+	float2 cuv = UV2 + -0.5;
+	cuv = abs(cuv) * abs(cuv);
+	float cr = sqrt(cuv.x * 2.0 + cuv.y) * WaterCenterMaskHardness;
+	float cm = min(exp2(log2(cr) * WaterCenterMaskRange), 1.0);
+	cm = (asfloat(0x33000002u) >= cr) ? 0.0 : cm;
+	float op = exp2(log2(m) * OpacityExp) * 12.0;
+	float cu = (cos(UV0.x * asfloat(0x40C90FDBu)) + -1.0) * -0.5;
+	float2 ev = saturate(vy.yz * float2(asfloat(0x406D097Bu), asfloat(0x406D0979u)));
+	float2 ek = ev * -2.0 + 3.0;
+	ev = ev * ev;
+	float e0 = ev.x * ek.x;
+	float e1 = -ek.y * ev.y + 1.0;
+	e0 = e1 * e0;
+	cu = e0 * cu;
+	op = op * cu;
+	op = op * cm;
+	op = mg ? 0.0 : op;
+	float Alpha = MT.a * OpacityIntensity;
+	op = op * Alpha;
+	float mask = op * Opacity + WuwaWSScreenDither(DitherTex, DitherTexSampler, SvPositionXY, ViewRectMin, TemporalAAParamsX, MaterialTextureMipBias);
+	mask = mask + -0.5;
+	mask = mask * ((op >= asfloat(0x3C23D70Au)) ? 1.0 : 0.0) + asfloat(0xBEAAA64Cu);
+	clip(min(mask, WuwaPrimDitherClip(KuroPrimDitherEnable, KuroPrimDitherFade, SvPositionXY)));
+
+	return WuwaWSToonTail(E, Crgb, Alpha, N, Skin, WorldNormal, TwoSidedSign, WorldPosition, LightDirVS, WUWA_WS_TAIL_ARGS);
+}
+
+#undef WUWA_WS_TAIL_PARAMS
+#undef WUWA_WS_TAIL_ARGS
+
+// ---- M_Char_Com_WaterSword VS material WPO (VS #88915 "WSV-S" / #96011 "WSV-W", lines after the velocity branch): the
+// M_Char_Com base-VS effects (hologram jitter + E_Motion, WuwaToonBaseVS_WPO, verified; both gated off at the roster MIs:
+// USE Hologram = 0, E_Motion_Offset.w = 0) plus an always-on wave along the vertex normal (TangentZ x LocalToWorld x
+// InvNonUniformScale, not renormalised), sampled from a texture at LOD -1 (sample_l). Returns the world-space offset;
+// Kuro then adds TWP and its primitive offset: P = KuroOffset + (TWP + WPO). TranslatedWorldCameraOrigin only feeds E_Motion
+// (Kuro forms the camera vector in absolute space; identical for PreViewTranslation = 0, see WuwaToonBaseVS_WPO).
+// Sword (WSV-S:157-170): wave = N x sin(2pi (UV3.y WPO_Density + GameTime WPO_Speed)) x WPO_Tex(UV3 WPO_TexUV.xy + GameTime
+//   WPO_TexUV.zw).x x saturate(UV3.y + WPO_HightMask) x WPO_Intensity.
+float3 WuwaWaterSwordWPO_Sword(Texture2D WPO_Tex, SamplerState WPO_TexSampler, float2 UV0, float2 UV3, float3 VertexNormalWS,
+	float3 TranslatedWorldPosition, float3 TranslatedWorldCameraOrigin, float GameTime, float4x4 ViewToTranslatedWorld,
+	float WPO_Density, float WPO_Speed, float4 WPO_TexUV, float WPO_HightMask, float WPO_Intensity,
+	float USE_Hologram, float E_Hologram_JitterStrength, float3 E_Hologram_WPOVector,
+	float E_MotionRange, float E_Motion_NoiseSpeed, float4 E_Motion_Offset, float E_Motion_NoisePos, out float MotionEmissiveMask)
+{
+	precise float a = UV3.y * WPO_Density;
+	precise float b = GameTime * WPO_Speed;
+	a = a + b;
+	a = a * asfloat(0x40C90FDBu);
+	a = sin(a);
+	precise float2 tuv = GameTime * WPO_TexUV.zw;
+	precise float2 t2 = UV3 * WPO_TexUV.xy;
+	tuv = t2 + tuv;
+	precise float tx = WPO_Tex.SampleLevel(WPO_TexSampler, tuv, -1.0).x;
+	a = a * tx;
+	precise float h = saturate(UV3.y + WPO_HightMask);
+	h = h * WPO_Intensity;
+	a = a * h;
+	precise float3 wave = VertexNormalWS * a;
+	precise float3 fx = WuwaToonBaseVS_WPO(UV0, VertexNormalWS, TranslatedWorldPosition, TranslatedWorldCameraOrigin, GameTime,
+		ViewToTranslatedWorld, USE_Hologram, E_Hologram_JitterStrength, E_Hologram_WPOVector, E_MotionRange, E_Motion_NoiseSpeed,
+		E_Motion_Offset, E_Motion_NoisePos, 0.0, float4(0.0, 0.0, 0.0, 0.0), MotionEmissiveMask);
+	precise float3 o = wave + fx;
+	return o;
+}
+
+// Water (WSV-W:150-155): wave = WPONoiseTex((UV0 + GameTime (0, WPOSpeed)) x (1, AnimNoiseScale)).x x (N x DisplacementAmount).
+float3 WuwaWaterSwordWPO_Water(Texture2D WPONoiseTex, SamplerState WPONoiseTexSampler, float2 UV0, float3 VertexNormalWS,
+	float3 TranslatedWorldPosition, float3 TranslatedWorldCameraOrigin, float GameTime, float4x4 ViewToTranslatedWorld,
+	float WPOSpeed, float AnimNoiseScale, float DisplacementAmount,
+	float USE_Hologram, float E_Hologram_JitterStrength, float3 E_Hologram_WPOVector,
+	float E_MotionRange, float E_Motion_NoiseSpeed, float4 E_Motion_Offset, float E_Motion_NoisePos, out float MotionEmissiveMask)
+{
+	precise float2 tv = GameTime * float2(0.0, WPOSpeed);                  // preshader AppendVector(0, WPOSpeed)
+	tv = UV0 + tv;
+	tv = tv * float2(1.0, AnimNoiseScale);                                  // preshader AppendVector(1, AnimNoiseScale)
+	precise float tx = WPONoiseTex.SampleLevel(WPONoiseTexSampler, tv, -1.0).x;
+	precise float3 wave = VertexNormalWS * DisplacementAmount;
+	wave = tx * wave;
+	precise float3 fx = WuwaToonBaseVS_WPO(UV0, VertexNormalWS, TranslatedWorldPosition, TranslatedWorldCameraOrigin, GameTime,
+		ViewToTranslatedWorld, USE_Hologram, E_Hologram_JitterStrength, E_Hologram_WPOVector, E_MotionRange, E_Motion_NoiseSpeed,
+		E_Motion_Offset, E_Motion_NoisePos, 0.0, float4(0.0, 0.0, 0.0, 0.0), MotionEmissiveMask);
+	precise float3 o = wave + fx;
+	return o;
+}
+
+// =====================================================================================================================
+// M_EffectSpaceWrite_CharacterUse (PS b3a7a91657 #318976, "ES:n"; Denia's MI_R2T1DaniyaMd10011Fx): masked unlit (deferred,
+// GBuffer = 0, colour in o0 through the Kuro unlit tail). Emissive = lerp(MaskTex.rgb x EmissiveMul, SelectionColor.rgb,
+// SelectionColor.a); Opacity (Opacity Mask, clip 0.3333) = MaskTex.a x (min(E_Link split-screen mask, 1) - 0.333); the Kuro
+// primitive dither is clipped inside. The E_Link rotation rows are CPU preshaders (cos / -sin of angle / 360 x 2pi): uniform
+// expressions E_Link_Rot1Cos/Sin, E_Link_Rot2Cos/Sin. Same split-screen math as WuwaLinkSplitMask (WriteStencil, verified).
+// =====================================================================================================================
+FWuwaFXOutput WuwaFXEffectSpaceWriteCharacterUse(Texture2D MaskTex, SamplerState MaskTexSampler, float2 UV0, float2 SvPositionXY,
+	float2 ViewRectMin, float4 ViewSizeAndInvSize, float EmissiveMul, float4 SelectionColor, float E_Link_UseSplitScreen,
+	float4 E_Link_AngleLinePosLineDis, float E_LinkPos, float E_Link_Rot1Cos, float E_Link_Rot1Sin, float E_Link_Rot2Cos,
+	float E_Link_Rot2Sin, float KuroPrimDitherEnable, float KuroPrimDitherFade, float MaterialTextureMipBias)
+{
+	FWuwaFXOutput X;
+	// ES:1-6
+	float2 scr = (SvPositionXY - ViewRectMin) * ViewSizeAndInvSize.zw;
+	float4 T = MaskTex.SampleBias(MaskTexSampler, UV0, MaterialTextureMipBias);
+	float3 e = T.rgb * EmissiveMul;
+	X.Emissive = SelectionColor.a * (SelectionColor.rgb - e) + e;
+	// ES:7-35 E_Link split-screen mask
+	float link = 1.0;
+	if (E_Link_UseSplitScreen >= 0.1)
+	{
+		float2 r1 = float2(E_Link_Rot1Cos, -E_Link_Rot1Sin);
+		float2 r2 = float2(E_Link_Rot2Cos, -E_Link_Rot2Sin);
+		float  linePos  = E_Link_AngleLinePosLineDis.y;
+		float  linePos2 = E_Link_AngleLinePosLineDis.y + E_Link_AngleLinePosLineDis.z;
+		float  aspect = max(ViewSizeAndInvSize.x / ViewSizeAndInvSize.y, 1.0);
+		float  x1 = aspect * linePos;
+		float  ux = scr.x * aspect;
+		float  d1 = dot(float2(ux, scr.y) - float2(x1, 0.5), r1);
+		d1 = aspect * linePos + d1;
+		bool   b1 = (d1 >= x1);
+		float  f1 = b1 ? 1.0 : 0.0;
+		float  x2 = aspect * linePos2;
+		float  d2 = dot(float2(ux, scr.y) - float2(x2, 0.5), r2);
+		d2 = linePos2 * aspect + d2;
+		bool   b2 = (d2 >= x2);
+		float  f2 = b2 ? 1.0 : 0.0;
+		float  m = (b2 ? -1.0 : -0.0) + f1;
+		m = max(m, 0.0);
+		float  zA = b1 ? 0.0 : 1.0;
+		float  zB = b1 ? -0.0 : -1.0;
+		m = m + zB;
+		m = saturate(E_LinkPos * 2.0) * m + zA;
+		m = saturate(E_LinkPos * 2.0 - 1.0) * (f2 - m) + m;
+		link = m;
+	}
+	// ES:35-37 (the engine clip value 0.3333 is the material's OpacityMaskClipValue)
+	X.Opacity = T.a * (min(link, 1.0) + asfloat(0xBEAA7EFAu));                          // - 0.333
+	// ES:38-55 Kuro primitive dither (min'ed with the mask in the original; a separate clip discards the same pixels)
+	clip(WuwaPrimDitherClip(KuroPrimDitherEnable, KuroPrimDitherFade, SvPositionXY));
+	return X;
+}
+
+#endif // WUWA_MISC_PROPS_USH

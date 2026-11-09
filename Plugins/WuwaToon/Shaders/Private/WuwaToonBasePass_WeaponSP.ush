@@ -1,0 +1,198 @@
+// WuwaToonBasePass_WeaponSP.ush — M_Weapon_SP base pass ("flash diamond" crystal weapon material).
+//
+//   Root M_Weapon_SP (Client/Content/Aki/Render/Shaders/Character/SpecialMaterial), MI_Weapon_SP_Com template; MIs
+//   MI_R5Device508Md20001_Zuanshi (signature weapon Freeze Frame), MI_EXigelikaDaggerMd10011_Daotou and
+//   MI_EXigelikaFeidaoMd10011_02 (Sigrika BP props). Static switches Render_FlashDiamond(_In/_Out), Render_Structure = true.
+//   Shading model MSM_ToonCommon (GBufferB id 12), BLEND_Opaque. It writes a toon GBuffer with a black surface (as the
+//   XinHen star): everything visible is the emissive term o0, which carries a self-lit PBR + fresnel + matcap
+//   "structure light" + refracted diamond texture + structure / voronoi normal masks + attack rim. The toon resolve still
+//   applies (id 12, C = 0).
+//
+// Line refs W### = line of evidence/roster/shadermaps/weapons/asm_hex/094854_9059e5c8ea9f16815f54e231e8cd84fd62fd6a20.asm.txt
+// (ClientChunk_SM5 #94854, TBasePassPSFNoLightMapPolicy on FGPUSkinPassthroughVertexFactory; VS #94834).
+// research/hlsl/Weapon_SP_BasePass.hlsl, research/shaders/Weapon_SP.md (bindings, cbuffer table, interpolators).
+//
+// Textures (t-slot order = UniformTextureParameters minus the unused E_Tex_NoiseTex):
+//   t0 Base_NormalMap (.xy)  t1 MainTex (.rgb, mip bias - 1)  t2 Structure_Light_Tex  t3 Diamond_MainTex
+//   t4 StructureNormal_Tex (.xy)  t5 VoronoiNormal_Tex (.xy, triplanar on the pre-WPO world position)
+// Interpolators: TEXCOORD1.w = UV3.y (attack-dark mask), TEXCOORD2.xyz = VS light direction (WuwaToonBaseVS_LightDir),
+// TEXCOORD9.xyz = translated world position before the material WPO (UE: GetWorldPosition_NoMaterialOffsets).
+#pragma once
+
+#include "WuwaToonBasePass_WeaponShared.ush"
+
+FWuwaToonGBuffer WuwaToonWeaponSPBasePass(
+	Texture2D Base_NormalMap, SamplerState Base_NormalMapSampler,
+	Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D Structure_Light_Tex, SamplerState Structure_Light_TexSampler,
+	Texture2D Diamond_MainTex, SamplerState Diamond_MainTexSampler,
+	Texture2D StructureNormal_Tex, SamplerState StructureNormal_TexSampler,
+	Texture2D VoronoiNormal_Tex, SamplerState VoronoiNormal_TexSampler,
+	float2 UV0, float UV3Y, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 TranslatedWorldPosition, float3 WorldPositionNoOffsets, float3 LightDirVS,
+	float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float4x4 TranslatedWorldToView, float GameTime,
+	// material parameters
+	float PBR_Normal_Intensity, float4 BaseCol_Tint, float BaseCol_Intensity, float LightOffset_Pitch,
+	float Metallic, float Roughness, float PBRHardSpecWidth, float PBRHardSpeSmooth,
+	float PBRSpecularRangeDessolve_Threshold, float PBRSpecularRangeDessolve_Smooth, float PBRSpecularRangeDessolve_Intensity,
+	float4 PBRSpecularColor, float4 PBRIndirectColor, float PBRRate,
+	float Fresnel_Normal_Intensity, float FresnelRange_SmoothMin, float FresnelRange_SmoothMax, float4 Fresnel_Color,
+	float Structure_Light_UV_X, float Structure_Light_UV_Y, float Structure_Height_1, float Structure_Light_Intensity,
+	float Structure_Range_Normal_Intensity, float Structure_Range_Offset, float Structure_Range_Power,
+	float4 Diamond_Param, float UseDiamond_UV_Switch, float3 Diamond_RefractDir, float Diamond_Intensity,
+	float StructureNormal_Tilling, float StructureNormal_Height, float StructureNormal_Intensity,
+	float StructureNormal_In_Offset, float StructureNormal_In_Intensity, float StructureNormal_Out_Offset, float StructureNormal_Out_Intensity,
+	float VoronoiNormal_TextureSize, float VoronoiNormal_Intensity,
+	float Voronoi_In_Offset, float Voronoi_In_Intensity, float Voronoi_Out_Offset, float Voronoi_Out_Intensity,
+	float Final_Emission, float AttackDarkScale, float AttackFresnelRimRange, float4 AttackFresnelRimColor,
+	float AttackFresnelRimIntensity, float FresnelAttackFactor, float4 SelectionColor,
+	// engine
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3, float CPD13, float CPD1,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask)
+{
+	FWuwaToonGBuffer G;
+
+	// ---- W54-80: TBN, screen UV, view vector, shading normal ---------------------------------------------------------
+	float3 Bt = cross(WorldNormal, WorldTangent) * TangentSign;
+	float2 ScreenUV = (SvPositionXY - ViewRectMin) * ViewSizeAndInvSize.zw;
+	float  rsV = rsqrt(dot(-TranslatedWorldPosition, -TranslatedWorldPosition));
+	float3 V = rsV * -TranslatedWorldPosition;
+	float3 N = WuwaWShadingNormal(WorldTangent, Bt, WorldNormal, NormalOverrideParameter);
+
+	// ---- W92-101: base normal (tangent xy only), base colour --------------------------------------------------------
+	float2 bn = Base_NormalMap.SampleBias(Base_NormalMapSampler, UV0, MaterialTextureMipBias).xy * 2.0 - 1.0;
+	float3 Pn = bn.x * WorldTangent + Bt * bn.y;
+	float3 Np = PBR_Normal_Intensity * Pn + WorldNormal;
+	float3 Mt = MainTex.SampleBias(MainTexSampler, UV0, MaterialTextureMipBias - 1.0).rgb * BaseCol_Tint.rgb;
+	float3 Base = Mt * BaseCol_Intensity;
+
+	// ---- W102-158: main character light direction (shared Kuro block) -----------------------------------------------
+	float3 L = WuwaBPMainLightDir(LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+
+	// ---- W159-224: self-lit PBR (GGX D, EnvBRDFApprox, hard specular band, NoV range mask) ---------------------------
+	float3 H = -TranslatedWorldPosition * rsV + L;
+	H = H / sqrt(dot(H, H));
+	float NoH = saturate(dot(Np, H));
+	float NoVu = dot(Np, V);
+	float NoV = saturate(NoVu);
+	float NoL = saturate(dot(Np, L));
+	float hNoV = NoVu * 0.5 + 0.5;
+	float Dk = Metallic * asfloat(0xBF75C28Fu) + asfloat(0x3F75C28Fu);          // 0.96 * (1 - metallic)
+	float3 Diff = Dk * Base;
+	float3 F0 = Mt * BaseCol_Intensity + asfloat(0xBD23D70Au);                     // - 0.04
+	F0 = Metallic * F0 + asfloat(0x3D23D70Au);
+	float4 rr = Roughness * float4(-1.0, asfloat(0xBCE147AEu), asfloat(0xBF126E98u), asfloat(0x3CB43958u))
+		+ float4(1.0, asfloat(0x3D2E147Bu), asfloat(0x3F851EB8u), asfloat(0xBD23D70Au));
+	float a004 = min(exp2(NoV * asfloat(0xC1147AE1u)), rr.x * rr.x) * rr.x + rr.y;
+	float2 AB = a004 * float2(asfloat(0xBF851EB8u), asfloat(0x3F851EB8u)) + rr.zw;
+	float3 Env = F0 * AB.x + saturate(F0.y * 50.0) * AB.y;
+	float a2 = max(Roughness * Roughness, asfloat(0x3B03126Fu));
+	a2 = a2 * a2;
+	float d = (NoH * a2 - NoH) * NoH + asfloat(0x3F800054u);
+	float Dg = (a2 * asfloat(0x3EA2F983u)) / (d * d + asfloat(0x33D6BF95u));
+	float hw = (PBRHardSpeSmooth + 1.0) * PBRHardSpecWidth - PBRHardSpeSmooth;
+	float hs = PBRHardSpecWidth + PBRHardSpeSmooth;
+	float lo = min(hw, hs + asfloat(0xBA83126Fu));
+	float hard = saturate((Dg - lo) * (1.0 / (hs - lo)));
+	hard = (hard * hard) * (hard * -2.0 + 3.0);
+	float rng = saturate((hNoV - PBRSpecularRangeDessolve_Threshold) * (1.0 / (PBRSpecularRangeDessolve_Smooth - PBRSpecularRangeDessolve_Threshold)));
+	rng = (rng * rng) * (rng * -2.0 + 3.0);
+	float3 Spec = hard * (Env * PBRSpecularColor.rgb);
+	Spec = PBRSpecularRangeDessolve_Intensity * (Spec * rng - Spec) + Spec;
+	float hNoL = NoL * 0.5 + 1.0;
+	Spec = Base * Dk + Spec;
+	float3 Pbr = hNoL * (Diff * PBRIndirectColor.rgb + Env);
+	Pbr = Spec * hNoV + Pbr;
+	float3 C = PBRRate * (-Mt * BaseCol_Intensity + Pbr) + Base;
+
+	// ---- W225-234: fresnel ---------------------------------------------------------------------------------------------
+	float3 Nf = Fresnel_Normal_Intensity * Pn + WorldNormal;
+	float fr = min(WuwaWSmoothStep(FresnelRange_SmoothMin, FresnelRange_SmoothMax, dot(Nf, V)), 1.0);
+	C = (1.0 - fr) * Fresnel_Color.rgb + C;
+
+	// ---- W235-257: structure light (view-space cross matcap + bump offset), NoV range ------------------------------------
+	float3 Pv = mul(float4(TranslatedWorldPosition, 1.0), TranslatedWorldToView).xyz;
+	Pv = Pv / sqrt(dot(Pv, Pv));
+	float3 Nv = mul(WorldNormal, (float3x3)TranslatedWorldToView);
+	float2 sl = float2(Pv.z * Nv.x - Pv.x * Nv.z, Pv.y * Nv.z - Pv.z * Nv.y) * 0.5 + 0.5;
+	sl = sl * float2(Structure_Light_UV_X, Structure_Light_UV_Y);
+	float2 Vts = float2(dot(WorldTangent, V), dot(Bt, V));
+	sl = Vts * (Structure_Height_1 * asfloat(0x3D4CCCCDu) + asfloat(0xBCCCCCCDu)) + sl;
+	float3 St = Structure_Light_Tex.SampleBias(Structure_Light_TexSampler, sl, MaterialTextureMipBias).rgb * Structure_Light_Intensity;
+	float3 Ns = Structure_Range_Normal_Intensity * Pn + WorldNormal;
+	float sr = saturate((dot(Ns, V) + Structure_Range_Offset) * Structure_Range_Power);
+	float3 C2 = sr * (C * St - C) + C;
+
+	// ---- W258-290: diamond (refracted view vector in view space, or panned UV0) ------------------------------------------
+	float3 rv = refract(V, N, asfloat(0x3F400C4Bu));
+	float2 rvv = mul(rv, (float3x3)TranslatedWorldToView).xy;
+	float2 duv = UV0 * Diamond_Param.xy;
+	duv = GameTime * Diamond_Param.zw + duv;
+	float3 Dm = Diamond_MainTex.SampleBias(Diamond_MainTexSampler, UseDiamond_UV_Switch * (duv - rvv) + rvv, MaterialTextureMipBias).rgb;
+	float3 Nvv = mul(N, (float3x3)TranslatedWorldToView);
+	float spk = dot(Nvv, Diamond_RefractDir);
+	float spark = (asfloat(0x33000002u) >= spk) ? 0.0 : min((exp2(log2(spk) * 12.0) * ((spk >= asfloat(0x3E087FCCu)) ? 1.0 : 0.0)) * 1000.0, 20.0);
+	Dm = Dm * spark + Dm;
+
+	// ---- W291-318: structure normal mask (tangent-space normal map with bump offset) -----------------------------------
+	float2 snuv = UV0 * StructureNormal_Tilling;
+	snuv = Vts * (StructureNormal_Height * asfloat(0x3D4CCCCDu) + asfloat(0xBCCCCCCDu)) + snuv;
+	float2 sn = StructureNormal_Tex.SampleBias(StructureNormal_TexSampler, snuv, MaterialTextureMipBias).xy * 2.0 - 1.0;
+	float snz = sqrt(max(1.0 - dot(sn, sn), 0.0));
+	float3 Nsn = sn.x * WorldTangent + Bt * sn.y;
+	Nsn = snz * WorldNormal + Nsn;
+	Nsn = StructureNormal_Intensity * (Nsn - WorldNormal) + WorldNormal;
+	float snd = dot(V, Nsn);
+	float snm = saturate((snd + StructureNormal_In_Offset) * StructureNormal_In_Intensity)
+		+ saturate(((-snd + StructureNormal_Out_Offset) + 1.0) * StructureNormal_Out_Intensity);
+	float3 Dd = Dm * Diamond_Intensity - Base;
+	float3 C3 = snm * (snm * Dd + Base - C2) + C2;
+
+	// ---- W319-366: voronoi normal mask (triplanar on the pre-WPO absolute world position) ------------------------------
+	float3 wp = WorldPositionNoOffsets / (-abs(VoronoiNormal_TextureSize));
+	float2 tx = VoronoiNormal_Tex.SampleBias(VoronoiNormal_TexSampler, wp.xz, MaterialTextureMipBias).xy * 2.0 - 1.0;
+	float3 py = float3(-tx.x, sqrt(max(1.0 - dot(tx, tx), 0.0)) * WorldNormal.y, -tx.y);
+	float2 ty = VoronoiNormal_Tex.SampleBias(VoronoiNormal_TexSampler, wp.yz, MaterialTextureMipBias).xy * 2.0 - 1.0;
+	float3 px = float3(sqrt(max(1.0 - dot(ty, ty), 0.0)) * WorldNormal.x, -ty.x, -ty.y);
+	float2 wb = min(abs(WorldNormal.xz), 1.0);
+	float3 vn = wb.x * (px - py) + py;
+	float2 tz = VoronoiNormal_Tex.SampleBias(VoronoiNormal_TexSampler, wp.xy, MaterialTextureMipBias).xy * 2.0 - 1.0;
+	float3 pz = float3(-tz.x, -tz.y, sqrt(max(1.0 - dot(tz, tz), 0.0)) * WorldNormal.z);
+	vn = wb.y * (pz - vn) + vn;
+	vn = vn / sqrt(dot(vn, vn));
+	float3 vt = float3(dot(WorldTangent, vn), dot(Bt, vn), dot(WorldNormal, vn));
+	float3 Nvo = Bt * vt.y;
+	Nvo = vt.x * WorldTangent + Nvo;
+	Nvo = vt.z * WorldNormal + Nvo;
+	Nvo = VoronoiNormal_Intensity * (Nvo - WorldNormal) + WorldNormal;
+	float vd = dot(V, Nvo);
+	float vm = saturate(((-vd + Voronoi_Out_Offset) + 1.0) * Voronoi_Out_Intensity) + saturate((vd + Voronoi_In_Offset) * Voronoi_In_Intensity);
+	float3 C4 = vm * (vm * Dd + Base - C3) + C3;
+
+	// ---- W367-405: final emission, attack dark / fresnel rim (screen dot pattern), selection -----------------------------
+	float3 Ce = C4 * Final_Emission;
+	float lum = dot(Ce, float3(asfloat(0x3E99999Au), asfloat(0x3F170A3Du), asfloat(0x3DE147AEu)));
+	float dk = 1.0 - UV3Y;
+	dk = (asfloat(0x33000002u) >= dk) ? asfloat(0x3DCCCCCDu) : min(max(exp2(log2(dk) * AttackDarkScale), asfloat(0x3DCCCCCDu)), 1.0);
+	float2 dots = frac(ScreenUV * float2(2.0, 200.0)) - 0.5;
+	bool  inDot = (0.5 >= sqrt(dot(dots, dots)));
+	float rim = (asfloat(0x33000002u) >= 1.0 - NoVu) ? 0.0 : min(exp2(log2(1.0 - NoVu) * AttackFresnelRimRange), 1.0);
+	float irim = 1.0 - rim;
+	float dm = inDot ? 0.0 : irim * ((0.9 >= irim) ? 1.0 : 0.0);
+	dm = (rim * ((rim >= asfloat(0x3DCCCCCDu)) ? 1.0 : 0.0)) * (1.0 - dm) + dm;
+	dm = dm * saturate(-Nv.y);
+	float3 Atk = ((dm * AttackFresnelRimColor.rgb) * AttackFresnelRimIntensity) * FresnelAttackFactor;
+	Atk = lum * dk + Atk;
+	float3 E = FresnelAttackFactor * (-C4 * Final_Emission + Atk) + Ce;
+	E = SelectionColor.a * (SelectionColor.rgb - E) + E;
+
+	// ---- W441-504: emissive tail, encode -------------------------------------------------------------------------------
+	G.Emissive = WuwaBPFinalEmissive(E, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+	WuwaWEncodeBlack(G, N, KuroGBufferMode, LightingChannelMask);
+	return G;
+}

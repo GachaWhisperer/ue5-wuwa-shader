@@ -1,0 +1,44 @@
+{
+ "root_material": "M_Distortion_ZanniFireHair",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "Distortion_ZanniFireHair_Shell.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f1d0fdf07f8dc5ef67667dc5aa7c2cd3ce7768cf"
+    ],
+    "base_pass_vs_hash": [
+     "f8fbfc981db9926f1348a647df5851bf2f7e4305"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/zani/results_multi_final.json summary.zani_f1d0fd (36 runs, o0 589824/589824 bit-exact); VS #168384 ported_wpo_verified (VS #168384 FlowTex / sine / expand WPO ported as WuwaFXZaniFireWPO: SV_POSITION 983040/983040 components bit-exact (evidence/validation/shaderdiff/weapons/round3/zani/results_vs_wpo_zani.json; neg 1 ulp ExpandAmount: results_vs_wpo_zani_neg1ulp.json mismatches))",
+   "ps_archive_index": 168383,
+   "vs_archive_index": [
+    168384
+   ],
+   "vs_status": {
+    "f8fbfc981db9926f1348a647df5851bf2f7e4305": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 3,
+   "roster_slot_uses": 6,
+   "entities": [
+    "character:Lupa",
+    "character:Zani",
+    "skin:Daybreak Horizon",
+    "skin:Downtown Repose",
+    "skin:Wildfire"
+   ],
+   "example_mis": [
+    "MI_R2T1LupaMd10011Tail_FX",
+    "MI_R2T1ZanniMd10011Hair1_FX",
+    "MI_R2T1ZanniMd20011Hair1_FX"
+   ],
+   "notes": "MIs: MI_R2T1LupaMd10011Tail_FX, MI_R2T1ZanniMd10011Hair1_FX, MI_R2T1ZanniMd20011Hair1_FX"
+  }
+ ]
+}

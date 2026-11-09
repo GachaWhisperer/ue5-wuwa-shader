@@ -1,0 +1,39 @@
+{
+ "root_material": "M_EffectSpaceWrite_CharacterUse",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "EffectSpaceWrite_CharacterUse_Masked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b3a7a91657081a4e4a1f585629a025353b9a601b"
+    ],
+    "base_pass_vs_hash": [
+     "6fec6c1964c71086273af91e3dec638ba7a65478"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/misc/results_multi_final.json summary.misc_b3a7a9 (27 runs, o0 442368/442368 o1 442368/442368 o2 442368/442368 o3 442368/442368 o6 442368/442368 bit-exact); VS #42862 engine_only (round3/misc/vs_status_misc.json: SV_POSITION and every interpolant the PS reads use no Material-UB value; the only Material reads (E_Motion) feed TEXCOORD2.x, unused by the PS (and E_Motion_Offset.w = 0 at the MI))",
+   "ps_archive_index": 318976,
+   "vs_archive_index": [
+    42862
+   ],
+   "vs_status": {
+    "6fec6c1964c71086273af91e3dec638ba7a65478": "engine_only"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Denia",
+    "skin:Decorated Shell"
+   ],
+   "example_mis": [
+    "MI_R2T1DaniyaMd10011Fx"
+   ],
+   "notes": "Denia MI_R2T1DaniyaMd10011Fx; masked unlit (Emissive + Opacity Mask, clip 0.3333)"
+  }
+ ]
+}

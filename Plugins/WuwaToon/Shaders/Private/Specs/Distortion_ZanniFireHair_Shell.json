@@ -1,0 +1,316 @@
+{
+ "name": "Distortion_ZanniFireHair_Shell",
+ "entry": "WuwaFXZaniFireDistortion",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_ZaniFire.ush",
+ "kuro_shading_model": "MSM_Unlit",
+ "kuro_asm": "M_Distortion_ZanniFireHair PS f1d0fdf07f (#168383, 80 instr) / VS f8fbfc981d (#168384, FlowTex WPO ported: WuwaFXZaniFireWPO)",
+ "kuro_root_material": "M_Distortion_ZanniFireHair",
+ "blend_mode": "BLEND_Translucent",
+ "two_sided": true,
+ "resolve": false,
+ "resolve_note": "forward translucent unlit (not a toon GBuffer): output Emissive + Opacity to a UE translucent unlit material (two-sided). Kuro engine tail, not ported (UE applies its own): opacity *= Kuro primitive fade (Primitive[43]); colour = max(E, 0) (*View[285] unless Primitive[42].w), OOB stripes, vertex fog (TEXCOORD7) / volumetric fog, Kuro effect colour grading (lerp(c, lum, View[283].y) * View[279], then View[286].x / View[284] unless Primitive[42].w); o0 = (rgb, opacity), no o1. Verified with that tail reproduced in the harness (tools/shaderdiff/weapons/hlsl/kuro_tail_zani.hlsli).",
+ "vs_note": "VS #168384 (f8fbfc981d): always-on FlowTex / sine / expand World Position Offset (ExpandAmount 50 / 40 at the roster MIs) ported as the \"wpo\" entry WuwaFXZaniFireWPO and verified bit-exact on SV_POSITION with the stream-output VS harness (tools/shaderdiff/weapons/r3/zani_vs_wpo.py).",
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "material Emissive Color (before the engine translucent tail: fog, OOB, Kuro effect grading)"
+  },
+  "Opacity": {
+   "type": "float",
+   "kuro": "material Opacity (o0.a = o1.a after the tail)"
+  }
+ },
+ "inputs": [
+  {
+   "name": "BaseTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "BaseTex",
+   "default": "T_Tile_30017",
+   "note": "reference MI MI_R2T1ZanniMd10011Hair1_FX: {'ObjectName': \"Texture2D'T_Tile_30017'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/Tile/T_Tile_30017.1'}"
+  },
+  {
+   "name": "BaseTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "BaseTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "BaseTexSampler"
+  },
+  {
+   "name": "Mask",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Mask",
+   "default": "T_Tile_21001",
+   "note": "reference MI MI_R2T1ZanniMd10011Hair1_FX: {'ObjectName': \"Texture2D'T_Tile_21001'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/Tile/T_Tile_21001.1'}"
+  },
+  {
+   "name": "MaskSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Mask",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MaskSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "UV2",
+   "type": "float2",
+   "kind": "uv",
+   "index": 2
+  },
+  {
+   "name": "SvPositionXY",
+   "type": "float2",
+   "kind": "svposition",
+   "ue_expr": "Parameters.SvPosition.xy"
+  },
+  {
+   "name": "ViewRectMin",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewRectMin.xy",
+   "kuro": "View[134].xy"
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "BaseTexSW1",
+   "type": "float4",
+   "kind": "vector",
+   "param": "BaseTexSW1",
+   "channels": "rgba",
+   "default": [
+    5.0,
+    2.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "MaskTexSW1",
+   "type": "float4",
+   "kind": "vector",
+   "param": "MaskTexSW1",
+   "channels": "rgba",
+   "default": [
+    5.0,
+    2.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "MaskControl",
+   "type": "float4",
+   "kind": "vector",
+   "param": "MaskControl",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.5,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "name": "MaskControl_End",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "MaskControl"
+   ],
+   "expr": "MaskControl.x + MaskControl.y",
+   "ue_nodes": "Add(VectorParameter \"MaskControl\".r, .g) evaluated as a uniform expression (float32 add)",
+   "default": 0.1
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Opacity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Opacity",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dither_UseDither",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_UseDither",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dither_UseDither2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_UseDither2",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dither_DitherValue",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_DitherValue",
+   "default": 1.2000000476837158
+  },
+  {
+   "name": "E_Dither_DitherValue_MainPass",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_DitherValue_MainPass",
+   "default": 1.2000000476837158
+  },
+  {
+   "name": "E_Dither_DitherValue2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_DitherValue2",
+   "default": 1.2000000476837158
+  }
+ ],
+ "generated_by": "tools/shaderdiff/weapons/r3/make_specs_zani.py",
+ "notes": {
+  "textures": "BaseTex = t1 (BaseTexSW1 panner, .r), Mask = t2 (MaskTexSW1 panner on UV2, .r): slot <-> name inferred from the MI overrides (T_Tile_30017 / T_Tile_21001) and the parameter that drives each UV [U]; FlowTex = VS t7 (WPOTexSW). Normal (UseNormal) feeds the distortion pass only, not the base pass.",
+  "dither": "E_Dither 3x3 screen pattern on int(SvPosition.xy - ViewRectMin) (immediate CB k/9); 0.67 when both E_Dither switches <= 0.3"
+ },
+ "ue_material": {
+  "contract": "entry returns FWuwaFXOutput {float3 Emissive; float Opacity;} - no toon GBuffer, no WuwaToonResolve",
+  "shading_model": "MSM_Unlit",
+  "blend_mode": "BLEND_Translucent",
+  "two_sided": true,
+  "connect": {
+   "EmissiveColor": "X.Emissive",
+   "Opacity": "X.Opacity"
+  },
+  "opacity_mask_clip_value": null,
+  "note": "standard translucent unlit (SrcAlpha / InvSrcAlpha); UE applies fog"
+ },
+ "wpo": {
+  "entry": "WuwaFXZaniFireWPO",
+  "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_ZaniFire.ush",
+  "connect": "World Position Offset (material output pin); absolute-space offset added to the translated world position",
+  "verified": "evidence/validation/shaderdiff/weapons/round3/zani/results_vs_wpo_zani.json (SV_POSITION, stream-output VS diff)",
+  "inputs": [
+   {
+    "name": "FlowTex",
+    "type": "Texture2D",
+    "kind": "texture",
+    "param": "FlowTex",
+    "default": "T_Tile_20003",
+    "note": "VS t7 / s2, SampleLevel LOD -1 (reference MI MI_R2T1ZanniMd10011Hair1_FX: {'ObjectName': \"Texture2D'T_Tile_20003'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/Tile/T_Tile_20003.1'})"
+   },
+   {
+    "name": "FlowTexSampler",
+    "type": "SamplerState",
+    "kind": "sampler",
+    "texture": "FlowTex",
+    "sampler_source": "SSM_FromTextureAsset",
+    "ue_expr": "FlowTexSampler"
+   },
+   {
+    "name": "UV0",
+    "type": "float2",
+    "kind": "uv",
+    "index": 0
+   },
+   {
+    "name": "UV2X",
+    "type": "float",
+    "kind": "uv",
+    "index": 2,
+    "channel": "x",
+    "note": "texcoord 2 .x (VS: GPU-skin passthrough texcoord fetch)"
+   },
+   {
+    "name": "WorldTangent",
+    "type": "float3",
+    "kind": "worldtangent",
+    "ue_expr": "Parameters.TangentToWorld[0]"
+   },
+   {
+    "name": "WorldBitangent",
+    "type": "float3",
+    "kind": "worldbitangent",
+    "ue_expr": "Parameters.TangentToWorld[1]",
+    "note": "VS: GPU-skin passthrough TangentY = cross(TangentZ, TangentX) * TangentZ.w, * LocalToWorld * InvNonUniformScale"
+   },
+   {
+    "name": "WorldNormal",
+    "type": "float3",
+    "kind": "worldnormal",
+    "ue_expr": "Parameters.TangentToWorld[2]"
+   },
+   {
+    "name": "GameTime",
+    "type": "float",
+    "kind": "view",
+    "ue_expr": "View.GameTime",
+    "kuro": "Kuro View[148].z (UE material Time node)"
+   },
+   {
+    "name": "WPOTexSW",
+    "type": "float4",
+    "kind": "vector",
+    "param": "WPOTexSW",
+    "channels": "rgba",
+    "default": [
+     2.0,
+     2.0,
+     0.0,
+     -0.6000000238418579
+    ]
+   },
+   {
+    "name": "NoiseDisplaceAmount",
+    "type": "float",
+    "kind": "scalar",
+    "param": "NoiseDisplaceAmount",
+    "default": 1.0
+   },
+   {
+    "name": "SineWaveAmount",
+    "type": "float",
+    "kind": "scalar",
+    "param": "SineWaveAmount",
+    "default": 1.0
+   },
+   {
+    "name": "ExpandAmount",
+    "type": "float",
+    "kind": "scalar",
+    "param": "ExpandAmount",
+    "default": 0.10000000149011612
+   }
+  ]
+ }
+}

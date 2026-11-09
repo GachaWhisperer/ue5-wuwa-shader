@@ -1,0 +1,114 @@
+{
+ "root_material": "M_WriteStencil",
+ "generated_by": "tools/shaderdiff/roster_charcom/build_registry.py",
+ "contract": "Specs/registry/README.md",
+ "note": "one variant per verified (PS, VS set); MIs whose PS/VS pair is not listed fall back to M_Wuwa_Unported. research/roster/Port_CharCom_Coverage.md",
+ "variants": [
+  {
+   "spec": "ToonFace_HET.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "75b58ecd825bb153a5a30621745dae7233ca573d"
+    ],
+    "base_pass_vs_hash": [
+     "7865cdcbd275c048eeb1046328d75a6ca1a9843c"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_259313 (129510/129510 px bit-exact); VS #65262",
+   "ps_archive_index": 259313,
+   "vs_archive_index": [
+    65262
+   ],
+   "roster_mis": 69,
+   "example_mis": [
+    "MI_R2T1AimisiMd10011Face_HET",
+    "MI_R2T1AnkeMd10011Face_HET",
+    "MI_R2T1AogusitaMd10011BK_HET",
+    "MI_R2T1AogusitaMd10011Face_HET",
+    "MI_R2T1BaerMd10011Face_HET",
+    "MI_R2T1BailianMd10011Face_HET"
+   ],
+   "static_switches_informational": {}
+  },
+  {
+   "spec": "ToonEye_HET.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "8a7837e4d883c9db79aafa5e1b75e8241905ba08"
+    ],
+    "base_pass_vs_hash": [
+     "8379b4220f355bd5ac89550dd417b8fa42f59c39"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_176953 (166733/166733 px bit-exact); VS #104653",
+   "ps_archive_index": 176953,
+   "vs_archive_index": [
+    104653
+   ],
+   "roster_mis": 58,
+   "example_mis": [
+    "MI_R2T1AimisiMd10011Eye_HET",
+    "MI_R2T1AnkeMd10011Eye_HET",
+    "MI_R2T1AogusitaMd10011Eye_HET",
+    "MI_R2T1BaerMd10011Eye_HET",
+    "MI_R2T1BailianMd1001Eye_HET",
+    "MI_R2T1BulanteMd10011Eye_HET"
+   ],
+   "static_switches_informational": {}
+  },
+  {
+   "spec": "ToonEye_HET_DiffColorEyes.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "d1ec0aaeefb61e98b594c6eb63242e92ca4035ba"
+    ],
+    "base_pass_vs_hash": [
+     "8379b4220f355bd5ac89550dd417b8fa42f59c39"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.eyehet_diffeyes_143118 (127311/127311 px bit-exact); VS #104653",
+   "ps_archive_index": 143118,
+   "vs_archive_index": [
+    104653
+   ],
+   "roster_mis": 5,
+   "example_mis": [
+    "MI_R2T1ChunMd10011Eye_HET",
+    "MI_R2T1FuludelisiMd10011Eye_HET",
+    "MI_R2T1PlayerMaleMd10011Eye_HET",
+    "MI_R2T1PlayerMaleMd20011Eye_HET",
+    "MI_R2T1ZhezhiMd10011Eye_HET"
+   ],
+   "static_switches_informational": {
+    "UseDifferentColorEyes": true
+   }
+  },
+  {
+   "spec": "ToonEye_HET_DiffColorEyesUV2.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "a0ccd42dd81f91d250e86c559d1a275a37874301"
+    ],
+    "base_pass_vs_hash": [
+     "8379b4220f355bd5ac89550dd417b8fa42f59c39"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.eyehet_diffeyes_261099 (163721/163721 px bit-exact); VS #104653",
+   "ps_archive_index": 261099,
+   "vs_archive_index": [
+    104653
+   ],
+   "roster_mis": 4,
+   "example_mis": [
+    "MI_R2T1FuluoluoMd10011Eye_HET",
+    "MI_R2T1LuokekeMd10011Eye_HET",
+    "MI_R2T1SanhuaMd10011Eye_HET",
+    "MI_R2T1SanhuaMd20011Eye_HET"
+   ],
+   "static_switches_informational": {
+    "UseDifferentColorEyes": true,
+    "UseUV2": true
+   }
+  }
+ ]
+}

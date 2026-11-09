@@ -1,0 +1,160 @@
+{
+ "root_material": "M_Char_Com",
+ "generated_by": "tools/shaderdiff/roster_charcom/register_round8a.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 8a: the back-light / toon-specular / parallax-crystal M_Char_Com PS left by round 7 (generated WuwaToonCommonBasePass_W8* entries of WuwaToonBasePass_Common.ush). One variant per verified (PS, VS set); research/roster/round8/a.md",
+ "variants": [
+  {
+   "spec": "ToonCommon_W8BodyNoRampNoVDLBreathNoDSScalarPBRBackLightFParallaxCrystal.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "e326df37c56b37df4f9d3e7d69a320f67b929501"
+    ],
+    "base_pass_vs_hash": [
+     "493b18f27d82edcf9da56ad3a48302b4947078df"
+    ]
+   },
+   "verified": "research/roster/round8/a.md; PS: evidence/validation/shaderdiff/roster_charcom/round8/a/results_round8a.json variants.r8a_bodynorampnovdlbreathnodsscalarpbrbacklightfparallax_24974 (917504/917504 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #24940 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 24974,
+   "vs_archive_index": [
+    24940
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EQingxiaoXiaojianMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "bNoDoubleSpec": "true",
+    "bBackLight": "true",
+    "bBackLightFront": "true",
+    "bParallaxCrystal": "true",
+    "scalarpbr": true,
+    "sec": null
+   },
+   "round": "8a (common)"
+  },
+  {
+   "spec": "ToonCommon_W8BodyNoRampNoVDLBreathScalarPBRBackLightFT.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6aada5151615c25d0a092e768f9a90efcd999fb6"
+    ],
+    "base_pass_vs_hash": [
+     "afc043ee577f44a96f4f2264fbe730c4f93dbc7d"
+    ]
+   },
+   "verified": "research/roster/round8/a.md; PS: evidence/validation/shaderdiff/roster_charcom/round8/a/results_round8a.json variants.r8a_bodynorampnovdlbreathscalarpbrbacklightft_282176 (720896/720896 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #282196 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 282176,
+   "vs_archive_index": [
+    282196
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EQingxiaoDajianMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "bBackLight": "true",
+    "bBackLightFront": "true",
+    "bBackLightThick": "true",
+    "scalarpbr": true,
+    "sec": null
+   },
+   "round": "8a (common)"
+  },
+  {
+   "spec": "ToonCommon_W8BodyNoSkinRampCNoVDLBreathSecondBumpMGBackLightTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "13e2d52c70e3249c0faaaa8bd9cd670f140fbba5"
+    ],
+    "base_pass_vs_hash": [
+     "9edee6e7c9de8440868310082000984dfaa154d6"
+    ]
+   },
+   "verified": "research/roster/round8/a.md; PS: evidence/validation/shaderdiff/roster_charcom/round8/a/results_round8a.json variants.r8a_bodynoskinrampcnovdlbreathsecondbumpmgbacklighttwosi_93810 (786432/786432 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #93851 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 93810,
+   "vs_archive_index": [
+    93851
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Device510Md20001_Jade"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "bBackLight": "true",
+    "scalarpbr": false,
+    "sec": {
+     "noise": false,
+     "flow": false,
+     "bump": true,
+     "mask": 1,
+     "rim": false,
+     "osu": false
+    }
+   },
+   "round": "8a (common)"
+  },
+  {
+   "spec": "ToonCommon_W8MTNoRampNoVDLNoNMNoPBRAniMaskToonSpecMTwoSided.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "56186a1bc94401e752d94ba9de86299501d321a2"
+    ],
+    "base_pass_vs_hash": [
+     "a5f40d22e28ed8d3b09a8f4488724f7e0bb50e4e"
+    ]
+   },
+   "verified": "research/roster/round8/a.md; PS: evidence/validation/shaderdiff/roster_charcom/round8/a/results_round8a.json variants.r8a_mtnorampnovdlnonmnopbranimasktoonspecmtwosided_173812 (524288/524288 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #77498 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 173812,
+   "vs_archive_index": [
+    77498
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ECalbrenaWingMd10011"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": false,
+    "bNoVDL": true,
+    "bNoRamp": true,
+    "bTwoSided": true,
+    "bRampMask": false,
+    "bNoSkinRampC": false,
+    "bNoPBR": "true",
+    "bNoNormalMap": "true",
+    "bAniMaskDecode": "true",
+    "bAniLitW": "true",
+    "bToonSpecM": "true",
+    "scalarpbr": false,
+    "sec": null
+   },
+   "round": "8a (common)"
+  }
+ ]
+}

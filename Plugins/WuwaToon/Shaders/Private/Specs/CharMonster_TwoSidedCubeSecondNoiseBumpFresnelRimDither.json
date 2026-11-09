@@ -1,0 +1,995 @@
+{
+ "name": "CharMonster_TwoSidedCubeSecondNoiseBumpFresnelRimDither",
+ "entry": "WuwaToonMonsterBasePass_TwoSidedCubeSecondNoiseBumpFresnelRimDither",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_Monster.ush",
+ "kuro_shading_model": "MSM_ToonCommon (GBufferB id 12, or 14 when ToonShadowBlendCSMMask > 0)",
+ "kuro_asm": "M_CharMonster PS a6059c10bd (#262001) / VS 0a6593fd92 (#75805); MIs MI_EJingranShanmaoMd10011Body; Impl switches: bTwoSided, bCube, bSecond, bNoise, bBump, bFlowEdge, bFresnelRim, bTranslucentDither",
+ "kuro_root_material": "M_CharMonster",
+ "blend_mode": "BLEND_Masked",
+ "two_sided": true,
+ "resolve": true,
+ "resolve_note": "toon GBuffer through WuwaToonResolve. M_CharMonster packing: A.xy = oct(N), A.z = MainTex.a solid-shadow factor, A.w = 1/3 (mode 0) / 1 (mode 1); B.rgb = sqrt(saturate(solid-shadow colour)), B.a = id 12 (14 when ToonShadowBlendCSMMask > 0); C.rgb = lit colour (GI tint, ShadowLord colour), C.a = 0 / rim byte (mode 1); D = (ToonRimWidth, (round(saturate(2 rough) 255) & 240) / 255, 0, 0) in mode 0, 0 in mode 1. MainTex.a emission, attack rim and selection colour are in the emissive.",
+ "vs_note": null,
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "o0.rgb SceneColor (o0.a = 0)"
+  },
+  "A": {
+   "type": "float4",
+   "kuro": "o1 GBufferA: xy oct normal, z toon shadow factor, w flag"
+  },
+  "B": {
+   "type": "float4",
+   "kuro": "o2 GBufferB: rgb sqrt(shadow colour), a (LightingChannelMask<<5 | ShadingModelId)/255"
+  },
+  "C": {
+   "type": "float4",
+   "kuro": "o3 GBufferC: rgb lit colour, a MainTex.a*OpacityIntensity / rim byte"
+  },
+  "D": {
+   "type": "float4",
+   "kuro": "o6 \"GBufferD\": x ToonRimWidth, y packed nibble, z 0, w packed AO|FFT"
+  },
+  "OpacityMask": {
+   "type": "float",
+   "kuro": "masked clip input, clip value 0.3333"
+  }
+ },
+ "inputs": [
+  {
+   "name": "Normal_Roughness_Metallic",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Normal_Roughness_Metallic",
+   "default": "T_EJingranShanmaoMd10011Body_N",
+   "note": "reference MI MI_EJingranShanmaoMd10011Body: {'ObjectName': \"Texture2D'T_EJingranShanmaoMd10011Body_N'\", 'ObjectPath': 'Client/Content/Aki/Character/Prop/RoleProp/JingranProp/EJingranShanmaoMd10011/Model/T_EJingranShanmaoMd10011Body_N.1'}"
+  },
+  {
+   "name": "Normal_Roughness_MetallicSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Normal_Roughness_Metallic",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "Normal_Roughness_MetallicSampler"
+  },
+  {
+   "name": "MainTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "MainTex",
+   "default": "T_EJingranShanmaoMd10011Body_D",
+   "note": "reference MI MI_EJingranShanmaoMd10011Body: {'ObjectName': \"Texture2D'T_EJingranShanmaoMd10011Body_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Prop/RoleProp/JingranProp/EJingranShanmaoMd10011/Model/T_EJingranShanmaoMd10011Body_D.0'}"
+  },
+  {
+   "name": "MainTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "MainTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MainTexSampler"
+  },
+  {
+   "name": "PBRCubeMap",
+   "type": "TextureCube",
+   "kind": "texture",
+   "param": "PBRCubeMap",
+   "default": "T_Env_03_CUBE",
+   "note": "reference MI MI_EJingranShanmaoMd10011Body: {'ObjectName': \"TextureCube'T_Env_03_CUBE'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/CommonTexture/CharacterCubeMaps/T_Env_03_CUBE.0'}; TextureCube (UE: TextureSampleParameterCube), sampled with SampleLevel"
+  },
+  {
+   "name": "PBRCubeMapSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "PBRCubeMap",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "PBRCubeMapSampler"
+  },
+  {
+   "name": "Second_RGB",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Second_RGB",
+   "default": "T_Tile_300187",
+   "note": "reference MI MI_EJingranShanmaoMd10011Body: {'ObjectName': \"Texture2D'T_Tile_300187'\", 'ObjectPath': 'Client/Content/Aki/Effect/Texture/Tile/T_Tile_300187.1'}"
+  },
+  {
+   "name": "Second_RGBSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Second_RGB",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "Second_RGBSampler"
+  },
+  {
+   "name": "R_Noise_A_Mask",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "R_Noise_A_Mask",
+   "default": "T_EJingranShanmaoMd10011Body_FX",
+   "note": "reference MI MI_EJingranShanmaoMd10011Body: {'ObjectName': \"Texture2D'T_EJingranShanmaoMd10011Body_FX'\", 'ObjectPath': 'Client/Content/Aki/Character/Prop/RoleProp/JingranProp/EJingranShanmaoMd10011/Model/T_EJingranShanmaoMd10011Body_FX.0'}"
+  },
+  {
+   "name": "R_Noise_A_MaskSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "R_Noise_A_Mask",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "R_Noise_A_MaskSampler"
+  },
+  {
+   "name": "TranslucentDitherTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "TranslucentDitherTex",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "TranslucentDitherTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "TranslucentDitherTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "TranslucentDitherTexSampler"
+  },
+  {
+   "name": "ShadowLord_ColorTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "ShadowLord_ColorTex",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "ShadowLord_ColorTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "ShadowLord_ColorTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "ShadowLord_ColorTexSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "UV1",
+   "type": "float2",
+   "kind": "uv",
+   "index": 1
+  },
+  {
+   "name": "UV2",
+   "type": "float2",
+   "kind": "uv",
+   "index": 2
+  },
+  {
+   "name": "UV3",
+   "type": "float2",
+   "kind": "uv",
+   "index": 3
+  },
+  {
+   "name": "WorldTangent",
+   "type": "float3",
+   "kind": "worldtangent",
+   "ue_expr": "Parameters.TangentToWorld[0]"
+  },
+  {
+   "name": "WorldNormal",
+   "type": "float3",
+   "kind": "worldnormal",
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "TangentSign",
+   "type": "float",
+   "kind": "worldtangent",
+   "channel": "sign",
+   "ue_expr": "Parameters.TangentToWorldSign"
+  },
+  {
+   "name": "TwoSidedSign",
+   "type": "float",
+   "kind": "twosidedsign",
+   "ue_expr": "Parameters.TwoSidedSign"
+  },
+  {
+   "name": "WorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "absolute",
+   "ue_expr": "WSHackToFloat(GetWorldPosition(Parameters))"
+  },
+  {
+   "name": "TranslatedWorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "translated",
+   "ue_expr": "GetTranslatedWorldPosition(Parameters)"
+  },
+  {
+   "name": "CameraVector",
+   "type": "float3",
+   "kind": "cameravector",
+   "ue_expr": "Parameters.CameraVector"
+  },
+  {
+   "name": "SvPositionXY",
+   "type": "float2",
+   "kind": "svposition",
+   "ue_expr": "Parameters.SvPosition.xy"
+  },
+  {
+   "name": "ViewRectMin",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewRectMin.xy",
+   "kuro": "View[134].xy"
+  },
+  {
+   "name": "ViewSizeAndInvSize",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewSizeAndInvSize",
+   "kuro": "View[135]"
+  },
+  {
+   "name": "NormalStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "NormalStrength",
+   "default": 1.0
+  },
+  {
+   "name": "MainTexColorTint",
+   "type": "float3",
+   "kind": "vector",
+   "param": "MainTexColorTint",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "FresnelAttackFactor",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FresnelAttackFactor",
+   "default": 0.0
+  },
+  {
+   "name": "MetallicIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MetallicIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "RoughnessIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "RoughnessIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "UseSpecularMask",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseSpecularMask",
+   "default": 0.0
+  },
+  {
+   "name": "UseLightOffset_Yaw_DYN",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseLightOffset_Yaw_DYN",
+   "default": 0.0
+  },
+  {
+   "name": "LightOffset_Yaw",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightOffset_Yaw",
+   "default": 0.0
+  },
+  {
+   "name": "PBRHardSpecWidth_Test",
+   "type": "float",
+   "kind": "scalar",
+   "param": "PBRHardSpecWidth_Test",
+   "default": 0.8999999761581421
+  },
+  {
+   "name": "PBRHardSpeSmooth_Test",
+   "type": "float",
+   "kind": "scalar",
+   "param": "PBRHardSpeSmooth_Test",
+   "default": 0.05000000074505806
+  },
+  {
+   "name": "PBRSpecularRangeDessolve_Threshold",
+   "type": "float",
+   "kind": "scalar",
+   "param": "PBRSpecularRangeDessolve_Threshold",
+   "default": 0.5
+  },
+  {
+   "name": "PBRSpecularRangeDessolve_Smooth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "PBRSpecularRangeDessolve_Smooth",
+   "default": 0.75
+  },
+  {
+   "name": "PBRSpecularRangeDessolve_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "PBRSpecularRangeDessolve_Intensity ",
+   "default": 0.0
+  },
+  {
+   "name": "PBRSpecularColor_Test",
+   "type": "float3",
+   "kind": "vector",
+   "param": "PBRSpecularColor_Test",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "PBRIndirectColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "PBRIndirectColor",
+   "channels": "rgb",
+   "default": [
+    0.5,
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "name": "PBRRateIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "PBRRateIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "Main_EmissionPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Main_EmissionPower",
+   "default": 1.0
+  },
+  {
+   "name": "EmissionColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "EmissionColor",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "AttackDarkScale",
+   "type": "float",
+   "kind": "scalar",
+   "param": "AttackDarkScale",
+   "default": 1.399999976158142
+  },
+  {
+   "name": "AttackFresnelRimRange",
+   "type": "float",
+   "kind": "scalar",
+   "param": "AttackFresnelRimRange",
+   "default": 3.0
+  },
+  {
+   "name": "AttackFresnelRimColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "AttackFresnelRimColor",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    0.6052820086479187,
+    0.29166701436042786
+   ]
+  },
+  {
+   "name": "AttackFresnelRimIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "AttackFresnelRimIntensity",
+   "default": 4.0
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "GI_Blend",
+   "type": "float",
+   "kind": "scalar",
+   "param": "GI_Blend",
+   "default": 0.0
+  },
+  {
+   "name": "ShadowLord_ColorTiling",
+   "type": "float4",
+   "kind": "vector",
+   "param": "ShadowLord_ColorTiling",
+   "channels": "rgba",
+   "default": [
+    6.0,
+    0.5,
+    0.0,
+    0.05000000074505806
+   ]
+  },
+  {
+   "name": "ShadowLord_ColorMulti",
+   "type": "float3",
+   "kind": "vector",
+   "param": "ShadowLord_ColorMulti",
+   "channels": "rgb",
+   "default": [
+    0.6123380064964294,
+    0.8016480207443237,
+    1.0
+   ]
+  },
+  {
+   "name": "ShadowLord_ColorOpacity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowLord_ColorOpacity",
+   "default": 0.20000000298023224
+  },
+  {
+   "name": "UseShadowLordMaterialDynamic",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseShadowLordMaterialDynamic",
+   "default": 0.0
+  },
+  {
+   "name": "ShadowColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "ShadowColor",
+   "channels": "rgb",
+   "default": [
+    0.5,
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "name": "SolidShadowView",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowView",
+   "default": 1.0
+  },
+  {
+   "name": "SolidShadowSaturation",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowSaturation",
+   "default": 0.800000011920929
+  },
+  {
+   "name": "SolidShadowThreshold",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowThreshold",
+   "default": 0.8999999761581421
+  },
+  {
+   "name": "ShadowOffset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowOffset",
+   "default": 0.0
+  },
+  {
+   "name": "ShadowRange",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowRange",
+   "default": 0.014999999664723873
+  },
+  {
+   "name": "SolidShadowStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SolidShadowStrength",
+   "default": 1.0
+  },
+  {
+   "name": "ToonRimWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ToonRimWidth",
+   "default": 0.10000000149011612
+  },
+  {
+   "name": "ToonShadowBlendCSMMask",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ToonShadowBlendCSMMask",
+   "default": 0.0
+  },
+  {
+   "name": "EdgeEnvBRDFIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EdgeEnvBRDFIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "PBRCubeMap_Test",
+   "type": "float",
+   "kind": "scalar",
+   "param": "PBRCubeMap_Test",
+   "default": 1.0
+  },
+  {
+   "name": "PBRCubemapColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "PBRCubemapColor",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "SecondTex_UVSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SecondTex_UVSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Second_UseScreenUV",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Second_UseScreenUV",
+   "default": 0.0
+  },
+  {
+   "name": "Second_RotCos",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Second_Rotation"
+   ],
+   "expr": "cos(Second_Rotation * 6.2831855)",
+   "ue_nodes": "Cosine[Period 0](Multiply(ScalarParameter \"Second_Rotation\", 6.2831855 = 0x40C90FDB))",
+   "default": 1.0
+  },
+  {
+   "name": "Second_RotSin",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "Second_Rotation"
+   ],
+   "expr": "sin(Second_Rotation * 6.2831855)",
+   "ue_nodes": "Sine[Period 0](Multiply(ScalarParameter \"Second_Rotation\", 6.2831855 = 0x40C90FDB))",
+   "default": 0.0
+  },
+  {
+   "name": "Second_UV",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Second_UV",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Second_UV_Offset",
+   "type": "float2",
+   "kind": "vector",
+   "param": "Second_UV_Offset",
+   "channels": "rg",
+   "default": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Second_Refine",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Second_Refine",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Second_ColorTint",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Second_ColorTint",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "EffectMaskTexUV2Switch",
+   "type": "float",
+   "kind": "scalar",
+   "param": "EffectMaskTexUV2Switch",
+   "default": 0.0
+  },
+  {
+   "name": "Effect_Progress",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Effect_Progress",
+   "default": 0.0
+  },
+  {
+   "name": "FresnelRim_RimRange",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FresnelRim_RimRange",
+   "default": 5.0
+  },
+  {
+   "name": "FresnelRim_Smooth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FresnelRim_Smooth",
+   "default": 0.0
+  },
+  {
+   "name": "FresnelRim_Reverse",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FresnelRim_Reverse",
+   "default": 0.0
+  },
+  {
+   "name": "FresnelRim_RimColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "FresnelRim_RimColor",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Noise_UVSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "Noise_UVSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Noise_UseScreenUV",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Noise_UseScreenUV",
+   "default": 0.0
+  },
+  {
+   "name": "NoiseUV",
+   "type": "float4",
+   "kind": "vector",
+   "param": "NoiseUV",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "NoiseStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "NoiseStrength",
+   "default": 1.0
+  },
+  {
+   "name": "Second_NoiseStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Second_NoiseStrength",
+   "default": 0.15000000596046448
+  },
+  {
+   "name": "FlowEffectEdge_Strength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FlowEffectEdge_Strength",
+   "default": 0.20000000298023224
+  },
+  {
+   "name": "Second_BumpHeight",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Second_BumpHeight",
+   "default": 0.0
+  },
+  {
+   "name": "Second_BumpHeightRadio",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Second_BumpHeightRadio",
+   "default": 0.0
+  },
+  {
+   "name": "UseTranslucent",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseTranslucent",
+   "default": 0.0
+  },
+  {
+   "name": "TranslucentDitherVaule",
+   "type": "float",
+   "kind": "scalar",
+   "param": "TranslucentDitherVaule",
+   "default": 1.2000000476837158
+  },
+  {
+   "name": "TemporalAAParamsX",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.TemporalAAParams.x",
+   "kuro": "View[158].x (TAA frame index, dither cell offset)"
+  },
+  {
+   "name": "KuroPrimDitherEnable",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[43].x",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "KuroPrimDitherFade",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[43].y",
+   "ue_expr": null,
+   "default": 1.0,
+   "unknown": true
+  },
+  {
+   "name": "CPD0",
+   "type": "float",
+   "kind": "cpd",
+   "index": 0,
+   "role": "light yaw (degrees)"
+  },
+  {
+   "name": "CPD1",
+   "type": "float",
+   "kind": "cpd",
+   "index": 1,
+   "role": "saturate(CPD1) = weight of the fixed-angle light direction vs MPC GlobalCharacterDebugLightDirection"
+  },
+  {
+   "name": "MPC_GlobalCharacterVerticalRotation",
+   "type": "float",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalCharacterVerticalRotation",
+   "default": 0.0,
+   "kuro": "cb3[6].y (scalar 25), added to the 45 degree light pitch"
+  },
+  {
+   "name": "MPC_GlobalCharacterDebugLightDirection",
+   "type": "float3",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalCharacterDebugLightDirection",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "kuro": "cb3[42] (base character light direction; must be written at runtime)"
+  },
+  {
+   "name": "ToonLight0",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 0,
+   "kuro": "ToonShadowLightData CB1[0]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "ToonLight3",
+   "type": "float4",
+   "kind": "toonlight",
+   "index": 3,
+   "kuro": "ToonShadowLightData CB1[3]",
+   "default": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "KuroViewGIColor",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true,
+   "kuro": "View[292].xyz: lit colour x View[292] blended by GI_Blend [U meaning: Kuro view GI / light tint]"
+  },
+  {
+   "name": "TranslatedWorldToView",
+   "type": "float4x4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.TranslatedWorldToView",
+   "kuro": "Kuro View[12..15]"
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "NormalOverrideParameter",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.NormalOverrideParameter",
+   "kuro": "Kuro View[144] (stock member), default (0,0,0,1)",
+   "default": [
+    0,
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "name": "KuroGBufferMode",
+   "type": "float",
+   "kind": "view",
+   "kuro": "View[276].x (int, ==1 selects the alternate packing)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "KuroEmissiveScale",
+   "type": "float3",
+   "kind": "view",
+   "kuro": "View[285].xyz (emissive multiplier when Primitive[42].w == 0)",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true
+  },
+  {
+   "name": "KuroSkipEmissiveScale",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[42].w (skip View[285] multiply when != 0)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "OutOfBoundsMask",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.OutOfBoundsMask",
+   "kuro": "Kuro View[146].x (stock debug)",
+   "default": 0.0
+  },
+  {
+   "name": "ObjectWorldPosition",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "WSHackToFloat(GetObjectWorldPosition(Parameters))"
+  },
+  {
+   "name": "ObjectBounds",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "float3(GetPrimitiveData(Parameters).ObjectBoundsX, GetPrimitiveData(Parameters).ObjectBoundsY, GetPrimitiveData(Parameters).ObjectBoundsZ)"
+  },
+  {
+   "name": "LightingChannelMask",
+   "type": "uint",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitive_LightingChannelMask_FromFlags(GetPrimitiveData(Parameters).Flags)"
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  },
+  {
+   "name": "OpacityMask",
+   "type": "float",
+   "kind": "output"
+  }
+ ],
+ "generated_by": "tools/shaderdiff/weapons/make_specs.py",
+ "notes": {
+  "textures": "texture names: the cooked map lists ['Normal_Roughness_Metallic', '?', '?', '?', '?', '?', '?']; slot order inferred from usage [U for slots > 0]: t0 = Normal_Roughness_Metallic (normal xy, metal z, roughness w), MainTex (rgb colour, a = emission / shadow mask), MatCapTex (view-space matcap, channel by roughness), ShadowLord_ColorTex (UV3 scrolled colour, x UseShadowLordMaterialDynamic)"
+ }
+}

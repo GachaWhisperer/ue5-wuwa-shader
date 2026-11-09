@@ -1,0 +1,1408 @@
+{
+ "name": "Char_Aimisi_SPSkirt_CircuitFlowSparkTextRain",
+ "entry": "WuwaFXAimisiSPSkirt_CircuitFlowSparkTextRain",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_Aimisi.ush",
+ "kuro_shading_model": "MSM_Unlit",
+ "kuro_asm": "M_Char_Aimisi_SPSkirt PS 30a8b76b4a (#264804) / VS 15d277dbbe (#13669); static switches Use_CircuitLight, Use_FlowLight, Use_MilkSpark, Use_TextRain, UseDissolveAndDither, UseEffect",
+ "kuro_root_material": "M_Char_Aimisi_SPSkirt",
+ "blend_mode": "BLEND_Additive",
+ "two_sided": false,
+ "resolve": false,
+ "resolve_note": "forward additive unlit (not a toon GBuffer): output Emissive + Opacity to a UE additive unlit material. Kuro engine tail, not ported (UE applies its own): opacity *= Kuro primitive fade (Primitive[43]); colour = max(E, 0) (*View[285] unless Primitive[42].w), OOB stripes, vertex fog transmittance (TEXCOORD7.w) / volumetric fog, colour premultiplied by opacity, Kuro effect colour grading (View[283].y/[279], View[286].x/[284], skipped when Primitive[42].w); o0 = (rgb, 0), single render target. Verified with that tail reproduced in the harness (tools/shaderdiff/weapons/hlsl/kuro_tail_aimisi.hlsli).",
+ "vs_note": null,
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "material Emissive Color (before the engine translucent tail: fog, OOB, Kuro effect grading)"
+  },
+  "Opacity": {
+   "type": "float",
+   "kuro": "material Opacity (o0.a = o1.a after the tail)"
+  }
+ },
+ "inputs": [
+  {
+   "name": "Normal_Metallic_EffMask",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Normal_Metallic_EffMask",
+   "default": "T_R2T1AimisiMd10011ItemSp_N",
+   "note": "reference MI MI_Char_Aimisi_SPSkirt: {'ObjectName': \"Texture2D'T_R2T1AimisiMd10011ItemSp_N'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleM/Aimisi/R2T1AimisiMd10011/Model/T_R2T1AimisiMd10011ItemSp_N.1'}"
+  },
+  {
+   "name": "Normal_Metallic_EffMaskSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Normal_Metallic_EffMask",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "Normal_Metallic_EffMaskSampler"
+  },
+  {
+   "name": "BaseColTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "BaseColTex",
+   "default": "T_R2T1AimisiMd10011Item_D",
+   "note": "reference MI MI_Char_Aimisi_SPSkirt: {'ObjectName': \"Texture2D'T_R2T1AimisiMd10011Item_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleM/Aimisi/R2T1AimisiMd10011/Model/T_R2T1AimisiMd10011Item_D.1'}"
+  },
+  {
+   "name": "BaseColTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "BaseColTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "BaseColTexSampler"
+  },
+  {
+   "name": "CircuitFlowNoise",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "CircuitFlowNoise",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "CircuitFlowNoiseSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "CircuitFlowNoise",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "CircuitFlowNoiseSampler"
+  },
+  {
+   "name": "Tex_CircuitMask",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "Tex_CircuitMask",
+   "default": "T_Circuit01_FX",
+   "note": "reference MI MI_Char_Aimisi_SPSkirt: {'ObjectName': \"Texture2D'T_Circuit01_FX'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleM/Aimisi/R2T1AimisiMd10011/Model/T_Circuit01_FX.0'}"
+  },
+  {
+   "name": "Tex_CircuitMaskSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "Tex_CircuitMask",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "Tex_CircuitMaskSampler"
+  },
+  {
+   "name": "CommonNoiseMap",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "CommonNoiseMap",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "CommonNoiseMapSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "CommonNoiseMap",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "CommonNoiseMapSampler"
+  },
+  {
+   "name": "String_Tex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "String_Tex",
+   "default": "T_Textbook_FX",
+   "note": "reference MI MI_Char_Aimisi_SPSkirt: {'ObjectName': \"Texture2D'T_Textbook_FX'\", 'ObjectPath': 'Client/Content/Aki/Character/Role/FemaleM/Aimisi/R2T1AimisiMd10011/Model/T_Textbook_FX.0'}"
+  },
+  {
+   "name": "String_TexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "String_Tex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "String_TexSampler"
+  },
+  {
+   "name": "E_Tex_NoiseTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "E_Tex_NoiseTex",
+   "default": null,
+   "note": "not overridden by the reference MI (root default)"
+  },
+  {
+   "name": "E_Tex_NoiseTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "E_Tex_NoiseTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "E_Tex_NoiseTexSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "UV1",
+   "type": "float2",
+   "kind": "uv",
+   "index": 1
+  },
+  {
+   "name": "UV2",
+   "type": "float2",
+   "kind": "uv",
+   "index": 2
+  },
+  {
+   "name": "UV3",
+   "type": "float2",
+   "kind": "uv",
+   "index": 3
+  },
+  {
+   "name": "WorldTangent",
+   "type": "float3",
+   "kind": "worldtangent",
+   "ue_expr": "Parameters.TangentToWorld[0]"
+  },
+  {
+   "name": "WorldNormal",
+   "type": "float3",
+   "kind": "worldnormal",
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "TangentSign",
+   "type": "float",
+   "kind": "worldtangent",
+   "channel": "sign",
+   "ue_expr": "Parameters.TangentToWorldSign"
+  },
+  {
+   "name": "WorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "absolute",
+   "ue_expr": "WSHackToFloat(GetWorldPosition(Parameters))"
+  },
+  {
+   "name": "CameraVector",
+   "type": "float3",
+   "kind": "cameravector",
+   "ue_expr": "Parameters.CameraVector"
+  },
+  {
+   "name": "SvPositionXY",
+   "type": "float2",
+   "kind": "svposition",
+   "ue_expr": "Parameters.SvPosition.xy"
+  },
+  {
+   "name": "ViewRectMin",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewRectMin.xy",
+   "kuro": "View[134].xy"
+  },
+  {
+   "name": "ViewSizeAndInvSize",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewSizeAndInvSize",
+   "kuro": "View[135]"
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "ClipToView00",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ClipToView[0][0]",
+   "kuro": "View[36].x"
+  },
+  {
+   "name": "WorldCameraOrigin",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": "WSHackToFloat(ResolvedView.WorldCameraOrigin)",
+   "kuro": "View[67].xyz"
+  },
+  {
+   "name": "TranslatedWorldToView",
+   "type": "float4x4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.TranslatedWorldToView",
+   "kuro": "Kuro View[12..15]"
+  },
+  {
+   "name": "LocalToWorldRow2",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[2].xyz",
+   "kuro": "Primitive[2].xyz (local Z axis)"
+  },
+  {
+   "name": "LocalToWorldRow3",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "WSHackToFloat(GetPrimitiveData(Parameters).LocalToWorld[3])",
+   "kuro": "Primitive[3].xyz (object origin)"
+  },
+  {
+   "name": "PrimWorldToLocal",
+   "type": "float4x4",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).WorldToLocal",
+   "kuro": "Primitive[6..9] (UE 4.26 FPrimitiveUniformShaderParameters.WorldToLocal; portal \"UseLocalSpace\")"
+  },
+  {
+   "name": "PrimActorWorldPosition",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).ActorWorldPosition",
+   "kuro": "Primitive[18].xyz (UE 4.26 ActorWorldPosition; portal \"UseActorSpace\")"
+  },
+  {
+   "name": "HeadMaskPosition",
+   "type": "float3",
+   "kind": "cpd",
+   "index": [
+    23,
+    24,
+    25
+   ],
+   "ue_expr": "GetPrimitiveData(Parameters).CustomPrimitiveData[23..25]",
+   "role": "Kuro head position (E_UseHeadMaskHide / E_Dither head mask), written by the character runtime"
+  },
+  {
+   "name": "HeadMaskAxis0",
+   "type": "float3",
+   "kind": "cpd",
+   "index": [
+    2,
+    3,
+    4
+   ],
+   "role": "head basis row 0 (CPD 2..4; local = d.x*Axis0 + d.y*Axis1 + d.z*Axis2)"
+  },
+  {
+   "name": "HeadMaskAxis1",
+   "type": "float3",
+   "kind": "cpd",
+   "index": [
+    5,
+    6,
+    7
+   ],
+   "role": "head basis row 1 (CPD 5..7)"
+  },
+  {
+   "name": "HeadMaskAxis2",
+   "type": "float3",
+   "kind": "cpd",
+   "index": [
+    8,
+    9,
+    10
+   ],
+   "role": "head basis row 2 (CPD 8..10)"
+  },
+  {
+   "name": "CircuitLight_UV_Switch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "CircuitLight_UV_Switch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "CircuitLightTiling_Inside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitLightTiling_Inside",
+   "default": 6.0
+  },
+  {
+   "name": "CircuitLightTiling_Outside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitLightTiling_Outside",
+   "default": 6.0
+  },
+  {
+   "name": "CircuitLightSpeed_Inside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitLightSpeed_Inside",
+   "default": 0.5
+  },
+  {
+   "name": "CircuitLightSpeed_Outside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitLightSpeed_Outside",
+   "default": 0.5
+  },
+  {
+   "name": "NormalStrength",
+   "type": "float",
+   "kind": "scalar",
+   "param": "NormalStrength",
+   "default": 1.0
+  },
+  {
+   "name": "Normal_ViewBlend",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Normal_ViewBlend",
+   "default": 0.5
+  },
+  {
+   "name": "CircuitLightNormalAmount",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitLightNormalAmount",
+   "default": 1.051805019378662
+  },
+  {
+   "name": "CircuitLightAmount_Inside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitLightAmount_Inside",
+   "default": 1.0
+  },
+  {
+   "name": "CircuitLightAmount_Outside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitLightAmount_Outside",
+   "default": 1.0
+  },
+  {
+   "name": "CircuitLight02_Outside",
+   "type": "float3",
+   "kind": "vector",
+   "param": "CircuitLight02_Outside",
+   "channels": "rgb",
+   "default": [
+    0.09971000254154205,
+    0.021443000063300133,
+    1.0
+   ]
+  },
+  {
+   "name": "CircuitLightColor_Outside",
+   "type": "float3",
+   "kind": "vector",
+   "param": "CircuitLightColor_Outside",
+   "channels": "rgb",
+   "default": [
+    0.9380599856376648,
+    0.38444599509239197,
+    1.0
+   ]
+  },
+  {
+   "name": "CircuitLight02_Inside",
+   "type": "float3",
+   "kind": "vector",
+   "param": "CircuitLight02_Inside",
+   "channels": "rgb",
+   "default": [
+    0.09971000254154205,
+    0.021443000063300133,
+    1.0
+   ]
+  },
+  {
+   "name": "CircuitLightColor_Inside",
+   "type": "float3",
+   "kind": "vector",
+   "param": "CircuitLightColor_Inside",
+   "channels": "rgb",
+   "default": [
+    0.9380599856376648,
+    0.38444599509239197,
+    1.0
+   ]
+  },
+  {
+   "name": "CircuitMask_Tiling_Outside",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "CircuitMask_Tilling-X_Outside",
+    "CircuitMask_Tilling-Y_Outside"
+   ],
+   "expr": "float2(CircuitMask_Tilling-X_Outside, CircuitMask_Tilling-Y_Outside)",
+   "default": [
+    6.0,
+    6.0
+   ],
+   "ue_nodes": "(CircuitMask_Tilling-X_Outside, CircuitMask_Tilling-Y_Outside)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "CircuitMask_Offset_Outside",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "CircuitMask_Offset_X_Outside",
+    "CircuitMask_Offset_Y_Outside"
+   ],
+   "expr": "float2(CircuitMask_Offset_X_Outside, CircuitMask_Offset_Y_Outside)",
+   "default": [
+    0.0,
+    0.0
+   ],
+   "ue_nodes": "(CircuitMask_Offset_X_Outside, CircuitMask_Offset_Y_Outside)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "CircuitMask_Tiling_Inside",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "CircuitMask_Tilling-X_Inside",
+    "CircuitMask_Tilling-Y_Inside"
+   ],
+   "expr": "float2(CircuitMask_Tilling-X_Inside, CircuitMask_Tilling-Y_Inside)",
+   "default": [
+    6.0,
+    6.0
+   ],
+   "ue_nodes": "(CircuitMask_Tilling-X_Inside, CircuitMask_Tilling-Y_Inside)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "CircuitMask_Offset_Inside",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "CircuitMask_Offset_X_Inside",
+    "CircuitMask_Offset_Y_Inside"
+   ],
+   "expr": "float2(CircuitMask_Offset_X_Inside, CircuitMask_Offset_Y_Inside)",
+   "default": [
+    0.0,
+    0.0
+   ],
+   "ue_nodes": "(CircuitMask_Offset_X_Inside, CircuitMask_Offset_Y_Inside)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "CircuitMask_GradientUp_SmoothMin_Outside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitMask_GradientUp_SmoothMin_Outside",
+   "default": 0.0
+  },
+  {
+   "name": "CircuitMask_GradientUp_SmoothMax_Outside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitMask_GradientUp_SmoothMax_Outside",
+   "default": 1.0
+  },
+  {
+   "name": "CircuitMask_Up_Intensity_Outside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitMask_Up_Intensity_Outside",
+   "default": 1.0
+  },
+  {
+   "name": "CircuitMask_GradientUp_SmoothMin_Inside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitMask_GradientUp_SmoothMin_Inside",
+   "default": 0.0
+  },
+  {
+   "name": "CircuitMask_GradientUp_SmoothMax_Inside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitMask_GradientUp_SmoothMax_Inside",
+   "default": 1.0
+  },
+  {
+   "name": "CircuitMask_Up_Intensity_Inside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitMask_Up_Intensity_Inside",
+   "default": 1.0
+  },
+  {
+   "name": "CircuitMask_GradientDown_SmoothMin_Outside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitMask_GradientDown_SmoothMin_Outside",
+   "default": 0.0
+  },
+  {
+   "name": "CircuitMask_GradientDown_SmoothMax_Outside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitMask_GradientDown_SmoothMax_Outside",
+   "default": 1.0
+  },
+  {
+   "name": "CircuitMask_Down_Intensity_Outside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitMask_Down_Intensity_Outside",
+   "default": 1.0
+  },
+  {
+   "name": "CircuitMask_GradientDown_SmoothMin_Inside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitMask_GradientDown_SmoothMin_Inside",
+   "default": 0.0
+  },
+  {
+   "name": "CircuitMask_GradientDown_SmoothMax_Inside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitMask_GradientDown_SmoothMax_Inside",
+   "default": 1.0
+  },
+  {
+   "name": "CircuitMask_Down_Intensity_Inside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "CircuitMask_Down_Intensity_Inside",
+   "default": 1.0
+  },
+  {
+   "name": "FlowLight_UV_Switch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "FlowLight_UV_Switch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "WaveTiling_Inside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaveTiling_Inside",
+   "default": 6.0
+  },
+  {
+   "name": "WaveTiling_Outside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaveTiling_Outside",
+   "default": 6.0
+  },
+  {
+   "name": "WaveSpeed_Inside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaveSpeed_Inside",
+   "default": 0.5
+  },
+  {
+   "name": "WaveSpeed_Outside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaveSpeed_Outside",
+   "default": 0.5
+  },
+  {
+   "name": "WaveNormalAmount",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaveNormalAmount",
+   "default": 1.051805019378662
+  },
+  {
+   "name": "WaveAmount_Inside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaveAmount_Inside",
+   "default": 1.0
+  },
+  {
+   "name": "WaveAmount_Outside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaveAmount_Outside",
+   "default": 1.0
+  },
+  {
+   "name": "TintColorFlow02_Outside",
+   "type": "float3",
+   "kind": "vector",
+   "param": "TintColorFlow02_Outside",
+   "channels": "rgb",
+   "default": [
+    0.09971000254154205,
+    0.021443000063300133,
+    1.0
+   ]
+  },
+  {
+   "name": "TintColorFlow_Outside",
+   "type": "float3",
+   "kind": "vector",
+   "param": "TintColorFlow_Outside",
+   "channels": "rgb",
+   "default": [
+    0.9380599856376648,
+    0.38444599509239197,
+    1.0
+   ]
+  },
+  {
+   "name": "TintColorFlow02_Inside",
+   "type": "float3",
+   "kind": "vector",
+   "param": "TintColorFlow02_Inside",
+   "channels": "rgb",
+   "default": [
+    0.09971000254154205,
+    0.021443000063300133,
+    1.0
+   ]
+  },
+  {
+   "name": "TintColorFlow_Inside",
+   "type": "float3",
+   "kind": "vector",
+   "param": "TintColorFlow_Inside",
+   "channels": "rgb",
+   "default": [
+    0.9380599856376648,
+    0.38444599509239197,
+    1.0
+   ]
+  },
+  {
+   "name": "SparkTillingSpeed",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SparkTilling & SparkSpeed",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "SparkIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SparkIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "SparkIntensityMax",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SparkIntensityMax",
+   "default": 2.0
+  },
+  {
+   "name": "SparkPower_Inside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SparkPower_Inside",
+   "default": 10.0
+  },
+  {
+   "name": "SparkPower_Outside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SparkPower_Outside",
+   "default": 10.0
+  },
+  {
+   "name": "SparkStrength_Inside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SparkStrength_Inside",
+   "default": 80.0
+  },
+  {
+   "name": "SparkStrength_Outside",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SparkStrength_Outside",
+   "default": 80.0
+  },
+  {
+   "name": "StringsRain_Tilling_Base005",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "StringsRain_Tilling_Base"
+   ],
+   "expr": "(StringsRain_Tilling_Base + 0.05)",
+   "default": 1500.05,
+   "ue_nodes": "StringsRain_Tilling_Base + 0.05",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "String_Speed",
+   "type": "float",
+   "kind": "scalar",
+   "param": "String_Speed",
+   "default": 0.0
+  },
+  {
+   "name": "Rain_Speed_Base",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Rain_Speed_Base",
+   "default": 0.25
+  },
+  {
+   "name": "Rain_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Rain_Intensity",
+   "default": 30.0
+  },
+  {
+   "name": "HueShiftColor_Offset01",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "HueShiftColor_Offset"
+   ],
+   "expr": "(HueShiftColor_Offset * 0.1)",
+   "default": 0.2,
+   "ue_nodes": "HueShiftColor_Offset * 0.1",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "StringsRain_RangeMin_Base",
+   "type": "float",
+   "kind": "scalar",
+   "param": "StringsRain_RangeMin_Base",
+   "default": 0.0
+  },
+  {
+   "name": "StringsRain_RangeMax_Base",
+   "type": "float",
+   "kind": "scalar",
+   "param": "StringsRain_RangeMax_Base",
+   "default": 1.0
+  },
+  {
+   "name": "StringsRain_Color_Base",
+   "type": "float3",
+   "kind": "vector",
+   "param": "StringsRain_Color_Base",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "StringsRain_Base_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "StringsRain_Base_Intensity",
+   "default": 1.0
+  },
+  {
+   "name": "TexRain_BumpOffset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "TexRain_BumpOffset",
+   "default": 0.05000000074505806
+  },
+  {
+   "name": "StringsRain_Tilling_Bump005",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "StringsRain_Tilling_Bump"
+   ],
+   "expr": "(StringsRain_Tilling_Bump + 0.05)",
+   "default": 1200.05,
+   "ue_nodes": "StringsRain_Tilling_Bump + 0.05",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "MatrixXY",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "Matrix"
+   ],
+   "expr": "float2(Matrix, Matrix)",
+   "default": [
+    16.0,
+    16.0
+   ],
+   "ue_nodes": "(Matrix, Matrix)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "MatrixXX",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "Matrix"
+   ],
+   "expr": "float2((Matrix * Matrix), Matrix)",
+   "default": [
+    256.0,
+    16.0
+   ],
+   "ue_nodes": "(Matrix * Matrix, Matrix)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "Rain_Speed_Bump",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Rain_Speed_Bump",
+   "default": 0.25
+  },
+  {
+   "name": "StringsRain_RangeMin_Bump",
+   "type": "float",
+   "kind": "scalar",
+   "param": "StringsRain_RangeMin_Bump",
+   "default": 0.0
+  },
+  {
+   "name": "StringsRain_RangeMax_Bump",
+   "type": "float",
+   "kind": "scalar",
+   "param": "StringsRain_RangeMax_Bump",
+   "default": 1.0
+  },
+  {
+   "name": "StringsRain_Color_Bump",
+   "type": "float3",
+   "kind": "vector",
+   "param": "StringsRain_Color_Bump",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "StringsRain_BumpOffset_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "StringsRain_BumpOffset_Intensity",
+   "default": 1.0
+  },
+  {
+   "name": "ScanLine_Speed",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ScanLine_Speed",
+   "default": 0.0
+  },
+  {
+   "name": "ScanLightTilling",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ScanLightTilling",
+   "default": 1.0
+  },
+  {
+   "name": "ScanLightStep",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ScanLightStep",
+   "default": 0.10000000149011612
+  },
+  {
+   "name": "ScanLine_DistanceFade",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ScanLine_DistanceFade",
+   "default": 1000.0
+  },
+  {
+   "name": "ScanLightColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "ScanLightColor",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "E_Tex_UVSwitch",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Tex_UVSwitch",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Tex_UseScreenUV",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_UseScreenUV",
+   "default": 0.0
+  },
+  {
+   "name": "E_Tex_UseTex",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_UseTex",
+   "default": 0.0
+  },
+  {
+   "name": "E_Tex_RotRow0",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Tex_Rotation"
+   ],
+   "expr": "float8(cos(((E_Tex_Rotation * 0.002778) * 6.28319)), (sin(((E_Tex_Rotation * 0.002778) * 6.28319)) * -1))",
+   "default": [
+    1.0,
+    -0.0
+   ],
+   "ue_nodes": "(cos(a), -sin(a)), a = E_Tex_Rotation * 0.002778 (0x3B360F1B) * 6.28319 (0x40C90FDB)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "E_Tex_RotRow1",
+   "type": "float2",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Tex_Rotation"
+   ],
+   "expr": "float8(sin(((E_Tex_Rotation * 0.002778) * 6.28319)), cos(((E_Tex_Rotation * 0.002778) * 6.28319)))",
+   "default": [
+    0.0,
+    1.0
+   ],
+   "ue_nodes": "(sin(a), cos(a)), a as E_Tex_RotRow0",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "E_Tex_ScaleAndOffset",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Tex_ScaleAndOffset",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Tex_Speed",
+   "type": "float2",
+   "kind": "vector",
+   "param": "E_Tex_Speed",
+   "channels": "rg",
+   "default": [
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Tex_Color",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Tex_Color",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "E_Emission_UseTex",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Emission_UseTex",
+   "default": 0.0
+  },
+  {
+   "name": "E_FlowEffectEdgeColorSharp",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_FlowEffectEdgeColorSharp",
+   "default": 1.0
+  },
+  {
+   "name": "E_Dissolve_Emission",
+   "type": "float3",
+   "kind": "vector",
+   "param": "E_Dissolve_Emission",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Dissolve_EmissionDark",
+   "type": "float3",
+   "kind": "vector",
+   "param": "E_Dissolve_EmissionDark",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_FlowEffectEdgeSwitch",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_FlowEffectEdgeSwitch",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dissolve_Multi01",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Dissolve_Multi"
+   ],
+   "expr": "(E_Dissolve_Multi * 0.01)",
+   "default": 1.0,
+   "ue_nodes": "E_Dissolve_Multi * 0.01",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "E_Dissolve_UseDissolve",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dissolve_UseDissolve",
+   "default": 0.0
+  },
+  {
+   "name": "E_FlowEffectEdge_Strength01",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_FlowEffectEdge_Strength"
+   ],
+   "expr": "(E_FlowEffectEdge_Strength * 0.1)",
+   "default": 0.02,
+   "ue_nodes": "E_FlowEffectEdge_Strength * 0.1",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "E_FlowEffectEdgerRevert",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_FlowEffectEdgerRevert",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dissolve_Channel",
+   "type": "float4",
+   "kind": "vector",
+   "param": "E_Dissolve_Channel",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_UV3Dissolve_Reverse",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_UV3Dissolve_Reverse",
+   "default": 0.0
+  },
+  {
+   "name": "E_UV3Dissolve_Position",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_UV3Dissolve_Position",
+   "default": 0.0
+  },
+  {
+   "name": "E_UV3Dissolve_PositionRadius",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_UV3Dissolve_Position",
+    "E_UV3Dissolve_Radius"
+   ],
+   "expr": "(E_UV3Dissolve_Position + E_UV3Dissolve_Radius)",
+   "default": 0.2,
+   "ue_nodes": "E_UV3Dissolve_Position + E_UV3Dissolve_Radius",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "UseShadowLordMaterialDynamic",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseShadowLordMaterialDynamic",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dissolve_Progress",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dissolve_Progress",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dissolve_Smooth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dissolve_Smooth",
+   "default": 5.0
+  },
+  {
+   "name": "UseLocalSpace",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseLocalSpace",
+   "default": 0.0
+  },
+  {
+   "name": "UseActorSpace",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseActorSpace",
+   "default": 0.0
+  },
+  {
+   "name": "PortalCenter",
+   "type": "float3",
+   "kind": "vector",
+   "param": "PortalCenter",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "PortalAxisN",
+   "type": "float3",
+   "kind": "uniform_expression",
+   "params": [
+    "PortalAxis"
+   ],
+   "expr": "(PortalAxis.xyz / sqrt(dot(PortalAxis.xyz, PortalAxis.xyz)))",
+   "default": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "ue_nodes": "PortalAxis.rgb / sqrt(dot(rgb, rgb)) (float32: sequential dot, sqrt, divide)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "PortalEdgeNeg",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "PortalEmissionEdageWith"
+   ],
+   "expr": "(0 - PortalEmissionEdageWith)",
+   "default": -0.3,
+   "ue_nodes": "0 - PortalEmissionEdageWith",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "UsePortalDissolve",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UsePortalDissolve",
+   "default": 0.0
+  },
+  {
+   "name": "E_Emission_ColorI",
+   "type": "float3",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Emission_Color",
+    "E_Emission_Intensity"
+   ],
+   "expr": "(E_Emission_Color.xyz * E_Emission_Intensity)",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "ue_nodes": "E_Emission_Color.rgb * E_Emission_Intensity",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "E_Tex_UseMask",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_UseMask",
+   "default": 0.0
+  },
+  {
+   "name": "E_Tex_MaskRange",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_MaskRange",
+   "default": 1.0
+  },
+  {
+   "name": "E_Tex_UseSecondNoiseMask",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Tex_UseSecondNoiseMask",
+   "default": 0.0
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "UseDitherDissolve",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UseDitherDissolve",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dither_DitherValueMin",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Dither_DitherValue_MainPass",
+    "E_Dither_DitherValue"
+   ],
+   "expr": "min(E_Dither_DitherValue_MainPass, E_Dither_DitherValue)",
+   "default": 1.2,
+   "ue_nodes": "min(E_Dither_DitherValue_MainPass, E_Dither_DitherValue)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "E_Dither_DitherValue2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_DitherValue2",
+   "default": 1.2000000476837158
+  },
+  {
+   "name": "E_HeadMaskHigh",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_HeadMaskHigh",
+   "default": -2.0
+  },
+  {
+   "name": "E_UseHeadMaskHide",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_UseHeadMaskHide",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dither_UseDitherMax",
+   "type": "float",
+   "kind": "uniform_expression",
+   "params": [
+    "E_Dither_UseDither",
+    "E_Dither_UseDither2"
+   ],
+   "expr": "max(E_Dither_UseDither, E_Dither_UseDither2)",
+   "default": 0.0,
+   "ue_nodes": "max(E_Dither_UseDither, E_Dither_UseDither2)",
+   "expr_note": "Kuro preshader (cb4 slot expression), evaluated on the CPU in float32"
+  },
+  {
+   "name": "GradientTranslucency_Offset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "GradientTranslucency_Offset",
+   "default": 0.0
+  },
+  {
+   "name": "GradientTranslucency_Power",
+   "type": "float",
+   "kind": "scalar",
+   "param": "GradientTranslucency_Power",
+   "default": 1.0
+  },
+  {
+   "name": "Use_GradientTranslucency",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Use_GradientTranslucency",
+   "default": 0.0
+  }
+ ],
+ "generated_by": "tools/shaderdiff/weapons/r3/make_specs_aimisi.py (make_specs.py generator)",
+ "notes": {
+  "textures": "texture names: the cooked map lists BaseColTex, CommonNoiseMap, Normal_Metallic_EffMask, E_Tex_NoiseTex (Huli map) / Normal_Metallic_EffMask + 6 unnamed slots (Aemeath map); slot <-> name is inferred from usage and the MI overrides (mi_textures: BaseColTex, Normal_Metallic_EffMask, Tex_CircuitMask, String_Tex, CommonNoiseMap) [U: slot order inferred]. Normal_Metallic_EffMask: .xy tangent normal, .z keep mask (>= 0.5 hides the root colour), .w inside/outside weight. t0 is the engine volumetric-fog 3D texture (TranslucentBasePass), not a material input.",
+  "two_sided": "MI_R2T1AimisiGDMd10011Head1FX_OL is two-sided (MI override); the PS is identical (SV_IsFrontFace declared, not read)",
+  "textures_slots": "t1 Normal_Metallic_EffMask, t2 BaseColTex, t3 CircuitFlowNoise [U: name unknown, circuit / flow noise .r at (UV.x * 12, speed * time * 0.1)], t4 Tex_CircuitMask, t5 CommonNoiseMap, t6 String_Tex (SampleLevel at mip bias - 1), t7 E_Tex_NoiseTex"
+ },
+ "ue_material": {
+  "contract": "entry returns FWuwaFXOutput {float3 Emissive; float Opacity;} - no toon GBuffer, no WuwaToonResolve",
+  "shading_model": "MSM_Unlit",
+  "blend_mode": "BLEND_Additive",
+  "two_sided": false,
+  "connect": {
+   "EmissiveColor": "X.Emissive",
+   "Opacity": "X.Opacity"
+  },
+  "opacity_mask_clip_value": null,
+  "note": "BLEND_Additive: Kuro premultiplies the colour by opacity in the engine tail (o0 = rgb * opacity * fog); use UE additive blending with Emissive * Opacity if the material does not premultiply"
+ }
+}

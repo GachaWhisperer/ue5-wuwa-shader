@@ -1,0 +1,39 @@
+{
+ "root_material": "M_Char_Com_WaterSword_Sword",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "Char_Com_WaterSword_Sword.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "4cf7d2c854e8c2430a2b614a1971b014bbf65462"
+    ],
+    "base_pass_vs_hash": [
+     "0494bcbb6749853545806fc7144dea3c4fe41d4a"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/misc/results_multi_final.json summary.misc_4cf7d2 (27 runs, o0 442368/442368 o1 442368/442368 o2 442368/442368 o3 442368/442368 o6 442368/442368 bit-exact); VS #88915 ported_wpo_verified (TEXCOORD2 symbolic == Face VS #35570 (round3/misc/vs_status_misc.json); SV_POSITION wave WPO ported (WuwaWaterSwordWPO_Sword) and verified: evidence/validation/shaderdiff/weapons/round3/misc/results_vs_wpo_misc_final.json)",
+   "ps_archive_index": 88938,
+   "vs_archive_index": [
+    88915
+   ],
+   "vs_status": {
+    "0494bcbb6749853545806fc7144dea3c4fe41d4a": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 3,
+   "entities": [
+    "character:Cartethyia",
+    "skin:Thorny Rain"
+   ],
+   "example_mis": [
+    "MI_EFuludelisiDajianMd10011_Jian"
+   ],
+   "notes": "Cartethyia water sword (MI_EFuludelisiDajianMd10011_Jian); two-sided, clips inside the entry"
+  }
+ ]
+}

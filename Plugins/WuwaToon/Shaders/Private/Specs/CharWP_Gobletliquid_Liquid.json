@@ -1,0 +1,865 @@
+{
+ "name": "CharWP_Gobletliquid_Liquid",
+ "entry": "WuwaFXGobletLiquid",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_WaterFX.ush",
+ "kuro_shading_model": "MSM_Unlit",
+ "kuro_asm": "M_CharWP_Gobletliquid PS 2ffca9d7b1 (#246842) / VS 0d6c7e12 (#137289); liquid pivot = ObjectWorldPosition (Primitive[5])",
+ "kuro_root_material": "M_CharWP_Gobletliquid",
+ "blend_mode": "BLEND_Masked",
+ "two_sided": true,
+ "resolve": false,
+ "resolve_note": "masked unlit, deferred: Kuro writes GBuffer = 0 (unlit) and o0 = emissive tail (max 0, *View[285] unless Primitive[42].w, OOB, View[280].z desaturation * View[277]); port: UE masked unlit material, Emissive + Opacity Mask (= the entry Opacity), OpacityMaskClipValue 0.3333 (the original folds it: mask - 0.3333 < 0 discards). The Kuro primitive dither is clipped inside the entry.",
+ "vs_note": "VS #137289: vertex-colour-group wave WPO (WPOGroup1/2, WPOSpeed, WPOWave along normalize(UP_Vector) x object scale) ported as the \"wpo\" entry WuwaFXGobletLiquidWPO and verified bit-exact on SV_POSITION.",
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "material Emissive Color (before the engine translucent tail: fog, OOB, Kuro effect grading)"
+  },
+  "Opacity": {
+   "type": "float",
+   "kuro": "material Opacity (o0.a = o1.a after the tail)"
+  }
+ },
+ "inputs": [
+  {
+   "name": "BaseTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "BaseTex",
+   "default": "T_ELuhesiTesttubeMd10011_D",
+   "note": "reference MI MI_ELuhesiTesttubeMd10011Yeti: {'ObjectName': \"Texture2D'T_ELuhesiTesttubeMd10011_D'\", 'ObjectPath': 'Client/Content/Aki/Character/Weapon/Prop/Role/LuhesiProp/ELuhesiTesttubeMd10011/Model/T_ELuhesiTesttubeMd10011_D.1'}"
+  },
+  {
+   "name": "BaseTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "BaseTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "BaseTexSampler"
+  },
+  {
+   "name": "NoiseMask",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "NoiseMask",
+   "default": "T_PerlinNoiseBig",
+   "note": "reference MI MI_ELuhesiTesttubeMd10011Yeti: {'ObjectName': \"Texture2D'T_PerlinNoiseBig'\", 'ObjectPath': 'Client/Content/Aki/Render/Common/T_PerlinNoiseBig.0'}"
+  },
+  {
+   "name": "NoiseMaskSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "NoiseMask",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "NoiseMaskSampler"
+  },
+  {
+   "name": "BubbleMask",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "BubbleMask",
+   "default": "T_BubbleMask",
+   "note": "reference MI MI_ELuhesiTesttubeMd10011Yeti: {'ObjectName': \"Texture2D'T_BubbleMask'\", 'ObjectPath': 'Client/Content/Aki/Character/Textures/T_BubbleMask.0'}"
+  },
+  {
+   "name": "BubbleMaskSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "BubbleMask",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "BubbleMaskSampler"
+  },
+  {
+   "name": "ReflectCubemap",
+   "type": "TextureCube",
+   "kind": "texture",
+   "param": "ReflectCubemap",
+   "default": "T_LiNaXiTa_04_RCUBE",
+   "note": "reference MI MI_ELuhesiTesttubeMd10011Yeti: {'ObjectName': \"TextureCube'T_LiNaXiTa_04_RCUBE'\", 'ObjectPath': 'Client/Content/Aki/Scene/ReflectionCubemaps/LiNaXiTa/T_LiNaXiTa_04_RCUBE.0'}"
+  },
+  {
+   "name": "ReflectCubemapSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "ReflectCubemap",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "ReflectCubemapSampler"
+  },
+  {
+   "name": "WorldTangent",
+   "type": "float3",
+   "kind": "worldtangent",
+   "ue_expr": "Parameters.TangentToWorld[0]"
+  },
+  {
+   "name": "WorldNormal",
+   "type": "float3",
+   "kind": "worldnormal",
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "TangentSign",
+   "type": "float",
+   "kind": "worldtangent",
+   "channel": "sign",
+   "ue_expr": "Parameters.TangentToWorldSign"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "VertexColor",
+   "type": "float4",
+   "kind": "vertexcolor",
+   "ue_expr": "Parameters.VertexColor",
+   "kuro": "COLOR0"
+  },
+  {
+   "name": "SvPosition",
+   "type": "float4",
+   "kind": "svposition",
+   "ue_expr": "Parameters.SvPosition"
+  },
+  {
+   "name": "TranslatedWorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "translated",
+   "ue_expr": "GetTranslatedWorldPosition(Parameters)"
+  },
+  {
+   "name": "TwoSidedSign",
+   "type": "float",
+   "kind": "twosidedsign",
+   "ue_expr": "Parameters.TwoSidedSign"
+  },
+  {
+   "name": "TranslatedWorldToView",
+   "type": "float4x4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.TranslatedWorldToView",
+   "kuro": "View[12..15] (rows 0..2 read)"
+  },
+  {
+   "name": "ViewRectMin",
+   "type": "float2",
+   "kind": "view",
+   "ue_expr": "ResolvedView.ViewRectMin.xy",
+   "kuro": "View[134].xy"
+  },
+  {
+   "name": "GameTime",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.GameTime",
+   "kuro": "Kuro View[148].z (UE material Time node)"
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "NormalOverrideParameter",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.NormalOverrideParameter",
+   "kuro": "Kuro View[144] (stock member), default (0,0,0,1)",
+   "default": [
+    0,
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "name": "TemporalAAParamsX",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "View.TemporalAAParams.x",
+   "kuro": "View[158].x (TAA sample index; DitherTemporalAA)"
+  },
+  {
+   "name": "LocalToWorldRow0",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[0].xyz",
+   "kuro": "Primitive[0].xyz"
+  },
+  {
+   "name": "LocalToWorldRow1",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[1].xyz",
+   "kuro": "Primitive[1].xyz"
+  },
+  {
+   "name": "LocalToWorldRow2",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[2].xyz",
+   "kuro": "Primitive[2].xyz"
+  },
+  {
+   "name": "ObjectWorldPosition",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "WSHackToFloat(GetObjectWorldPosition(Parameters))"
+  },
+  {
+   "name": "KuroLocalBoundsMin",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).LocalObjectBoundsMin",
+   "unknown": true,
+   "kuro": "Primitive[25].xyz [U] (local object bounds min: the liquid level is normalised by mean(max - min))"
+  },
+  {
+   "name": "KuroLocalBoundsMax",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitiveData(Parameters).LocalObjectBoundsMax",
+   "unknown": true,
+   "kuro": "Primitive[26].xyz [U] (local object bounds max)"
+  },
+  {
+   "name": "MPC_GlobalCharacterAmbientSkinColor",
+   "type": "float3",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalCharacterAmbientSkinColor",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "kuro": "cb3[23] (used as a light-direction target [U])"
+  },
+  {
+   "name": "MPC_GlobalCharacterDebugLightDirection",
+   "type": "float3",
+   "kind": "mpc",
+   "mpc": "MPC_GlobalShaderParameters",
+   "mpc_param": "GlobalCharacterDebugLightDirection",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "kuro": "cb3[42] (base character light direction; must be written at runtime)"
+  },
+  {
+   "name": "KuroView298X",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": null,
+   "unknown": true,
+   "default": 1.0,
+   "kuro": "View[298].x [U] (Kuro global-illumination scale)"
+  },
+  {
+   "name": "KuroView299",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "unknown": true,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "kuro": "View[299].xyz [U] (Kuro global-illumination colour)"
+  },
+  {
+   "name": "KuroView300",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": null,
+   "unknown": true,
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "kuro": "View[300].xyz [U] (per-channel switch >= 0.5)"
+  },
+  {
+   "name": "KuroPrimDitherEnable",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[43].x",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "KuroPrimDitherFade",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[43].y",
+   "ue_expr": null,
+   "default": 1.0,
+   "unknown": true
+  },
+  {
+   "name": "PreViewTranslation",
+   "type": "float3",
+   "kind": "view",
+   "ue_expr": "ResolvedView.PreViewTranslation",
+   "kuro": "View[70].xyz"
+  },
+  {
+   "name": "NoiseUVControl",
+   "type": "float4",
+   "kind": "vector",
+   "param": "NoiseUVControl",
+   "channels": "rgba",
+   "default": [
+    0.800000011920929,
+    0.800000011920929,
+    0.10000000149011612,
+    0.10000000149011612
+   ]
+  },
+  {
+   "name": "NoiseIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "NoiseIntensity",
+   "default": 0.05000000074505806
+  },
+  {
+   "name": "WaterColor_Middle",
+   "type": "float4",
+   "kind": "vector",
+   "param": "WaterColor_Middle",
+   "channels": "rgba",
+   "default": [
+    0.6145830154418945,
+    0.0,
+    0.010866999626159668,
+    1.0
+   ]
+  },
+  {
+   "name": "WaterColor_MiddleProcess",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaterColor_MiddleProcess",
+   "default": 0.5699999928474426
+  },
+  {
+   "name": "WaterColor_MiddleWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaterColor_MiddleWidth",
+   "default": 0.10000000149011612
+  },
+  {
+   "name": "WaterColor_Down",
+   "type": "float4",
+   "kind": "vector",
+   "param": "WaterColor_Down",
+   "channels": "rgba",
+   "default": [
+    1.2000000476837158,
+    0.2611680030822754,
+    0.3089349865913391,
+    1.0
+   ]
+  },
+  {
+   "name": "WaterColor_DownProcess",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaterColor_DownProcess",
+   "default": 0.05000000074505806
+  },
+  {
+   "name": "Water_HighProcess",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Water_HighProcess",
+   "default": 0.5799999833106995
+  },
+  {
+   "name": "WaterColor_DownWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaterColor_DownWidth",
+   "default": 0.05000000074505806
+  },
+  {
+   "name": "Water_HighWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Water_HighWidth",
+   "default": 0.012000000104308128
+  },
+  {
+   "name": "WaterColor_High",
+   "type": "float4",
+   "kind": "vector",
+   "param": "WaterColor_High",
+   "channels": "rgba",
+   "default": [
+    0.24479199945926666,
+    0.007701000198721886,
+    0.005100000184029341,
+    1.0
+   ]
+  },
+  {
+   "name": "WaterLineColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "WaterLineColor",
+   "channels": "rgba",
+   "default": [
+    2.0,
+    0.6486110091209412,
+    0.5520830154418945,
+    1.0
+   ]
+  },
+  {
+   "name": "UPColor_Add",
+   "type": "float4",
+   "kind": "vector",
+   "param": "UPColor_Add",
+   "channels": "rgba",
+   "default": [
+    0.9010419845581055,
+    0.16411900520324707,
+    0.1548669934272766,
+    1.0
+   ]
+  },
+  {
+   "name": "WaterColorBlendInstensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaterColorBlendInstensity",
+   "default": 0.699999988079071
+  },
+  {
+   "name": "LightTranslucency_Intensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightTranslucency_Intensity",
+   "default": 2.5
+  },
+  {
+   "name": "LightOffset_Pitch",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightOffset_Pitch",
+   "default": 0.0
+  },
+  {
+   "name": "LightTranslucency_Range",
+   "type": "float",
+   "kind": "scalar",
+   "param": "LightTranslucency_Range",
+   "default": 0.5
+  },
+  {
+   "name": "FresnelColorAdd",
+   "type": "float4",
+   "kind": "vector",
+   "param": "FresnelColorAdd",
+   "channels": "rgba",
+   "default": [
+    1.0,
+    0.26116400957107544,
+    0.15625,
+    1.0
+   ]
+  },
+  {
+   "name": "UP_NormalIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UP_NormalIntensity",
+   "default": 8.0
+  },
+  {
+   "name": "ReflectIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ReflectIntensity",
+   "default": 0.5
+  },
+  {
+   "name": "FresnelRangeWater",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FresnelRangeWater",
+   "default": 2.200000047683716
+  },
+  {
+   "name": "FresnelRangeUp",
+   "type": "float",
+   "kind": "scalar",
+   "param": "FresnelRangeUp",
+   "default": 8.0
+  },
+  {
+   "name": "BubbleUVControl",
+   "type": "float4",
+   "kind": "vector",
+   "param": "BubbleUVControl",
+   "channels": "rgba",
+   "default": [
+    0.6000000238418579,
+    -2.799999952316284,
+    4.0,
+    3.0
+   ]
+  },
+  {
+   "name": "BubbleSinRange",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BubbleSinRange",
+   "default": 3.0
+  },
+  {
+   "name": "BubbleSinSpeed",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BubbleSinSpeed",
+   "default": 0.10000000149011612
+  },
+  {
+   "name": "BubbleSinWave",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BubbleSinWave",
+   "default": 0.019999999552965164
+  },
+  {
+   "name": "BubbleSpeed",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BubbleSpeed",
+   "default": -0.25
+  },
+  {
+   "name": "BubbleIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "BubbleIntensity",
+   "default": 600.0
+  },
+  {
+   "name": "GlobalGIIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "GlobalGIIntensity",
+   "default": 0.5
+  },
+  {
+   "name": "ShadowColor",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowColor",
+   "default": 0.699999988079071
+  },
+  {
+   "name": "ShadowProcess",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowProcess",
+   "default": 0.5
+  },
+  {
+   "name": "ShadowWidth",
+   "type": "float",
+   "kind": "scalar",
+   "param": "ShadowWidth",
+   "default": 0.05000000074505806
+  },
+  {
+   "name": "Roughness",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Roughness",
+   "default": 0.05000000074505806
+  },
+  {
+   "name": "Metallic",
+   "type": "float",
+   "kind": "scalar",
+   "param": "Metallic",
+   "default": 1.0
+  },
+  {
+   "name": "SpecularPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "SpecularPower",
+   "default": 5.0
+  },
+  {
+   "name": "MetalSpecularPower",
+   "type": "float",
+   "kind": "scalar",
+   "param": "MetalSpecularPower",
+   "default": 5000.0
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Dither_DitherValue_MainPass",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_DitherValue_MainPass",
+   "default": 1.2000000476837158
+  },
+  {
+   "name": "E_Dither_DitherValue",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_DitherValue",
+   "default": 1.2000000476837158
+  },
+  {
+   "name": "E_Dither_DitherValue2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_DitherValue2",
+   "default": 1.2000000476837158
+  },
+  {
+   "name": "E_Dither_UseDither",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_UseDither",
+   "default": 0.0
+  },
+  {
+   "name": "E_Dither_UseDither2",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Dither_UseDither2",
+   "default": 0.0
+  },
+  {
+   "name": "WaterOpacity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "WaterOpacity",
+   "default": 0.6000000238418579
+  },
+  {
+   "name": "UP_Vector_Normalized",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "(UP_Vector.xyz / sqrt(dot(UP_Vector.xyz, UP_Vector.xyz)))",
+   "params": [
+    "UP_Vector"
+   ],
+   "code": "0405002303000102ff0405002303000102ff0405002303000102ff14041608",
+   "cb4_ref": "MI_ELuhesiTesttubeMd10011Yeti",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  },
+  {
+   "name": "UP_BasisU",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "cross((UP_Vector.xyz / sqrt(dot(UP_Vector.xyz, UP_Vector.xyz))), [0, 1, 0, 0])",
+   "params": [
+    "UP_Vector"
+   ],
+   "code": "0405002303000102ff0405002303000102ff0405002303000102ff1404160802000000000000803f00000000000000001504",
+   "cb4_ref": "MI_ELuhesiTesttubeMd10011Yeti",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  },
+  {
+   "name": "UP_BasisV",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "cross((UP_Vector.xyz / sqrt(dot(UP_Vector.xyz, UP_Vector.xyz))), cross((UP_Vector.xyz / sqrt(dot(UP_Vector.xyz, UP_Vector.xyz))), [0, 1, 0, 0]))",
+   "params": [
+    "UP_Vector"
+   ],
+   "code": "0405002303000102ff0405002303000102ff0405002303000102ff140416080405002303000102ff0405002303000102ff0405002303000102ff1404160802000000000000803f000000000000000015041504",
+   "cb4_ref": "MI_ELuhesiTesttubeMd10011Yeti",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  },
+  {
+   "name": "LightOffset_PitchFactor",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "saturate((abs(LightOffset_Pitch) / 45))",
+   "params": [
+    "LightOffset_Pitch"
+   ],
+   "code": "030a001902000034420000344200003442000034420818",
+   "cb4_ref": "MI_ELuhesiTesttubeMd10011Yeti",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  },
+  {
+   "name": "UP_NormalOffsetDir",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "((UP_Vector.xyz - UP_NormalOffset) / sqrt(dot((UP_Vector.xyz - UP_NormalOffset), (UP_Vector.xyz - UP_NormalOffset))))",
+   "params": [
+    "UP_Vector"
+   ],
+   "code": "0405002303000102ff030b00060405002303000102ff030b00060405002303000102ff030b000614041608",
+   "cb4_ref": "MI_ELuhesiTesttubeMd10011Yeti",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  },
+  {
+   "name": "UP_TopNormal",
+   "type": "float4",
+   "kind": "uniform_expression",
+   "expr": "((((UP_Vector.xyz - UP_NormalOffset) / sqrt(dot((UP_Vector.xyz - UP_NormalOffset), (UP_Vector.xyz - UP_NormalOffset)))) + UP_NormalOffset) / sqrt(dot((((UP_Vector.xyz - UP_NormalOffset) / sqrt(dot((UP_Vector.xyz - UP_NormalOffset), (UP_Vector.xyz - UP_NormalOffset)))) + UP_NormalOffset), (((UP_Vector.xyz - UP_NormalOffset) / sqrt(dot((UP_Vector.xyz - UP_NormalOffset), (UP_Vector.xyz - UP_NormalOffset)))) + UP_NormalOffset))))",
+   "params": [
+    "UP_Vector"
+   ],
+   "code": "0405002303000102ff030b00060405002303000102ff030b00060405002303000102ff030b000614041608030b00050405002303000102ff030b00060405002303000102ff030b00060405002303000102ff030b000614041608030b00050405002303000102ff030b00060405002303000102ff030b00060405002303000102ff030b000614041608030b000514041608",
+   "cb4_ref": "MI_ELuhesiTesttubeMd10011Yeti",
+   "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+   "default": null
+  }
+ ],
+ "notes": {
+  "textures": "t-slot names: t0 BaseTex (cooked texture table slot 0, sampled at UV0), t1 NoiseMask [U] (panned noise .x, MI override T_PerlinNoiseBig), t2 BubbleMask [U] (.x, MI override T_BubbleMask), t3 ReflectCubemap (TextureCube, SampleBias 1.0; cooked texture table). The diff harness (2D textures only) leaves t3 unbound in both shaders, so the cube term is compared with a zero cube sample."
+ },
+ "generated_by": "tools/shaderdiff/weapons/r3/make_specs_waterfx.py",
+ "ue_material": {
+  "contract": "entry returns FWuwaFXOutput {float3 Emissive; float Opacity;} - no toon GBuffer, no WuwaToonResolve",
+  "shading_model": "MSM_Unlit",
+  "blend_mode": "BLEND_Masked",
+  "two_sided": true,
+  "connect": {
+   "EmissiveColor": "X.Emissive",
+   "OpacityMask": "X.Opacity"
+  },
+  "opacity_mask_clip_value": 0.3333,
+  "note": "masked unlit (two-sided: the two-sided sign selects the liquid top colour); the entry already clips the Kuro primitive dither"
+ },
+ "wpo": {
+  "entry": "WuwaFXGobletLiquidWPO",
+  "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_WaterFX.ush",
+  "connect": "World Position Offset (material output pin); absolute-space offset added to the translated world position",
+  "verified": "VS #137289 0d6c7e1281: SV_POSITION bit-exact on WARP (tools/shaderdiff/weapons/r3/waterfx_vs_wpo.py, evidence/validation/shaderdiff/weapons/round3/waterfx/results_vs_wpo_waterfx_final.json)",
+  "inputs": [
+   {
+    "name": "VertexColorB",
+    "type": "float",
+    "kind": "vertexcolor",
+    "channel": "b",
+    "ue_expr": "Parameters.VertexColor.b",
+    "kuro": "VS colour fetch .x (FColor B)"
+   },
+   {
+    "name": "GameTime",
+    "type": "float",
+    "kind": "view",
+    "ue_expr": "View.GameTime",
+    "kuro": "Kuro View[148].z (UE material Time node)"
+   },
+   {
+    "name": "LocalToWorldRow0",
+    "type": "float3",
+    "kind": "primitive",
+    "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[0].xyz",
+    "kuro": "Primitive[0].xyz"
+   },
+   {
+    "name": "LocalToWorldRow1",
+    "type": "float3",
+    "kind": "primitive",
+    "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[1].xyz",
+    "kuro": "Primitive[1].xyz"
+   },
+   {
+    "name": "LocalToWorldRow2",
+    "type": "float3",
+    "kind": "primitive",
+    "ue_expr": "GetPrimitiveData(Parameters).LocalToWorld[2].xyz",
+    "kuro": "Primitive[2].xyz"
+   },
+   {
+    "name": "WPOGroup1",
+    "type": "float4",
+    "kind": "vector",
+    "param": "WPOGroup1",
+    "channels": "rgba",
+    "default": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "name": "WPOGroup2",
+    "type": "float4",
+    "kind": "vector",
+    "param": "WPOGroup2",
+    "channels": "rgba",
+    "default": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "name": "WPOSpeed",
+    "type": "float",
+    "kind": "scalar",
+    "param": "WPOSpeed",
+    "default": 0.30000001192092896
+   },
+   {
+    "name": "WPOWave",
+    "type": "float",
+    "kind": "scalar",
+    "param": "WPOWave",
+    "default": 0.25
+   },
+   {
+    "name": "UP_Vector_Normalized",
+    "type": "float4",
+    "kind": "uniform_expression",
+    "expr": "(UP_Vector.xyz / sqrt(dot(UP_Vector.xyz, UP_Vector.xyz)))",
+    "params": [
+     "UP_Vector"
+    ],
+    "code": "0405002303000102ff0405002303000102ff0405002303000102ff14041608",
+    "cb4_ref": "MI_ELuhesiTesttubeMd10011Yeti",
+    "expr_note": "CPU float32 preshader (opcode bytes in \"code\", re-run by tools/shaderdiff/weapons/r3/wv_waterfx.py); UE: the same expression as a uniform expression (Custom/material nodes on parameters)",
+    "default": null
+   }
+  ]
+ }
+}

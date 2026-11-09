@@ -1,0 +1,185 @@
+{
+ "root_material": "M_Char_Com_Special",
+ "generated_by": "tools/shaderdiff/weapons/build_registry_r2.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 2 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes that are symbolically identical to a verified WuwaToon base VS (toon entries) or whose material WPO is ported and verified (VSWPO). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "Char_Com_Special_StarryEffectMask2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0861f68a382cfbfc436b5b3120290e83ee9300b7"
+    ],
+    "base_pass_vs_hash": [
+     "51f51a614ab1dd0d7d986088cc96ad165dee7bea"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-2; evidence/validation/shaderdiff/weapons/results_r2_final.json summary.Special_0861f6 (27 runs, o0 442368/442368 o1 442368/442368 o2 442368/442368 o3 442368/442368 o6 442368/442368 bit-exact); VS #92358 symbolically identical to the verified base VS #35570 on TEXCOORD2 + SV_POSITION (evidence/validation/shaderdiff/weapons/vs_status_r2.json)",
+   "ps_archive_index": 92342,
+   "vs_archive_index": [
+    92358
+   ],
+   "vs_status": {
+    "51f51a614ab1dd0d7d986088cc96ad165dee7bea": "symbolic"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "weapon:Moongazer's Sigil"
+   ],
+   "example_mis": [
+    "MI_R5Knuckles504Md20001_Effect01"
+   ]
+  },
+  {
+   "spec": "Char_Com_Special_StarryEffectMaskBreath2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "efd2432dffc66b419a28a88814d3dbd6ff762831"
+    ],
+    "base_pass_vs_hash": [
+     "ffca3c69a2943f1ac67286f17ea60e6058d7a4a7"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-2; evidence/validation/shaderdiff/weapons/results_r2_final.json summary.Special_efd243 (27 runs, o0 442368/442368 o1 442368/442368 o2 442368/442368 o3 442368/442368 o6 442368/442368 bit-exact); VS #64944 symbolically identical to the verified base VS #35570 on TEXCOORD2 + SV_POSITION (evidence/validation/shaderdiff/weapons/vs_status_r2.json)",
+   "ps_archive_index": 64936,
+   "vs_archive_index": [
+    64944
+   ],
+   "vs_status": {
+    "ffca3c69a2943f1ac67286f17ea60e6058d7a4a7": "symbolic"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "weapon:Moongazer's Sigil"
+   ],
+   "example_mis": [
+    "MI_R5Knuckles504Md20001_Effect02"
+   ]
+  },
+  {
+   "spec": "Char_Com_Special_StarryEffectMaskBreathTexPBR.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ff7b6aee8e500b7976fd38a4538dbdec02d2266c"
+    ],
+    "base_pass_vs_hash": [
+     "5c04edf83a9ea0f1670a6d56a2997662207b72d9"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-2; evidence/validation/shaderdiff/weapons/results_r2_final.json summary.Special_ff7b6a (27 runs, o0 442368/442368 o1 442368/442368 o2 442368/442368 o3 442368/442368 o6 442368/442368 bit-exact); VS #138671 symbolically identical to the verified base VS #35570 on TEXCOORD2 + SV_POSITION (evidence/validation/shaderdiff/weapons/vs_status_r2.json)",
+   "ps_archive_index": 138709,
+   "vs_archive_index": [
+    138671
+   ],
+   "vs_status": {
+    "5c04edf83a9ea0f1670a6d56a2997662207b72d9": "symbolic"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 1,
+   "entities": [
+    "weapon:Lux & Umbra"
+   ],
+   "example_mis": [
+    "MI_R5Gun503Md20001Effect"
+   ]
+  },
+  {
+   "spec": "Char_Com_Special_StarryTexPBRRamp.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0ecda79baebba3f843ef2028c84d3cbd0e5f89d2"
+    ],
+    "base_pass_vs_hash": [
+     "763fd4c8949dc60f09bb8f7df3491bcd0aa889c9"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-2; evidence/validation/shaderdiff/weapons/results_r2_final.json summary.Special_0ecda7 (27 runs, o0 442368/442368 o1 442368/442368 o2 442368/442368 o3 442368/442368 o6 442368/442368 bit-exact); VS #244309 symbolically identical to the verified base VS #35570 on TEXCOORD2 + SV_POSITION (evidence/validation/shaderdiff/weapons/vs_status_r2.json)",
+   "ps_archive_index": 244288,
+   "vs_archive_index": [
+    244309
+   ],
+   "vs_status": {
+    "763fd4c8949dc60f09bb8f7df3491bcd0aa889c9": "symbolic"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 1,
+   "entities": [
+    "character:Cartethyia"
+   ],
+   "example_mis": [
+    "MI_R2T1FuludelisiMd10011Cloth"
+   ]
+  },
+  {
+   "spec": "Char_Com_Special_StarrySecondBreathTexPBR.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "be31848bb424b54d3b8da130521e6e14f77a89b2"
+    ],
+    "base_pass_vs_hash": [
+     "b80a1088a6ca1c13500c6df1d088f315b6340c6d"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-2; evidence/validation/shaderdiff/weapons/results_r2_final.json summary.Special_be3184 (27 runs, o0 442368/442368 o1 442368/442368 o2 442368/442368 o3 442368/442368 o6 442368/442368 bit-exact); VS #57105 symbolically identical to the verified base VS #35570 on TEXCOORD2 + SV_POSITION (evidence/validation/shaderdiff/weapons/vs_status_r2.json)",
+   "ps_archive_index": 57106,
+   "vs_archive_index": [
+    57105
+   ],
+   "vs_status": {
+    "b80a1088a6ca1c13500c6df1d088f315b6340c6d": "symbolic"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 3,
+   "entities": [
+    "character:Lynae",
+    "skin:Blooming Specturm",
+    "skin:Peppermint"
+   ],
+   "example_mis": [
+    "MI_ELinnaeaPhoneMd10011_Pingmu"
+   ]
+  },
+  {
+   "spec": "Char_Com_Special_StarryBreathTexPBRRamp2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ae521b9a05028008e0b66d54290020548185d957"
+    ],
+    "base_pass_vs_hash": [
+     "8a63f6f04a9b3f030b41ddb91bdd9d90ccff31b3"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-2; evidence/validation/shaderdiff/weapons/results_r2_final.json summary.Special_ae521b (27 runs, o0 442368/442368 o1 442368/442368 o2 442368/442368 o3 442368/442368 o6 442368/442368 bit-exact); VS #182262 symbolically identical to the verified base VS #35570 on TEXCOORD2 + SV_POSITION (evidence/validation/shaderdiff/weapons/vs_status_r2.json)",
+   "ps_archive_index": 182271,
+   "vs_archive_index": [
+    182262
+   ],
+   "vs_status": {
+    "8a63f6f04a9b3f030b41ddb91bdd9d90ccff31b3": "symbolic"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Iuno",
+    "skin:The Unmeasured One"
+   ],
+   "example_mis": [
+    "MI_EYounuoYuegongMd10011_Baoshi"
+   ]
+  }
+ ]
+}

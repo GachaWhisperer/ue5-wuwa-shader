@@ -1,0 +1,136 @@
+{
+ "root_material": "M_Char_Com",
+ "generated_by": "tools/shaderdiff/roster_charcom/register_round8b.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 8 (agent b): UseFaceRamp / UseCurve M_Char_Com weapon / prop PS (generated WuwaToonCommonBasePass_W8* entries of WuwaToonBasePass_CommonFaceRamp.ush). One variant per verified (PS, VS); research/roster/round8/b.md",
+ "variants": [
+  {
+   "spec": "ToonCommon_W8BBodyNoSkinRampCNoVDLBreathFaceRampCurve.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "27e470998fee0f0e88a44c7418e19158815fb417"
+    ],
+    "base_pass_vs_hash": [
+     "262ca391527f4b98663e2fc65ccb082d537820c9"
+    ]
+   },
+   "verified": "research/roster/round8/b.md; PS: evidence/validation/shaderdiff/roster_charcom/round8/b/results_round8b.json variants.r8b_bodynoskinrampcnovdlbreathfacerampcurve_260533 (851968/851968 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #22171 == #35700 (symbolic, evidence/validation/shaderdiff/roster_charcom/round8/b/vs_equiv_round8b.json)",
+   "ps_archive_index": 260533,
+   "vs_archive_index": [
+    22171
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Sword509Md20001"
+   ],
+   "mi_packages": [
+    "Client/Content/Aki/Character/Weapon/Sword/R5Sword509/R5Sword509Md20001/Model/MI_R5Sword509Md20001.uasset"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "sec": null,
+    "UseFaceRamp": true,
+    "UseCurve": true
+   },
+   "round": "8 (b)"
+  },
+  {
+   "spec": "ToonCommon_W8BBodyNoSkinRampCNoVDLBreathSecondNoiseBumpMACurve.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f357a0c22b7c22294173ddfdbba4f76f7593ce83"
+    ],
+    "base_pass_vs_hash": [
+     "24b09f3bc3993dcfe9505b3f7c51201a06bd3040"
+    ]
+   },
+   "verified": "research/roster/round8/b.md; PS: evidence/validation/shaderdiff/roster_charcom/round8/b/results_round8b.json variants.r8b_bodynoskinrampcnovdlbreathsecondnoisebumpmacurve_85365 (786432/786432 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #85319 == #35700 (symbolic, evidence/validation/shaderdiff/roster_charcom/round8/b/vs_equiv_round8b.json)",
+   "ps_archive_index": 85365,
+   "vs_archive_index": [
+    85319
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ELuhesiSickleMd10011_R_Bengti"
+   ],
+   "mi_packages": [
+    "Client/Content/Aki/Character/Weapon/Prop/Role/LuhesiProp/ELuhesiSickleMd10011_R/Model/MI_ELuhesiSickleMd10011_R_Bengti.uasset"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": false,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": false,
+    "sec": {
+     "noise": true,
+     "flow": false,
+     "bump": true,
+     "mask": 3,
+     "rim": false,
+     "osu": false
+    },
+    "UseFaceRamp": false,
+    "UseCurve": true
+   },
+   "round": "8 (b)"
+  },
+  {
+   "spec": "ToonCommon_W8BTMIDNoSkinRampCNoVDLBreathSecondFlowMAFaceRamp.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6a8859c3c3e9fdfabeb98fc10b7c6e12c1668f80"
+    ],
+    "base_pass_vs_hash": [
+     "a75f63b34efe829e069eb948bea107dee255cc37"
+    ]
+   },
+   "verified": "research/roster/round8/b.md; PS: evidence/validation/shaderdiff/roster_charcom/round8/b/results_round8b.json variants.r8b_tmidnoskinrampcnovdlbreathsecondflowmafaceramp_317009 (786432/786432 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #317027 == #35700 (symbolic, evidence/validation/shaderdiff/roster_charcom/round8/b/vs_equiv_round8b.json)",
+   "ps_archive_index": 317009,
+   "vs_archive_index": [
+    317027
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Gun503Md20001"
+   ],
+   "mi_packages": [
+    "Client/Content/Aki/Character/Weapon/Gun/R5Gun503/R5Gun503Md20001_R/R5Gun503_R_Md20001/Model/MI_R5Gun503Md20001.uasset"
+   ],
+   "static_switches_informational": {
+    "bTypeMask": true,
+    "bBreath": true,
+    "bNoVDL": true,
+    "bNoRamp": false,
+    "bTwoSided": false,
+    "bRampMask": false,
+    "bNoSkinRampC": true,
+    "id": true,
+    "sec": {
+     "noise": false,
+     "flow": true,
+     "bump": false,
+     "mask": 3,
+     "rim": false,
+     "osu": false
+    },
+    "UseFaceRamp": true,
+    "UseCurve": false
+   },
+   "round": "8 (b)"
+  }
+ ]
+}

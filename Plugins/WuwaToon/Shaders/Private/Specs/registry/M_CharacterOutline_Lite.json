@@ -1,0 +1,42 @@
+{
+ "root_material": "M_CharacterOutline_Lite",
+ "generated_by": "tools/shaderdiff/roster_eyeoutline/outline_registry.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 4 (eye/outline); merged with any other registry file of the same root_material by the importer. research/roster/Port_CharCom_Coverage.md#round-4--eyeoutline",
+ "variants": [
+  {
+   "spec": "Outline_Lite_UV4Blend_CommonWPO.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "29c8fba4bcfffc9ebc732731cd6f4dc44e21f5eb"
+    ],
+    "base_pass_vs_hash": [
+     "affa435e39ce837fff6450c8062866d9eb73cb9b"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#round-4--eyeoutline; PS: evidence/validation/shaderdiff/roster_charcom/results.json variants.lite_uv4blend_71516 (393216/393216 px bit-exact); VS #71534 port verified (evidence/validation/shaderdiff/roster_eyeoutline/outline/results_vs.json, outline_vs_diff --roster4: pvt0 sets 100% SV_POSITION)",
+   "ps_archive_index": 71516,
+   "vs_archive_index": [
+    71534
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1ShenXinMd10011Bangs_OL",
+    "MI_R2T1ShenXinMd10011Hair_OL"
+   ],
+   "static_switches_informational": {
+    "UseCommonWPO": true,
+    "UseGhost": true,
+    "UseIDMask": true,
+    "UseUV4ColorBlend": true,
+    "UseMainTex": true,
+    "UseVertexColorB_InnerOutline": true,
+    "UseVertexGreen_OutlineWidth": true
+   },
+   "round": "4"
+  }
+ ],
+ "appended_by": [
+  "tools/shaderdiff/roster_eyeoutline/outline_registry.py (round 4)"
+ ]
+}

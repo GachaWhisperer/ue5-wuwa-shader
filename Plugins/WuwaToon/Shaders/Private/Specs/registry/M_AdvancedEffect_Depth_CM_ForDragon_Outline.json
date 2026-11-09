@@ -1,0 +1,39 @@
+{
+ "root_material": "M_AdvancedEffect_Depth_CM_ForDragon_Outline",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "AdvancedEffect_Depth_CM_ForDragon_Outline_Second.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "689667b14e9707651f88f2bc972ff9a4540c7c9f"
+    ],
+    "base_pass_vs_hash": [
+     "306aa3ba1046945a18eec65d8b265086c6c839e9"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/depthfx/results_multi_final.json summary.depthfx_689667 (39 runs, o0 638976/638976 bit-exact); VS #310091 ported_wpo_verified (WuwaToonOutlineWPO_A_NoVG, SV_POSITION 786432/786432 bit-exact (r3/depthfx_vs_wpo.py, round3/depthfx/results_vs_wpo_depthfx_final.json; 1-ulp control results_vs_wpo_depthfx_neg1ulp.json))",
+   "ps_archive_index": 310093,
+   "vs_archive_index": [
+    310091
+   ],
+   "vs_status": {
+    "306aa3ba1046945a18eec65d8b265086c6c839e9": "ported_wpo_verified"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Galbrena",
+    "skin:Hunt Unending"
+   ],
+   "example_mis": [
+    "MI_Trans_Snake_Outline_80020_CM"
+   ],
+   "notes": "\"Depth\" = DitherTemporalAA depth dither of the opacity (no scene-depth read); engine texture Good64x64TilingNoiseHighFreq; MPC GlobalDayNightFactor; spec carries a wpo block (WuwaToonOutlineWPO_A_NoVG)"
+  }
+ ]
+}

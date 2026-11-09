@@ -1,0 +1,153 @@
+// WuwaToonBasePass_CommonVS.ush — M_Char_Com base-pass vertex shaders on FGPUSkinPassthroughVertexFactory, round 6
+// (research/roster/round6/vs.md). New file; WuwaToonBasePassShared.ush is only #included (read-only).
+//
+// Both functions are the verified base-pass VS effects (WuwaToonBaseVS_WPO: hologram jitter + E_Motion, VS #35700) plus one
+// switch-level term, found with tools/shaderdiff/roster_charcom/vs_frontier.py (TEXCOORD2 is symbolically identical to #35700
+// in every target; only SV_POSITION differs):
+//
+//   WuwaToonBaseVS_WPO_Ghost  UseGhost wave. VS __9702 (MI_R2T1KamolaMd20011Alpha), __224964 (MI_R2T1ChangLiMd20011Alpha; same
+//                             graph, TypeMask at t3 because of the extra COLOR0 buffer), __112685 (MI_R2T1LupaMd10011Tail1;
+//                             symbolically identical to __9702). Line refs G### = round6/vs/asm_orig/9702.asm.txt (hex literals).
+//   WuwaToonBaseVS_WPO_Fur    UseFurry vertex-normal shell offset. VS __50707 (MI_R2T1ZanniMd20011Alpha / Down), __64064
+//                             (MI_R2T1ZanniMd20011Fur; symbolically identical to __50707). Line refs F### = round6/vs/asm_orig/50707.asm.txt.
+//
+// Contract (as WuwaToonBaseVS_WPO): the return value is a UE World Position Offset (translated space); UE adds it to the
+// pre-offset translated world position. The Kuro primitive offset (Primitive[44] when View[308].x) is added after
+// (TWP + effects) in the original, and handled with the same association correction as WuwaToonBaseVS_WPO.
+// MotionEmissiveMask is TEXCOORD2.x (unchanged from WuwaToonBaseVS_WPO); TEXCOORD2.yzw stay WuwaToonBaseVS_LightDir.
+#pragma once
+#ifndef WUWA_TOON_BASEPASS_COMMONVS_USH
+#define WUWA_TOON_BASEPASS_COMMONVS_USH
+
+#include "WuwaToonBasePassShared.ush"
+
+// Kuro: ((TWP + effects) + PrimitiveOffset); UE: TWP + WPO. Same association handling as WuwaToonBaseVS_WPO.
+float3 WuwaToonBaseVS_CommonVSKuroOffset(float3 effects, float3 TranslatedWorldPosition, float KuroEnablePrimitiveOffset,
+	float4 KuroPrimitiveOffset)
+{
+	bool   kuroOn = (KuroEnablePrimitiveOffset != 0.0) && (0.0 < KuroPrimitiveOffset.w);
+	precise float3 posK = TranslatedWorldPosition + effects;
+	posK = KuroPrimitiveOffset.xyz + posK;
+	precise float3 wK = posK - TranslatedWorldPosition;
+	precise float3 cK = TranslatedWorldPosition + wK;
+	precise float3 rK = posK - cK;
+	wK = wK + rK;
+	return kuroOn ? wK : effects;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// UseGhost wave (G204-226), all [precise] in the original:
+//   u    = 1 - smoothstep(saturate((UV3.y * 0.7 * 0.5 + 0.5) * 1.25))
+//   ph   = 2pi * (u * Ghost_WPOWavySize + GameTime * Ghost_WPOTimeSpeed)
+//   wave = (sin(ph) * Ghost_WPOsize * LocalToWorld[0] + cos(ph) * Ghost_WPOsize * LocalToWorld[1] + LocalToWorld[2] * 0)
+//          * TypeMask.SampleLevel(UV0, 0).b
+// LocalToWorld rows = Primitive[0..2].xyz (unscaled by InvNonUniformScale). The TypeMask fetch is a VERTEX-shader texture
+// read (sample_l LOD 0 with the TypeMask's own sampler; `t2.zxyw` -> .x = B). The `* 0` row-2 term is kept (precise): it only
+// changes the sign of a zero sum, as in the original. Not gated by USE Hologram (cb4[63].w only gates the hologram jitter).
+// Unlike the outline ghost WPO (WuwaToonBasePass_OutlineGhost.ush) there is no skin-bound scale `s`.
+// ---------------------------------------------------------------------------------------------------------------------------
+float3 WuwaToonBaseVS_GhostWave(Texture2D TypeMask, SamplerState TypeMaskSampler, float2 UV0, float UV3Y, float GameTime,
+	float3 LocalToWorldRow0, float3 LocalToWorldRow1, float3 LocalToWorldRow2,
+	float Ghost_WPOWavySize, float Ghost_WPOTimeSpeed, float Ghost_WPOsize)
+{
+	precise float u = UV3Y * asfloat(0x3F333333u);                                  // G204: 0.7
+	u = u * 0.5;                                                                    // G205
+	u = u + 0.5;                                                                    // G206
+	u = saturate(u * 1.25);                                                         // G207
+	precise float uk = u * -2.0;                                                    // G208
+	uk = uk + 3.0;                                                                  // G209
+	u = u * u;                                                                      // G210
+	u = u * uk;                                                                     // G211
+	u = -u + 1.0;                                                                   // G212
+	u = u * Ghost_WPOWavySize;                                                      // G213
+	precise float tsp = GameTime * Ghost_WPOTimeSpeed;                              // G214
+	precise float ph = u + tsp;                                                     // G215
+	ph = ph * asfloat(0x40C90FDBu);                                                 // G216: 6.283185
+	precise float sn, cs;
+	sincos(ph, sn, cs);                                                             // G217
+	sn = sn * Ghost_WPOsize;                                                        // G218
+	cs = cs * Ghost_WPOsize;                                                        // G219
+	precise float3 w  = sn * LocalToWorldRow0;                                      // G220
+	precise float3 w1 = cs * LocalToWorldRow1;                                      // G221
+	w = w + w1;                                                                     // G222
+	precise float3 w2 = LocalToWorldRow2 * float3(0.0, 0.0, 0.0);                   // G223
+	w = w + w2;                                                                     // G224
+	precise float m = TypeMask.SampleLevel(TypeMaskSampler, UV0, 0.0).b;            // G225
+	return w * m;                                                                   // G226
+}
+
+// Base-pass WPO of the UseGhost VS: (wave + base effects) + TWP + Kuro offset (G297-299).
+float3 WuwaToonBaseVS_WPO_Ghost(Texture2D TypeMask, SamplerState TypeMaskSampler, float2 UV0, float UV3Y,
+	float3 VertexNormalWS, float3 TranslatedWorldPosition, float3 TranslatedWorldCameraOrigin, float GameTime,
+	float4x4 ViewToTranslatedWorld, float3 LocalToWorldRow0, float3 LocalToWorldRow1, float3 LocalToWorldRow2,
+	float Ghost_WPOWavySize, float Ghost_WPOTimeSpeed, float Ghost_WPOsize,
+	float USE_Hologram, float E_Hologram_JitterStrength, float3 E_Hologram_WPOVector,
+	float E_MotionRange, float E_Motion_NoiseSpeed, float4 E_Motion_Offset, float E_Motion_NoisePos,
+	float KuroEnablePrimitiveOffset, float4 KuroPrimitiveOffset, out float MotionEmissiveMask)
+{
+	precise float3 wave = WuwaToonBaseVS_GhostWave(TypeMask, TypeMaskSampler, UV0, UV3Y, GameTime,
+		LocalToWorldRow0, LocalToWorldRow1, LocalToWorldRow2, Ghost_WPOWavySize, Ghost_WPOTimeSpeed, Ghost_WPOsize);
+	precise float3 fx = WuwaToonBaseVS_WPO(UV0, VertexNormalWS, TranslatedWorldPosition, TranslatedWorldCameraOrigin, GameTime,
+		ViewToTranslatedWorld, USE_Hologram, E_Hologram_JitterStrength, E_Hologram_WPOVector, E_MotionRange, E_Motion_NoiseSpeed,
+		E_Motion_Offset, E_Motion_NoisePos, 0.0, float4(0.0, 0.0, 0.0, 0.0), MotionEmissiveMask);
+	precise float3 effects = wave + fx;                                             // G297
+	return WuwaToonBaseVS_CommonVSKuroOffset(effects, TranslatedWorldPosition, KuroEnablePrimitiveOffset, KuroPrimitiveOffset);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// UseFurry vertex-normal shell offset of the M_Char_Com fur VS (F210-238), all [precise] in the original. Same operations as
+// the V2 port WuwaToonBaseVS_FurShellOffset (WuwaToonBasePass_V2HairFace.ush, V2 VS 25a8a15d); restated here so this file does
+// not depend on the V2 headers:
+//   c    = (COLOR0.r, COLOR0.g, COLOR0.a) - 1) * (FurBlendUseVertexRFade, UseVertexColor, UseVertexColor) + 1
+//   gate = (0.25 >= c.z) * c.x;  sel = (0.5 >= UV2.y)
+//   rs   = saturate(|N . normalize(Cam - WorldPos)| * FurRangeStep + FurRangeStepOffset)
+//   amt  = (sel * c.y * Length - sel * FurOffset) * (c.x * ((1 - rs) - 1) + 1) + sel * FurOffset
+//   fur  = gate * (N * amt)
+// UV2 = Kuro TexCoord[2] (vertex-factory UV index min(NumTexCoords - 1, 2)); N = VertexNormalWS (TangentZ in world, not
+// renormalised). Kuro forms the camera vector in absolute space (View[67] - (TWP - View[70])); the port uses the translated
+// difference, identical for PreViewTranslation = 0 (the WuwaToonBaseVS_WPO E_Motion contract).
+// ---------------------------------------------------------------------------------------------------------------------------
+float3 WuwaToonBaseVS_CharComFurShellOffset(float4 VertexColor, float2 UV2, float3 VertexNormalWS, float3 TranslatedWorldPosition,
+	float3 TranslatedWorldCameraOrigin, float FurBlendUseVertexRFade, float UseVertexColor, float FurOffset, float Length,
+	float FurRangeStep, float FurRangeStepOffset)
+{
+	precise float3 c = float3(VertexColor.r, VertexColor.g, VertexColor.a) + float3(-1.0, -1.0, -1.0);              // F210
+	c = c * float3(FurBlendUseVertexRFade, UseVertexColor, UseVertexColor);                                           // F211
+	c = c + float3(1.0, 1.0, 1.0);                                                                                    // F212
+	precise float gate = ((0.25 >= c.z) ? 1.0 : 0.0) * c.x;                                                           // F213-215
+	precise float sel = (0.5 >= UV2.y) ? 1.0 : 0.0;                                                                   // F216-217
+	precise float off0 = sel * FurOffset;                                                                             // F218
+	precise float len = c.y * Length;                                                                                 // F219
+	len = sel * len;                                                                                                  // F220
+	precise float3 v = TranslatedWorldCameraOrigin - TranslatedWorldPosition;                                         // F221-222
+	v = v / sqrt(dot(v, v));                                                                                          // F223-225
+	precise float rs = abs(dot(VertexNormalWS, v)) * FurRangeStep;                                                    // F226-227
+	rs = saturate(rs + FurRangeStepOffset);                                                                           // F228
+	precise float f = (1.0 - rs) + -1.0;                                                                              // F229-230
+	f = f * c.x;                                                                                                      // F231
+	f = f + 1.0;                                                                                                      // F232
+	precise float amt = len - off0;                                                                                   // F233
+	amt = amt * f;                                                                                                    // F234
+	amt = amt + off0;                                                                                                 // F235
+	precise float3 o = VertexNormalWS * amt;                                                                          // F236
+	return gate * o;                                                                                                  // F237
+}
+
+// Base-pass WPO of the UseFurry VS: (base effects + fur) + TWP + Kuro offset (F303-305).
+float3 WuwaToonBaseVS_WPO_Fur(float2 UV0, float2 UV2, float4 VertexColor, float3 VertexNormalWS, float3 TranslatedWorldPosition,
+	float3 TranslatedWorldCameraOrigin, float GameTime, float4x4 ViewToTranslatedWorld,
+	float USE_Hologram, float E_Hologram_JitterStrength, float3 E_Hologram_WPOVector,
+	float E_MotionRange, float E_Motion_NoiseSpeed, float4 E_Motion_Offset, float E_Motion_NoisePos,
+	float FurBlendUseVertexRFade, float UseVertexColor, float FurOffset, float Length, float FurRangeStep, float FurRangeStepOffset,
+	float KuroEnablePrimitiveOffset, float4 KuroPrimitiveOffset, out float MotionEmissiveMask)
+{
+	precise float3 fx = WuwaToonBaseVS_WPO(UV0, VertexNormalWS, TranslatedWorldPosition, TranslatedWorldCameraOrigin, GameTime,
+		ViewToTranslatedWorld, USE_Hologram, E_Hologram_JitterStrength, E_Hologram_WPOVector, E_MotionRange, E_Motion_NoiseSpeed,
+		E_Motion_Offset, E_Motion_NoisePos, 0.0, float4(0.0, 0.0, 0.0, 0.0), MotionEmissiveMask);
+	precise float3 fur = WuwaToonBaseVS_CharComFurShellOffset(VertexColor, UV2, VertexNormalWS, TranslatedWorldPosition,
+		TranslatedWorldCameraOrigin, FurBlendUseVertexRFade, UseVertexColor, FurOffset, Length, FurRangeStep, FurRangeStepOffset);
+	precise float3 effects = fx + fur;                                              // F303
+	return WuwaToonBaseVS_CommonVSKuroOffset(effects, TranslatedWorldPosition, KuroEnablePrimitiveOffset, KuroPrimitiveOffset);
+}
+
+#endif // WUWA_TOON_BASEPASS_COMMONVS_USH

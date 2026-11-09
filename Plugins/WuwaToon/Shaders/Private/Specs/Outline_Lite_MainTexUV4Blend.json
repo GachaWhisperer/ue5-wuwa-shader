@@ -1,0 +1,465 @@
+{
+ "name": "Outline_Lite_MainTexUV4Blend",
+ "entry": "WuwaToonOutlineBasePass_MainTexUV4Blend",
+ "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_OutlineVS2.ush",
+ "kuro_shading_model": "MSM_ToonOutline (GBufferB id 13)",
+ "kuro_asm": "M_CharacterOutline_Lite PS __71516 (MI_R2T1ShenXinMd10011Bangs_OL); VS __71534 NOT ported (wpo = Outline_A placeholder, not registered)",
+ "blend_mode": "BLEND_Opaque",
+ "two_sided": false,
+ "outputs": {
+  "Emissive": {
+   "type": "float3",
+   "kuro": "o0.rgb SceneColor (o0.a = 0)"
+  },
+  "A": {
+   "type": "float4",
+   "kuro": "o1 GBufferA: xy oct normal, z toon shadow factor, w flag"
+  },
+  "B": {
+   "type": "float4",
+   "kuro": "o2 GBufferB: rgb sqrt(shadow colour), a (LightingChannelMask<<5 | ShadingModelId)/255"
+  },
+  "C": {
+   "type": "float4",
+   "kuro": "o3 GBufferC: rgb lit colour, a MainTex.a*OpacityIntensity / rim byte"
+  },
+  "D": {
+   "type": "float4",
+   "kuro": "o6 \"GBufferD\": x ToonRimWidth, y packed nibble, z 0, w packed AO|FFT"
+  }
+ },
+ "inputs": [
+  {
+   "name": "MainTex",
+   "type": "Texture2D",
+   "kind": "texture",
+   "param": "MainTex",
+   "default": "T_DefaultColorBlack_D"
+  },
+  {
+   "name": "MainTexSampler",
+   "type": "SamplerState",
+   "kind": "sampler",
+   "texture": "MainTex",
+   "sampler_source": "SSM_FromTextureAsset",
+   "ue_expr": "MainTexSampler"
+  },
+  {
+   "name": "UV0",
+   "type": "float2",
+   "kind": "uv",
+   "index": 0
+  },
+  {
+   "name": "UV3Y",
+   "type": "float",
+   "kind": "uv",
+   "index": 3,
+   "channel": "y",
+   "note": "Kuro \"UV4\" (TEXCOORD1.w)"
+  },
+  {
+   "name": "WorldTangent",
+   "type": "float3",
+   "kind": "worldtangent",
+   "ue_expr": "Parameters.TangentToWorld[0]"
+  },
+  {
+   "name": "WorldNormal",
+   "type": "float3",
+   "kind": "worldnormal",
+   "ue_expr": "Parameters.TangentToWorld[2]"
+  },
+  {
+   "name": "TangentSign",
+   "type": "float",
+   "kind": "worldtangent",
+   "channel": "sign",
+   "ue_expr": "Parameters.TangentToWorldSign"
+  },
+  {
+   "name": "WorldPosition",
+   "type": "float3",
+   "kind": "worldposition",
+   "space": "absolute",
+   "ue_expr": "WSHackToFloat(GetWorldPosition(Parameters))"
+  },
+  {
+   "name": "OutlineColorTint",
+   "type": "float3",
+   "kind": "vector",
+   "param": "OutlineColorTint",
+   "channels": "rgb",
+   "default": [
+    0.5,
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "name": "BaseColorTint",
+   "type": "float3",
+   "kind": "vector",
+   "param": "BaseColorTint",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  {
+   "name": "E_Outline_EmissionColor",
+   "type": "float3",
+   "kind": "vector",
+   "param": "E_Outline_EmissionColor",
+   "channels": "rgb",
+   "default": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "E_Outline_EmissionIntensity",
+   "type": "float",
+   "kind": "scalar",
+   "param": "E_Outline_EmissionIntensity",
+   "default": 1.0
+  },
+  {
+   "name": "SelectionColor",
+   "type": "float4",
+   "note": "engine selection tint; not in Material CachedExpressionData, compiled default 0",
+   "kind": "vector",
+   "param": "SelectionColor",
+   "channels": "rgba",
+   "default": [
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Ghost_UV4ColorBlend",
+   "type": "float3",
+   "kind": "vector",
+   "param": "Ghost_UV4ColorBlend",
+   "channels": "rgb",
+   "default": [
+    1.0,
+    1.0,
+    1.0,
+    0.0
+   ]
+  },
+  {
+   "name": "UV4Mask_Offset",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UV4Mask_Offset",
+   "default": -0.17
+  },
+  {
+   "name": "UV4Mask_Power",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UV4Mask_Power",
+   "default": 50.0
+  },
+  {
+   "name": "UV4ColorTransition",
+   "type": "float",
+   "kind": "scalar",
+   "param": "UV4ColorTransition",
+   "default": 0.0
+  },
+  {
+   "name": "MaterialTextureMipBias",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.MaterialTextureMipBias",
+   "kuro": "Kuro View[149].y"
+  },
+  {
+   "name": "NormalOverrideParameter",
+   "type": "float4",
+   "kind": "view",
+   "ue_expr": "ResolvedView.NormalOverrideParameter",
+   "kuro": "Kuro View[144] (stock member), default (0,0,0,1)",
+   "default": [
+    0,
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "name": "KuroGBufferMode",
+   "type": "float",
+   "kind": "view",
+   "kuro": "View[276].x (int, ==1 selects the alternate packing)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "KuroEmissiveScale",
+   "type": "float3",
+   "kind": "view",
+   "kuro": "View[285].xyz (emissive multiplier when Primitive[42].w == 0)",
+   "ue_expr": null,
+   "default": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "unknown": true
+  },
+  {
+   "name": "KuroSkipEmissiveScale",
+   "type": "float",
+   "kind": "primitive",
+   "kuro": "Primitive[42].w (skip View[285] multiply when != 0)",
+   "ue_expr": null,
+   "default": 0.0,
+   "unknown": true
+  },
+  {
+   "name": "OutOfBoundsMask",
+   "type": "float",
+   "kind": "view",
+   "ue_expr": "ResolvedView.OutOfBoundsMask",
+   "kuro": "Kuro View[146].x (stock debug)",
+   "default": 0.0
+  },
+  {
+   "name": "ObjectWorldPosition",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "WSHackToFloat(GetObjectWorldPosition(Parameters))"
+  },
+  {
+   "name": "ObjectBounds",
+   "type": "float3",
+   "kind": "primitive",
+   "ue_expr": "float3(GetPrimitiveData(Parameters).ObjectBoundsX, GetPrimitiveData(Parameters).ObjectBoundsY, GetPrimitiveData(Parameters).ObjectBoundsZ)"
+  },
+  {
+   "name": "LightingChannelMask",
+   "type": "uint",
+   "kind": "primitive",
+   "ue_expr": "GetPrimitive_LightingChannelMask_FromFlags(GetPrimitiveData(Parameters).Flags)"
+  }
+ ],
+ "custom_node_code": "FWuwaToonGBuffer G = WuwaToonOutlineBasePass_MainTexUV4Blend(MainTex, MainTexSampler, UV0, UV3Y, WorldTangent, WorldNormal, TangentSign, WorldPosition, OutlineColorTint, BaseColorTint, E_Outline_EmissionColor, E_Outline_EmissionIntensity, SelectionColor, Ghost_UV4ColorBlend, UV4Mask_Offset, UV4Mask_Power, UV4ColorTransition, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask);\nOutA = G.A; OutB = G.B; OutC = G.C; OutD = G.D;\nreturn G.Emissive;",
+ "gbuffer_storage": "values are raw MRT registers; apply WuwaToonGBufferStore() to emulate 8-bit targets",
+ "input_kinds": {
+  "texture": "Texture2D material parameter `param` (Texture Object pin); `default` = parent Material default texture",
+  "sampler": "sampler paired with `texture`; ue_expr is the HLSL name inside the Custom node",
+  "scalar|vector": "material parameter `param` (Kuro name), `default` = compiled/Material default; vector `channels` used",
+  "uv": "TextureCoordinate `index` (optional `channel`)",
+  "vertexcolor": "VertexColor (optional `channel`)",
+  "worldnormal|worldtangent": "raw interpolated TangentToWorld rows (`channel` sign/bitangent), ue_expr given",
+  "worldposition": "`space` absolute (LWC demoted) or translated",
+  "cameravector": "Parameters.CameraVector",
+  "svposition": "pixel position",
+  "interpolator": "value produced in the VS by `source` (vertex_interpolators)",
+  "cpd": "CustomPrimitiveData `index` (list = assembled vector), filled by UWuwaToonCharacterComponent",
+  "mpc": "Material Parameter Collection `mpc` / `mpc_param` (Kuro asset default in `default`)",
+  "toonlight": "ToonShadowLightData CB1 row `index` (float4); no recovered default (see note on [1].w bits)",
+  "view": "View uniform field (ue_expr) or Kuro-only View member (ue_expr null, `kuro` row, explicit default)",
+  "primitive": "Primitive data (ue_expr) or Kuro-only Primitive member (ue_expr null, explicit default)",
+  "output": "out parameter, exposed as an additional Custom node output"
+ },
+ "wpo": {
+  "entry": "WuwaToonOutlineWPO_A",
+  "include": "/Plugin/WuwaToon/Private/WuwaToonBasePass_Outline.ush",
+  "returns": "float3",
+  "inputs": [
+   {
+    "name": "UV1",
+    "type": "float2",
+    "kind": "uv",
+    "index": 1
+   },
+   {
+    "name": "VertexColor",
+    "type": "float4",
+    "kind": "vertexcolor"
+   },
+   {
+    "name": "VertexTangentWS",
+    "type": "float3",
+    "kind": "worldtangent",
+    "stage": "vs",
+    "ue_expr": "Parameters.TangentToWorld[0]"
+   },
+   {
+    "name": "VertexBitangentWS",
+    "type": "float3",
+    "kind": "worldtangent",
+    "channel": "bitangent",
+    "stage": "vs",
+    "ue_expr": "Parameters.TangentToWorld[1]"
+   },
+   {
+    "name": "VertexNormalWS",
+    "type": "float3",
+    "kind": "worldnormal",
+    "stage": "vs",
+    "ue_expr": "Parameters.TangentToWorld[2]"
+   },
+   {
+    "name": "ObjectAxisScale",
+    "type": "float3",
+    "kind": "primitive",
+    "ue_expr": "GetPrimitiveData(Parameters).NonUniformScale.xyz"
+   },
+   {
+    "name": "TranslatedWorldPosition",
+    "type": "float3",
+    "kind": "worldposition",
+    "space": "translated",
+    "ue_expr": "GetTranslatedWorldPosition(Parameters)",
+    "note": "VS: excluding material offsets"
+   },
+   {
+    "name": "TranslatedWorldCameraOrigin",
+    "type": "float3",
+    "kind": "view",
+    "ue_expr": "ResolvedView.TranslatedWorldCameraOrigin",
+    "kuro": "Kuro View[67] WorldCameraOrigin (absolute)"
+   },
+   {
+    "name": "TranslatedWorldToClip",
+    "type": "float4x4",
+    "kind": "view",
+    "ue_expr": "ResolvedView.TranslatedWorldToClip",
+    "kuro": "Kuro View[0..3]; 3x3 == Kuro WorldToClip View[4..6]"
+   },
+   {
+    "name": "ClipToTranslatedWorld",
+    "type": "float4x4",
+    "kind": "view",
+    "ue_expr": "ResolvedView.ClipToTranslatedWorld",
+    "kuro": "with PreViewTranslation rebuilds Kuro ClipToWorld View[8..11]"
+   },
+   {
+    "name": "PreViewTranslation",
+    "type": "float3",
+    "kind": "view",
+    "ue_expr": "WSHackToFloat(ResolvedView.PreViewTranslation)",
+    "kuro": "Kuro View[70]"
+   },
+   {
+    "name": "ClipToView00",
+    "type": "float",
+    "kind": "view",
+    "ue_expr": "ResolvedView.ClipToView[0][0]",
+    "kuro": "Kuro View[36].x"
+   },
+   {
+    "name": "ClipToView11",
+    "type": "float",
+    "kind": "view",
+    "ue_expr": "ResolvedView.ClipToView[1][1]",
+    "kuro": "Kuro View[37].y"
+   },
+   {
+    "name": "ViewSizeAndInvSize",
+    "type": "float4",
+    "kind": "view",
+    "ue_expr": "ResolvedView.ViewSizeAndInvSize",
+    "kuro": "Kuro View[135]"
+   },
+   {
+    "name": "KuroOutlinePixelScale",
+    "type": "float",
+    "kind": "view",
+    "kuro": "View[280].y (outline minimum-width scale in pixels)",
+    "ue_expr": null,
+    "default": 1.0,
+    "unknown": true
+   },
+   {
+    "name": "VertexGMinWidthFactor",
+    "type": "float",
+    "kind": "scalar",
+    "param": "VertexGMinWidthFactor",
+    "default": 0.0
+   },
+   {
+    "name": "OutlineClipWidth",
+    "type": "float",
+    "kind": "scalar",
+    "param": "OutlineClipWidth",
+    "default": 0.7
+   },
+   {
+    "name": "OutlineHoldDistance",
+    "type": "float",
+    "kind": "scalar",
+    "param": "OutlineHoldDistance",
+    "default": 0.5
+   },
+   {
+    "name": "InnerOutlineOffset",
+    "type": "float",
+    "kind": "scalar",
+    "param": "InnerOutlineOffset",
+    "default": 0.5
+   },
+   {
+    "name": "KuroEnablePrimitiveOffset",
+    "type": "float",
+    "kind": "view",
+    "kuro": "View[308].x (gates Primitive[44] vertex offset)",
+    "ue_expr": null,
+    "default": 0.0,
+    "unknown": true
+   },
+   {
+    "name": "KuroPrimitiveOffset",
+    "type": "float4",
+    "kind": "primitive",
+    "kuro": "Primitive[44] (xyz world offset, w > 0 enables)",
+    "ue_expr": null,
+    "default": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "unknown": true
+   }
+  ],
+  "custom_node_code": "return WuwaToonOutlineWPO_A(UV1, VertexColor, VertexTangentWS, VertexBitangentWS, VertexNormalWS, ObjectAxisScale, TranslatedWorldPosition, TranslatedWorldCameraOrigin, TranslatedWorldToClip, ClipToTranslatedWorld, PreViewTranslation, ClipToView00, ClipToView11, ViewSizeAndInvSize, KuroOutlinePixelScale, VertexGMinWidthFactor, OutlineClipWidth, OutlineHoldDistance, InnerOutlineOffset, KuroEnablePrimitiveOffset, KuroPrimitiveOffset);",
+  "space": "world-space offset vector (UE World Position Offset); positions fed in translated world"
+ },
+ "raster": {
+  "kuro": "bIsBackFace / BackFace=True: inverted hull, front faces culled (pipeline state, not in DXBC)",
+  "ue_emulation": "UE materials cannot cull front faces; use a flipped-winding outline mesh section, or two_sided with a front-face discard (kind frontface) — not part of the decompiled PS"
+ },
+ "roster_variant": {
+  "base_spec": "Outline_A_MainTex.json",
+  "static_switches": {
+   "UseUV4ColorBlend": true,
+   "UseMainTex": true,
+   "UseGhost": true,
+   "UseIDMask": true,
+   "UseCommonWPO": true
+  },
+  "notes": "PS only: UV4 colour blend added to the outline emissive. The Lite VS (UseCommonWPO) is not ported, so this spec is not registered.",
+  "new_inputs": [
+   "UV3Y",
+   "Ghost_UV4ColorBlend",
+   "UV4Mask_Offset",
+   "UV4Mask_Power",
+   "UV4ColorTransition"
+  ],
+  "removed_inputs": [],
+  "verified": ""
+ }
+}

@@ -1,0 +1,134 @@
+// WuwaToonResolve.ush — in-material equivalent of FKuroToonShadingPS (permutation 0 path).
+//
+// Kuro's FDeferredLightPS / skylight / indirect composites early-out for toon shading models
+// (research/shaders/DeferredLightingToon.md), so a toon pixel's final colour is exactly:
+//   base pass -> GBuffer (shadow step in A.z, shadow colour in B, lit colour in C)  [ported per family]
+//   FKuroToonShadingPS: lit/shadow composite + toon local lights + depth rim, / exposure  [this file]
+// Inputs that came from screen textures in game are supplied explicitly:
+//   ShadowMaskXZ  <- t5 LightAttenuation (.x, .z; decoded squared). Kuro's default path copies the CSM/
+//                   ray-traced shadow mask; WuwaToon supplies a light-space toon shadow (Kuro method 3).
+//   ToonDepth     <- t6 KuroToonRimDepthTexture; WuwaToon renders a camera-matched character depth capture
+//                   (linear scene depth, so no ConvertFromDeviceZ is needed).
+//   IndirectDiffuse / GI tint <- t7/t9 (only read when the matching View[289] enable is set).
+// Validated bit-exact against the original FKuroToonShadingPS perm 0 DXBC on D3D11 WARP through a thin
+// wrapper (tools/shaderdiff/hlsl/recB_wrapper.hlsl); see research/validation/ShaderDiff_KuroToonShading.md.
+#pragma once
+
+#include "WuwaToonGBuffer.ush"
+
+struct FWuwaToonResolveInputs
+{
+	float  Depth;              // linear scene depth of this pixel (cm)
+	float3 WorldPos;           // world position (only differences with light positions are used)
+	float3 V;                  // normalize(camera - pixel)
+	float3x3 WorldToView;      // rotation part of TranslatedWorldToView (rows as in View[20..22]); applied as mul(N, WorldToView)
+	float2 ViewportUV;         // 0..1 within the view rect
+	float  FOVRelated;         // View[133].x (inferred: vertical FOV in radians)
+	float2 ShadowMaskXZ;       // sqrt-encoded light attenuation channels (.x, .z)
+	float  Exposure;           // EyeAdaptation .x
+	float3 IndirectDiffuse;    // t7 sample (HSV path)
+	float3 GITint;             // t9 sample (GI tint path)
+	bool   PassGIEnable;       // cbPass[2].z
+	float  RimWidthScale;      // cbPass[0].x
+	float3 RimTint;            // cbPass[1].xyz
+};
+
+// Light-space toon shadow lookup (WuwaToon substitute for the screen shadow mask; see header comment).
+// Origin.w = ortho width (0 = disabled -> fully lit), Forward.w = depth bias. The capture stores linear depth
+// along Forward. Returns float2(sqrt(shadow), 1) so the t5 decode (x^2 * z^2) yields the shadow unchanged.
+float2 WuwaToonShadowMask(Texture2D ShadowDepth, SamplerState ShadowSampler, float3 WorldPos,
+	float4 Origin, float4 Forward, float3 Right, float3 Up, float2 TexelSize)
+{
+	if (Origin.w <= 0) return float2(1, 1);
+	float3 p = WorldPos - Origin.xyz;
+	float  d = dot(p, Forward.xyz);
+	float2 uv = float2(dot(p, Right) / Origin.w + 0.5, 0.5 - dot(p, Up) / Origin.w);
+	if (any(uv < 0) || any(uv > 1)) return float2(1, 1);
+	float lit = 0;
+	[unroll] for (int y = -1; y <= 1; ++y)
+	[unroll] for (int x = -1; x <= 1; ++x)
+		lit += (d - Forward.w <= ShadowDepth.SampleLevel(ShadowSampler, uv + float2(x, y) * TexelSize, 0).r) ? 1.0 : 0.0;
+	return float2(sqrt(lit / 9.0), 1.0);
+}
+
+// The resolve is split into Begin / Light / End so the generated material code can feed toon local-light
+// records straight from MPC_WuwaToon (MaterialCollection0, literal indices emitted by the generator).
+// UE wraps Custom-node defines in #ifdef, so macro-based injection is not used.
+struct FWuwaToonResolveState
+{
+	FWuwaToonSurface      S;
+	float3                Albedo, ShadowColor;
+	float                 AO;
+	FWuwaToonAmbientResult R;
+	bool                  bOutline, bHair;
+	float3                Accum;
+	float                 Transm;
+};
+
+FWuwaToonResolveState WuwaToonResolveBegin(FWuwaToonGBuffer G, FWuwaToonAmbientParams P, FWuwaToonResolveInputs I)
+{
+	FWuwaToonResolveState St;
+	St.S = WuwaToonDecode(G, P.GIEnable.y != 0);
+	St.bOutline = St.S.ShadingModelId == 13;   // base passes only write 12/13 (ToonHair.md, ToonFace.md)
+	St.bHair = St.S.ShadingModelId == 15;      // FKuroToonShadingPS L68 / L599-605; written by M_CharMonster_SP (Ghost_ToonRimColorMask > 0)
+	St.Albedo = St.S.Albedo; St.ShadowColor = St.S.ShadowColor;
+
+	// FKuroToonShadingPS L128-146: GI tint.
+	if (P.GIEnable.y != 0)
+	{
+		float  w = St.S.GITintWeight;
+		float3 a = I.GITint * 0.7 + (St.S.FactorZ * I.GITint) * 0.3;   // L133-135 order
+		float3 boost = a * a + 1.0;
+		bool   full = 0.95 < w;
+		St.Albedo      = saturate(full ? St.Albedo * I.GITint      : St.Albedo + w * (St.Albedo * boost - St.Albedo));
+		St.ShadowColor = saturate(full ? St.ShadowColor * I.GITint : St.ShadowColor + w * (St.ShadowColor * boost - St.ShadowColor));
+	}
+
+	// L153-156: t5 channels are stored sqrt-encoded and squared on read.
+	St.AO = (I.ShadowMaskXZ.x * I.ShadowMaskXZ.x) * (I.ShadowMaskXZ.y * I.ShadowMaskXZ.y);
+	St.R = WuwaToonAmbient(P, I.Depth, St.AO, St.Albedo, St.ShadowColor, St.S.FactorZ, St.S.FlagW,
+		St.S.AmbShadowFactor, St.bOutline, I.PassGIEnable, I.IndirectDiffuse);
+	St.Accum = 0; St.Transm = 1.0;
+	return St;
+}
+
+// L367-466: one toon local light, in list order.
+void WuwaToonResolveLight(inout FWuwaToonResolveState St, FWuwaToonAmbientParams P, FWuwaToonResolveInputs I,
+	float4 L0, float4 L1, float4 L2, float4 L3, float4 L4, float4 L5, float4 L6, float4 L7, float4 L8)
+{
+	WuwaToonLocalLight(L0, L1, L2, L3, L4, L5, L6, L7, L8, I.WorldPos, St.S.N, St.Albedo, St.R.LitForLocal,
+		P.MainLightDir, St.R.MixF, St.R.S4, St.S.SelectiveBits, St.Accum, St.Transm);
+}
+
+// L466-610: depth rim, composition, exposure.
+// RimLightOverride mirrors cbPass[0].yzw of FKuroToonShadingPS (L484-489): xy = override light direction x,y
+// (z is fixed at 0.5), z = enable (> 0.5; the original reads (float)asint(cbPass[0].w)). When enabled the rim
+// uses the view-space normal, V = 0 and the override direction instead of the world normal / V / main light.
+float3 WuwaToonResolveEndEx(FWuwaToonResolveState St, FWuwaToonAmbientParams P, FWuwaToonResolveInputs I,
+	Texture2D ToonDepth, SamplerState ToonDepthSampler, float3 RimLightOverride)
+{
+	float3 lit = St.Transm * St.R.Ambient + St.Accum;
+	float3 rim = 0; float rimMask = 0;
+	if (!St.bOutline)
+	{
+		float3 Nview = mul(St.S.N, I.WorldToView);   // L481-483: N.x*M[0] + N.y*M[1] + N.z*M[2] (UE row-vector convention; was mul(M, N) = transpose)
+		float  aoScaled = St.AO * P.AOStrength;
+		bool   bOverride = 0.5 < RimLightOverride.z;                                  // L484-485
+		float3 Vr = bOverride ? float3(0, 0, 0) : I.V;                                 // L486
+		float3 Lr = bOverride ? float3(RimLightOverride.xy, 0.5) : P.MainLightDir;     // L487-488
+		float3 Nr = bOverride ? Nview : St.S.N;                                        // L489
+		FWuwaToonRimSetup RS = WuwaToonRimSetup(St.S.RimParam, I.RimWidthScale, Nr, Nview, Vr, Lr,
+			I.Depth, aoScaled, I.FOVRelated);
+		float rimDepth = ToonDepth.SampleLevel(ToonDepthSampler, I.ViewportUV + RS.Offset, 0).r;
+		rim = WuwaToonRimColor(RS, rimDepth, I.Depth, St.Albedo, P.MainLightColor, aoScaled, P.AmbientParams.z, I.RimTint, rimMask);
+	}
+	float3 res = WuwaToonCompose(lit, rim, rimMask, St.ShadowColor, P.MainLightColor, St.bHair, St.bOutline);
+	return -min(-(res / I.Exposure), 0.0);   // L607-609 (== max(x,0) up to the sign of zero)
+}
+
+// Existing entry point (generated materials): rim light-direction override disabled.
+float3 WuwaToonResolveEnd(FWuwaToonResolveState St, FWuwaToonAmbientParams P, FWuwaToonResolveInputs I,
+	Texture2D ToonDepth, SamplerState ToonDepthSampler)
+{
+	return WuwaToonResolveEndEx(St, P, I, ToonDepth, ToonDepthSampler, float3(0, 0, 0));
+}

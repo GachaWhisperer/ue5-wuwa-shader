@@ -1,0 +1,450 @@
+{
+ "root_material": "M_Char_Com",
+ "generated_by": "tools/shaderdiff/roster_charcom/register_round7_trans.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 7 (forward_trans): forward-translucent M_Char_Com props / weapon effect pieces (\"resolve\": false, WuwaToonBasePass_CommonTrans.ush). Material part bit-exact; engine tail replaced by UE translucency lighting (approximation). research/roster/round7/trans.md",
+ "variants": [
+  {
+   "spec": "CommonTrans_ConstMRNoNMap2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "17bff16c47b190d4003a28de707ba57113419f04"
+    ],
+    "base_pass_vs_hash": [
+     "ec80648414e422140688265fef9ad9cda716c379"
+    ]
+   },
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Translucent"
+   ],
+   "ps_archive_index": 94615,
+   "vs_archive_index": [
+    94642
+   ],
+   "vs_status": "symbolic_equivalent",
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_ELuhesiTesttube01Md10011Boli",
+    "MI_ELuhesiTesttubeMd10011Boli"
+   ],
+   "mis": [
+    "MI_ELuhesiTesttube01Md10011Boli",
+    "MI_ELuhesiTesttubeMd10011Boli"
+   ],
+   "units": [
+    "char_1510"
+   ],
+   "verified": "research/roster/round7/trans.md#trans_94615",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7.json",
+    "negatives_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7_neg.json",
+    "extra_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7_extra.json",
+    "kind": "material part (transpiled original, material registers overwritten by the port, port compiled in its own wrapper and read back per pixel)",
+    "runs": 33,
+    "o0": "540672/540672 bit-exact",
+    "identity_control": "540672/540672 bit-exact",
+    "isolation_control": "540672/540672 bit-exact (transpiled original on a random Material CB / random material textures; port on the real ones)",
+    "uniform_expression_checks": 132,
+    "negative_controls": {
+     "neg_94615_MetalMatCapInt": "155371/163840 bit-exact (detected)",
+     "neg_94615_OneMinusRoughness_set": "133451/163840 bit-exact (detected)",
+     "neg_94615_SolidShadowStrength": "136854/163840 bit-exact (detected)",
+     "neg_94615_swap_lit_sc": "0/163840 bit-exact (detected)",
+     "neg_94615_vertexnormal": "163660/163840 bit-exact (detected)"
+    },
+    "vs": "evidence/validation/shaderdiff/roster_charcom/round7/trans/vs_equiv_r7_trans.json: Body VS #35700"
+   },
+   "notes": "VERIFICATION: material part bit-exact; engine tail replaced by UE translucency lighting (approximation). The port (WuwaToonCommonTransConstMRNoNMap2S, WuwaToonBasePass_CommonTrans.ush) returns the material values (Emissive, Opacity, toon lit colour, and the Kuro toon-lighting inputs shadow colour / shadow / shadow AO / normal); bit-exact through the whole original o0 with those registers overwritten (identity, isolation and negative controls above). Not ported (engine tail): primitive fade, vertex / volumetric height fog, emissive scale and OOB stripes, Kuro forward toon lighting (screen shadow mask / CSM, local-light list), pre-exposure. In UE the spec is \"resolve\": false with the lit-translucent template (DefaultLit, BLEND_Translucent, TwoSided): Emissive -> Emissive Color, Opacity -> Opacity, OutBaseColor -> Base Color, lit by UE translucency lighting. No scene colour / scene depth is read. VS: VS #94642 = the verified Common Body VS #35700 on TEXCOORD2 / SV_POSITION (symbolic equivalence after slot renaming and removal of its vertex height-fog block L263-L860, which no compared output depends on); WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO.",
+   "round": "7 (forward_trans)"
+  },
+  {
+   "spec": "CommonTrans_ConstMRNoNMap2SNoVDLBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ad2ac1a959a84791d65086fa6ff3184077d96d6e"
+    ],
+    "base_pass_vs_hash": [
+     "be8924c76410be89dd668d259fff7f2c59b2b561"
+    ]
+   },
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Translucent"
+   ],
+   "ps_archive_index": 120115,
+   "vs_archive_index": [
+    53661
+   ],
+   "vs_status": "symbolic_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Device508Md20001_Boli"
+   ],
+   "mis": [
+    "MI_R5Device508Md20001_Boli"
+   ],
+   "units": [
+    "weapon_21050086"
+   ],
+   "verified": "research/roster/round7/trans.md#trans_120115",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7.json",
+    "negatives_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7_neg.json",
+    "extra_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7_extra.json",
+    "kind": "material part (transpiled original, material registers overwritten by the port, port compiled in its own wrapper and read back per pixel)",
+    "runs": 30,
+    "o0": "491520/491520 bit-exact",
+    "identity_control": "491520/491520 bit-exact",
+    "isolation_control": "491520/491520 bit-exact (transpiled original on a random Material CB / random material textures; port on the real ones)",
+    "uniform_expression_checks": 120,
+    "negative_controls": {
+     "neg_120115_BreatheStrength": "130907/147456 bit-exact (detected)",
+     "neg_120115_DecodeSpecThreshold": "147456/147456 bit-exact (not detected by construction: DecodeSpecThreshold is 0 on this MI: +ULP of 0 is a denormal; the non-zero sets keep MainTex.a * OpacityIntensity (0.4) below it (detected as neg_120115_DecodeSpecThreshold_add))",
+     "neg_120115_DecodeSpecThreshold_add": "155307/163840 bit-exact (detected)",
+     "neg_120115_OneMinusRoughness_set": "137546/147456 bit-exact (detected)",
+     "neg_120115_RoughSel1": "147456/147456 bit-exact (not detected by construction: RoughSel1 = saturate(R*3 - 1) is 0 for the MI roughness (and mostly in the random sets); +ULP of 0 is a denormal (detected as neg_120115_RoughSel1_add))",
+     "neg_120115_RoughSel1_add": "96518/163840 bit-exact (detected)",
+     "neg_120115_swap_lit_sc": "0/147456 bit-exact (detected)",
+     "neg_120115_vertexnormal": "146735/147456 bit-exact (detected)"
+    },
+    "vs": "evidence/validation/shaderdiff/roster_charcom/round7/trans/vs_equiv_r7_trans.json: Body VS #35700"
+   },
+   "notes": "VERIFICATION: material part bit-exact; engine tail replaced by UE translucency lighting (approximation). The port (WuwaToonCommonTransConstMRNoNMap2SNoVDLBreath, WuwaToonBasePass_CommonTrans.ush) returns the material values (Emissive, Opacity, toon lit colour, and the Kuro toon-lighting inputs shadow colour / shadow / shadow AO / normal); bit-exact through the whole original o0 with those registers overwritten (identity, isolation and negative controls above). Not ported (engine tail): primitive fade, vertex / volumetric height fog, emissive scale and OOB stripes, Kuro forward toon lighting (screen shadow mask / CSM, local-light list), pre-exposure. In UE the spec is \"resolve\": false with the lit-translucent template (DefaultLit, BLEND_Translucent, TwoSided): Emissive -> Emissive Color, Opacity -> Opacity, OutBaseColor -> Base Color, lit by UE translucency lighting. No scene colour / scene depth is read. VS: VS #53661 = the verified Common Body VS #35700 on TEXCOORD2 / SV_POSITION (symbolic equivalence after slot renaming and removal of its vertex height-fog block L263-L860, which no compared output depends on); WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO.",
+   "round": "7 (forward_trans)"
+  },
+  {
+   "spec": "CommonTrans_ConstMRNoNMapShadowRamp.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "803e818599812ee79341b7b4eb0440c137efdb46"
+    ],
+    "base_pass_vs_hash": [
+     "1fb77cf62245f67cffa9b09d71e433842626bee4"
+    ]
+   },
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Translucent"
+   ],
+   "ps_archive_index": 203017,
+   "vs_archive_index": [
+    197614
+   ],
+   "vs_status": "symbolic_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EJingranDengMd10011_Glass"
+   ],
+   "mis": [
+    "MI_EJingranDengMd10011_Glass"
+   ],
+   "units": [
+    "char_1212"
+   ],
+   "verified": "research/roster/round7/trans.md#trans_203017",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7.json",
+    "negatives_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7_neg.json",
+    "extra_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7_extra.json",
+    "kind": "material part (transpiled original, material registers overwritten by the port, port compiled in its own wrapper and read back per pixel)",
+    "runs": 30,
+    "o0": "491520/491520 bit-exact",
+    "identity_control": "491520/491520 bit-exact",
+    "isolation_control": "491520/491520 bit-exact (transpiled original on a random Material CB / random material textures; port on the real ones)",
+    "uniform_expression_checks": 120,
+    "negative_controls": {
+     "neg_203017_Desaturation": "32768/147456 bit-exact (detected)",
+     "neg_203017_RampPosition": "93348/147456 bit-exact (detected)",
+     "neg_203017_RoughSel0": "110780/147456 bit-exact (detected)",
+     "neg_203017_RoughSel2_set": "86111/147456 bit-exact (detected)",
+     "neg_203017_swap_lit_sc": "0/147456 bit-exact (detected)",
+     "neg_203017_vertexnormal": "147136/147456 bit-exact (detected)"
+    },
+    "vs": "evidence/validation/shaderdiff/roster_charcom/round7/trans/vs_equiv_r7_trans.json: Body VS #35700"
+   },
+   "notes": "VERIFICATION: material part bit-exact; engine tail replaced by UE translucency lighting (approximation). The port (WuwaToonCommonTransConstMRNoNMapShadowRamp, WuwaToonBasePass_CommonTrans.ush) returns the material values (Emissive, Opacity, toon lit colour, and the Kuro toon-lighting inputs shadow colour / shadow / shadow AO / normal); bit-exact through the whole original o0 with those registers overwritten (identity, isolation and negative controls above). Not ported (engine tail): primitive fade, vertex / volumetric height fog, emissive scale and OOB stripes, Kuro forward toon lighting (screen shadow mask / CSM, local-light list), pre-exposure. In UE the spec is \"resolve\": false with the lit-translucent template (DefaultLit, BLEND_Translucent): Emissive -> Emissive Color, Opacity -> Opacity, OutBaseColor -> Base Color, lit by UE translucency lighting. No scene colour / scene depth is read. VS: VS #197614 = the verified Common Body VS #35700 on TEXCOORD2 / SV_POSITION (symbolic equivalence after slot renaming and removal of its vertex height-fog block L263-L860, which no compared output depends on); WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO.",
+   "round": "7 (forward_trans)"
+  },
+  {
+   "spec": "CommonTrans_NoVDLBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "808b1e104b21e6263d08bd16d13009fd25ae76ff"
+    ],
+    "base_pass_vs_hash": [
+     "f8d27a64cd88f9431570a82913fbee01fc3c4962"
+    ]
+   },
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Translucent"
+   ],
+   "ps_archive_index": 275565,
+   "vs_archive_index": [
+    275575
+   ],
+   "vs_status": "symbolic_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ELinnaeaSprayMd10011_Boli"
+   ],
+   "mis": [
+    "MI_ELinnaeaSprayMd10011_Boli"
+   ],
+   "units": [
+    "char_1509"
+   ],
+   "verified": "research/roster/round7/trans.md#trans_275565",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7.json",
+    "negatives_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7_neg.json",
+    "extra_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7_extra.json",
+    "kind": "material part (transpiled original, material registers overwritten by the port, port compiled in its own wrapper and read back per pixel)",
+    "runs": 30,
+    "o0": "491520/491520 bit-exact",
+    "identity_control": "491520/491520 bit-exact",
+    "isolation_control": "491520/491520 bit-exact (transpiled original on a random Material CB / random material textures; port on the real ones)",
+    "uniform_expression_checks": 0,
+    "negative_controls": {
+     "neg_275565_BreatheFrequency": "128565/147456 bit-exact (detected)",
+     "neg_275565_NormalStrength": "94282/147456 bit-exact (detected)",
+     "neg_275565_PBRRateIntensity": "113768/147456 bit-exact (detected)",
+     "neg_275565_swap_lit_sc": "2194/147456 bit-exact (detected)",
+     "neg_275565_vertexnormal": "114374/147456 bit-exact (detected)"
+    },
+    "vs": "evidence/validation/shaderdiff/roster_charcom/round7/trans/vs_equiv_r7_trans.json: Body VS #35700"
+   },
+   "notes": "VERIFICATION: material part bit-exact; engine tail replaced by UE translucency lighting (approximation). The port (WuwaToonCommonTransNoVDLBreath, WuwaToonBasePass_CommonTrans.ush) returns the material values (Emissive, Opacity, toon lit colour, and the Kuro toon-lighting inputs shadow colour / shadow / shadow AO / normal); bit-exact through the whole original o0 with those registers overwritten (identity, isolation and negative controls above). Not ported (engine tail): primitive fade, vertex / volumetric height fog, emissive scale and OOB stripes, Kuro forward toon lighting (screen shadow mask / CSM, local-light list), pre-exposure. In UE the spec is \"resolve\": false with the lit-translucent template (DefaultLit, BLEND_Translucent): Emissive -> Emissive Color, Opacity -> Opacity, OutBaseColor -> Base Color, lit by UE translucency lighting. No scene colour / scene depth is read. VS: VS #275575 = the verified Common Body VS #35700 on TEXCOORD2 / SV_POSITION (symbolic equivalence after slot renaming and removal of its vertex height-fog block L259-L751, which no compared output depends on); WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO.",
+   "round": "7 (forward_trans)"
+  },
+  {
+   "spec": "CommonTrans_NoNMapNoVDLBreath.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "2a9261619599d7a546a8bcccc4c73d86e9496e98"
+    ],
+    "base_pass_vs_hash": [
+     "0857b46d9f20c27ac5fe45418eeaab028ec60cd4"
+    ]
+   },
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Translucent"
+   ],
+   "ps_archive_index": 302665,
+   "vs_archive_index": [
+    174084
+   ],
+   "vs_status": "symbolic_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ELinnaeaSprayMd10011_Shuijin"
+   ],
+   "mis": [
+    "MI_ELinnaeaSprayMd10011_Shuijin"
+   ],
+   "units": [
+    "char_1509"
+   ],
+   "verified": "research/roster/round7/trans.md#trans_302665",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7.json",
+    "negatives_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7_neg.json",
+    "extra_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7_extra.json",
+    "kind": "material part (transpiled original, material registers overwritten by the port, port compiled in its own wrapper and read back per pixel)",
+    "runs": 30,
+    "o0": "491520/491520 bit-exact",
+    "identity_control": "491520/491520 bit-exact",
+    "isolation_control": "491520/491520 bit-exact (transpiled original on a random Material CB / random material textures; port on the real ones)",
+    "uniform_expression_checks": 0,
+    "negative_controls": {
+     "neg_302665_EmissionBreathThreshold": "146629/147456 bit-exact (detected)",
+     "neg_302665_RoughnessIntensityDebug": "109287/147456 bit-exact (detected)",
+     "neg_302665_ShadowWidth": "140774/147456 bit-exact (detected)",
+     "neg_302665_swap_lit_sc": "0/147456 bit-exact (detected)",
+     "neg_302665_vertexnormal": "147114/147456 bit-exact (detected)"
+    },
+    "vs": "evidence/validation/shaderdiff/roster_charcom/round7/trans/vs_equiv_r7_trans.json: Body VS #35700"
+   },
+   "notes": "VERIFICATION: material part bit-exact; engine tail replaced by UE translucency lighting (approximation). The port (WuwaToonCommonTransNoNMapNoVDLBreath, WuwaToonBasePass_CommonTrans.ush) returns the material values (Emissive, Opacity, toon lit colour, and the Kuro toon-lighting inputs shadow colour / shadow / shadow AO / normal); bit-exact through the whole original o0 with those registers overwritten (identity, isolation and negative controls above). Not ported (engine tail): primitive fade, vertex / volumetric height fog, emissive scale and OOB stripes, Kuro forward toon lighting (screen shadow mask / CSM, local-light list), pre-exposure. In UE the spec is \"resolve\": false with the lit-translucent template (DefaultLit, BLEND_Translucent): Emissive -> Emissive Color, Opacity -> Opacity, OutBaseColor -> Base Color, lit by UE translucency lighting. No scene colour / scene depth is read. VS: VS #174084 = the verified Common Body VS #35700 on TEXCOORD2 / SV_POSITION (symbolic equivalence after slot renaming and removal of its vertex height-fog block L263-L860, which no compared output depends on); WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO.",
+   "round": "7 (forward_trans)"
+  },
+  {
+   "spec": "CommonTrans_NoPBRNoNMap2SNoVDLBreathSecondNoise.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "6aff1580d76b49a1d88c7828184fbc799fdb297d"
+    ],
+    "base_pass_vs_hash": [
+     "1bd771f0099b9e1f4b3d0e7402183ef15c23ab26"
+    ]
+   },
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Translucent"
+   ],
+   "ps_archive_index": 308298,
+   "vs_archive_index": [
+    308282
+   ],
+   "vs_status": "symbolic_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Knuckles506Md20001Effect"
+   ],
+   "mis": [
+    "MI_R5Knuckles506Md20001Effect"
+   ],
+   "units": [
+    "weapon_21040066"
+   ],
+   "verified": "research/roster/round7/trans.md#trans_308298",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7.json",
+    "negatives_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7_neg.json",
+    "extra_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7_extra.json",
+    "kind": "material part (transpiled original, material registers overwritten by the port, port compiled in its own wrapper and read back per pixel)",
+    "runs": 30,
+    "o0": "491520/491520 bit-exact",
+    "identity_control": "491520/491520 bit-exact",
+    "isolation_control": "491520/491520 bit-exact (transpiled original on a random Material CB / random material textures; port on the real ones)",
+    "uniform_expression_checks": 60,
+    "negative_controls": {
+     "neg_308298_Effect_Progress": "66913/147456 bit-exact (detected)",
+     "neg_308298_Second_NoiseStrength": "129386/147456 bit-exact (detected)",
+     "neg_308298_Second_RotCos": "122012/147456 bit-exact (detected)",
+     "neg_308298_swap_lit_sc": "0/147456 bit-exact (detected)",
+     "neg_308298_vertexnormal": "147173/147456 bit-exact (detected)"
+    },
+    "vs": "evidence/validation/shaderdiff/roster_charcom/round7/trans/vs_equiv_r7_trans.json: Face VS #35570"
+   },
+   "notes": "VERIFICATION: material part bit-exact; engine tail replaced by UE translucency lighting (approximation). The port (WuwaToonCommonTransNoPBRNoNMap2SNoVDLBreathSecondNoise, WuwaToonBasePass_CommonTrans.ush) returns the material values (Emissive, Opacity, toon lit colour, and the Kuro toon-lighting inputs shadow colour / shadow / shadow AO / normal); bit-exact through the whole original o0 with those registers overwritten (identity, isolation and negative controls above). Not ported (engine tail): primitive fade, vertex / volumetric height fog, emissive scale and OOB stripes, Kuro forward toon lighting (screen shadow mask / CSM, local-light list), pre-exposure. In UE the spec is \"resolve\": false with the lit-translucent template (DefaultLit, BLEND_Translucent, TwoSided): Emissive -> Emissive Color, Opacity -> Opacity, OutBaseColor -> Base Color, lit by UE translucency lighting. No scene colour / scene depth is read. VS: VS #308282 = the verified Common Face VS #35570 on TEXCOORD2 / SV_POSITION (symbolic equivalence after slot renaming and removal of its vertex height-fog block L263-L860, which no compared output depends on); WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO.",
+   "round": "7 (forward_trans)"
+  },
+  {
+   "spec": "CommonTrans_NoNMap2SNoVDLBreathSecond.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "40ada26db7c81ec751e98b7a529bcd1d742648d1"
+    ],
+    "base_pass_vs_hash": [
+     "7a2dba2c310d9a0984f2d6ec2ae050fc6719b556"
+    ]
+   },
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Translucent"
+   ],
+   "ps_archive_index": 119651,
+   "vs_archive_index": [
+    119662
+   ],
+   "vs_status": "symbolic_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Device506Md20001Effect"
+   ],
+   "mis": [
+    "MI_R5Device506Md20001Effect"
+   ],
+   "units": [
+    "weapon_21050066"
+   ],
+   "verified": "research/roster/round7/trans.md#trans_119651",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7.json",
+    "negatives_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7_neg.json",
+    "extra_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7_extra.json",
+    "kind": "material part (transpiled original, material registers overwritten by the port, port compiled in its own wrapper and read back per pixel)",
+    "runs": 30,
+    "o0": "491520/491520 bit-exact",
+    "identity_control": "491520/491520 bit-exact",
+    "isolation_control": "491520/491520 bit-exact (transpiled original on a random Material CB / random material textures; port on the real ones)",
+    "uniform_expression_checks": 60,
+    "negative_controls": {
+     "neg_119651_MetallicIntensityDebug": "126020/147456 bit-exact (detected)",
+     "neg_119651_Second_Refine": "35622/147456 bit-exact (detected)",
+     "neg_119651_SolidShadowWidth": "146059/147456 bit-exact (detected)",
+     "neg_119651_swap_lit_sc": "0/147456 bit-exact (detected)",
+     "neg_119651_vertexnormal": "147178/147456 bit-exact (detected)"
+    },
+    "vs": "evidence/validation/shaderdiff/roster_charcom/round7/trans/vs_equiv_r7_trans.json: Body VS #35700"
+   },
+   "notes": "VERIFICATION: material part bit-exact; engine tail replaced by UE translucency lighting (approximation). The port (WuwaToonCommonTransNoNMap2SNoVDLBreathSecond, WuwaToonBasePass_CommonTrans.ush) returns the material values (Emissive, Opacity, toon lit colour, and the Kuro toon-lighting inputs shadow colour / shadow / shadow AO / normal); bit-exact through the whole original o0 with those registers overwritten (identity, isolation and negative controls above). Not ported (engine tail): primitive fade, vertex / volumetric height fog, emissive scale and OOB stripes, Kuro forward toon lighting (screen shadow mask / CSM, local-light list), pre-exposure. In UE the spec is \"resolve\": false with the lit-translucent template (DefaultLit, BLEND_Translucent, TwoSided): Emissive -> Emissive Color, Opacity -> Opacity, OutBaseColor -> Base Color, lit by UE translucency lighting. No scene colour / scene depth is read. VS: VS #119662 = the verified Common Body VS #35700 on TEXCOORD2 / SV_POSITION (symbolic equivalence after slot renaming and removal of its vertex height-fog block L263-L860, which no compared output depends on); WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO.",
+   "round": "7 (forward_trans)"
+  },
+  {
+   "spec": "CommonTrans_FresnelRimNoPBR2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "1bbbbb4bc5fd8bb7157cb374b91819f0d5f2cf16"
+    ],
+    "base_pass_vs_hash": [
+     "c1cfff0b8b6b67f361c15df3a8d41995601fa654"
+    ]
+   },
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Translucent"
+   ],
+   "ps_archive_index": 215220,
+   "vs_archive_index": [
+    215252
+   ],
+   "vs_status": "symbolic_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Knife505Md20001Effect"
+   ],
+   "mis": [
+    "MI_R5Knife505Md20001Effect"
+   ],
+   "units": [
+    "char_1306",
+    "weapon_21010046"
+   ],
+   "verified": "research/roster/round7/trans.md#trans_215220",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7.json",
+    "negatives_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7_neg.json",
+    "extra_file": "evidence/validation/shaderdiff/roster_charcom/round7/trans/results_trans_r7_extra.json",
+    "kind": "material part (transpiled original, material registers overwritten by the port, port compiled in its own wrapper and read back per pixel)",
+    "runs": 30,
+    "o0": "491520/491520 bit-exact",
+    "identity_control": "491520/491520 bit-exact",
+    "isolation_control": "491520/491520 bit-exact (transpiled original on a random Material CB / random material textures; port on the real ones)",
+    "uniform_expression_checks": 150,
+    "negative_controls": {
+     "neg_215220_FresnelRim_RimRange": "139603/147456 bit-exact (detected)",
+     "neg_215220_RampInt": "49153/147456 bit-exact (detected)",
+     "neg_215220_ShadowAOC": "41159/147456 bit-exact (detected)",
+     "neg_215220_ShadowPartC_set": "118612/147456 bit-exact (detected)",
+     "neg_215220_SolidC2": "146717/147456 bit-exact (detected)",
+     "neg_215220_swap_lit_sc": "0/147456 bit-exact (detected)",
+     "neg_215220_vertexnormal": "146723/147456 bit-exact (detected)"
+    },
+    "vs": "evidence/validation/shaderdiff/roster_charcom/round7/trans/vs_equiv_r7_trans.json: Face VS #35570"
+   },
+   "notes": "VERIFICATION: material part bit-exact; engine tail replaced by UE translucency lighting (approximation). The port (WuwaToonCommonTransFresnelRimNoPBR2S, WuwaToonBasePass_CommonTrans.ush) returns the material values (Emissive, Opacity, toon lit colour, and the Kuro toon-lighting inputs shadow colour / shadow / shadow AO / normal); bit-exact through the whole original o0 with those registers overwritten (identity, isolation and negative controls above). Not ported (engine tail): primitive fade, vertex / volumetric height fog, emissive scale and OOB stripes, Kuro forward toon lighting (screen shadow mask / CSM, local-light list), pre-exposure. In UE the spec is \"resolve\": false with the lit-translucent template (DefaultLit, BLEND_Translucent, TwoSided): Emissive -> Emissive Color, Opacity -> Opacity, OutBaseColor -> Base Color, lit by UE translucency lighting. No scene colour / scene depth is read. VS: VS #215252 = the verified Common Face VS #35570 on TEXCOORD2 / SV_POSITION (symbolic equivalence after slot renaming and removal of its vertex height-fog block L263-L860, which no compared output depends on); WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO.",
+   "round": "7 (forward_trans)"
+  }
+ ],
+ "blocked": []
+}

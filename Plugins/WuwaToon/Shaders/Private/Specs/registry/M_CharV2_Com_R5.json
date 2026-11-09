@@ -1,0 +1,118 @@
+{
+ "root_material": "M_CharV2_Com",
+ "_doc": "Round-5 M_CharV2_Com base-pass variants (research/roster/round5/v2.md); merged with M_CharV2_Com.json / M_CharV2_Com_HairFace.json by root_material. Match by base_pass_ps_hash only (VS hash listed; verified per entry).",
+ "variants": [
+  {
+   "spec": "ToonBodyV2_ToonWetParallaxFurTangentVA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ff23bd4791788f6fc16d22c063d5b2085167c811"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "25a8a15d875981812beff420b83a293948ff0417"
+   ],
+   "shading_model": [
+    "MSM_ToonCommon"
+   ],
+   "blend_mode": [
+    "BLEND_Masked"
+   ],
+   "mis": [
+    "MI_R2T1XinMd10011Tail"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/roster/round5/v2.md#bodyv2_ff23bd",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round5/v2/results_round5.json",
+    "runs": 57,
+    "discarding_runs": 48,
+    "discard_mismatches": 0,
+    "mrts": {
+     "o0": "933888/933888 bit-exact, max ULP 0",
+     "o1": "933888/933888 bit-exact, max ULP 0",
+     "o2": "933888/933888 bit-exact, max ULP 0",
+     "o3": "933888/933888 bit-exact, max ULP 0",
+     "o6": "933888/933888 bit-exact, max ULP 0",
+     "depth": "933888/933888 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS: every compared MRT (o0/o1/o2/o3/o6, SV_DepthLessEqual) bit-exact. VS: 25a8a15d VS ported (WuwaToonBaseVS_WPO_V2Fur = WuwaToonBaseVS_WPO_V2 + UseFurry shell offset) and verified bit-exact against the original VS with PreViewTranslation 0 (evidence/validation/shaderdiff/roster_charcom/round5/v2/vs/results_fur_r5.json; Kuro-offset set 1 component / 2 ULP, realistic sets <= 3.4e-4 px: the documented V2 VS contract residual class); light direction / mask equal to the verified face VS c9e8451f (vs_equiv_r5.json). UseFurry: extra outputs OpacityMask (constant 1) and PixelDepthOffset (material Pixel Depth Offset pin); the entry discards itself. BLEND_Masked: discarded pixels compared as untouched targets (0 discard mismatches). Use_Char_Wet reads CustomPrimitiveData 26 (wet amount) / 27 (wet transition) (plugin MaskID is CPD 35)."
+  },
+  {
+   "spec": "ToonHairV2_SparkleMilkWaySecondRim.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b51e51603f0f5cc96aa9b18ee18040e85ae5ddc5"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "5909e2fb0ec2da46f18b2fef8c5d57a69c61a498"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1DaniyaMd10011Hair02"
+   ],
+   "slot_uses": 2,
+   "entities": 2,
+   "verified": "research/roster/round5/v2.md#hairv2_b51e51",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round5/v2/results_round5.json",
+    "runs": 60,
+    "discarding_runs": 0,
+    "discard_mismatches": 0,
+    "mrts": {
+     "o0": "983040/983040 bit-exact, max ULP 0",
+     "o1": "983040/983040 bit-exact, max ULP 0",
+     "o2": "983040/983040 bit-exact, max ULP 0",
+     "o3": "983040/983040 bit-exact, max ULP 0",
+     "o6": "983040/983040 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS: every compared MRT (o0/o1/o2/o3/o6) bit-exact. VS: 5909e2fb = the verified V2 hair+COLOR0 VS (vsdiff --v2, research/roster/Port_CharV2_HairFace.md#v2-vs); WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2."
+  },
+  {
+   "spec": "ToonHairV2_TSWetBreathSparkleMilkWayCW.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0a8e7927cd8ae158adf5b4b59d027d9e4f3bf226"
+    ]
+   },
+   "base_pass_vs_hash": [
+    "afd9397df1ab4b59a69ada9bc10c62eee6304cea"
+   ],
+   "shading_model": [
+    "MSM_ToonHair"
+   ],
+   "blend_mode": [
+    "BLEND_Opaque"
+   ],
+   "mis": [
+    "MI_R2T1ShenXinMd10011Hair"
+   ],
+   "slot_uses": 1,
+   "entities": 1,
+   "verified": "research/roster/round5/v2.md#hairv2_0a8e79",
+   "verification": {
+    "file": "evidence/validation/shaderdiff/roster_charcom/round5/v2/results_round5.json",
+    "runs": 69,
+    "discarding_runs": 0,
+    "discard_mismatches": 0,
+    "mrts": {
+     "o0": "1130496/1130496 bit-exact, max ULP 0",
+     "o1": "1130496/1130496 bit-exact, max ULP 0",
+     "o2": "1130496/1130496 bit-exact, max ULP 0",
+     "o3": "1130496/1130496 bit-exact, max ULP 0",
+     "o6": "1130496/1130496 bit-exact, max ULP 0"
+    }
+   },
+   "notes": "PS: every compared MRT (o0/o1/o2/o3/o6) bit-exact. VS: afd9397d = the verified V2 UseCommonWPO hair+COLOR0 VS (vsdiff --v2cw, research/roster/Port_CharV2_HairFace.md#commonwpo); WuwaToonBaseVS_LightDir + WuwaToonBaseVS_WPO_V2CommonWPO_Hair. Use_Char_Wet reads CustomPrimitiveData 26 (wet amount) / 27 (wet transition) (plugin MaskID is CPD 35)."
+  }
+ ]
+}

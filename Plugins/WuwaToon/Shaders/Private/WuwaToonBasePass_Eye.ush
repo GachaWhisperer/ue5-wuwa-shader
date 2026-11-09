@@ -1,0 +1,2086 @@
+// WuwaToonBasePass_Eye.ush — eye family:
+//   WuwaToonEyeBasePass    : MI_..Eye     (M_Char_Eye; static switches UseHeightLightShape + UseEyeSDF; GBufferB id 12)
+//                            E### = PS __67697.asm.txt (462 instr), material UB = research/shaders/ToonFace_Eye_cb5.txt
+//   WuwaToonEyeHETBasePass : MI_..Eye_HET (M_WriteStencil + UseParallax, BLEND_Masked)  EH### = PS __176953.asm.txt
+// Deviations from research/hlsl/ToonEye_BasePass.hlsl (which is partly a sketch) follow the asm:
+//   * both POM loops sample EM.g (E165 / E336 swizzles); they run with identical inputs, so one evaluation is reused.
+//   * the toon local light's point vector uses the PIXEL position (E376-380), not CPD23..25 as the face does.
+//   * the eye SDF threshold uses ((1 - 0.5(R+A)) - T) + 1 (E455-468), a different op order from the face.
+#pragma once
+
+#include "WuwaToonBasePassShared.ush"
+#include "WuwaToonBasePass_WriteStencil.ush"
+
+// Compile-time switches (Yangyang entry: false; asm-identical to the pre-roster code, re-verified):
+//   bAlphaEmission (M_Char_Eye UseAlphaBlendMode, PS __152039 l.219-227): alpha emission = (MainTex.a * OpacityIntensity)
+//                  * EmissionColor, replacing the (a^Main_EmissionPower >= 0.9) * Albedo * EmissionColor mask.
+//   bBreath        (M_Char_Eye UseBreathLight, PS __248909 l.226-239): the alpha emission breathes with
+//                  EmissionStrength * BreatheStrength * (cos(GameTime * BreatheFrequency) + BreathePropotion) unless the
+//                  emission mask is <= EmissionBreathThreshold.
+// Round 4 (research/roster/Port_CharCom_Coverage.md#round-4--eyeoutline): the body lives in WuwaToonEyeBasePass_R4Impl
+// with more compile-time switches and trailing inputs; WuwaToonEyeBasePass_Impl (below) forwards with every round-4
+// switch off, so the rounds 0-3c entries compile to the same assembly (asm_identity_round4_eye.json).
+//   bNoParallax    (UseParallaxOcclusion off, LOD2 PS __264707): no parallax march, iris / solid-shadow at UV0.
+//   bDiffColorEyes (UseDifferentColorEyes, PS __234218): iris-scale centre (0.25, 0.5) when the parallaxed U <= 0.5,
+//                  else (0.75, 0.5) (as the WriteStencil port).
+//   bIrisUV2       (PS __234218 / __245417): EM.ga, the parallax march and the iris use UV2 (Kuro TEXCOORD1.xy).
+//   bEffect        (UseEffectMaterial, PS __132164 ...): effect emissive E = pow(mask(R_Noise_A_Mask at lerp(UV0, UV2,
+//                  EffectMaskTexUV2Switch)), 1 - Effect_Progress) * X, X = EffectMaskColor or (bSecond) the Second
+//                  layer; E + MotionEmissiveMask * E_Motion_Emissive is added to the eye emissive.
+//   EffMaskMode    0 = .a, 1 = .r, 2 = per channel .rgb, 3 = dot(.rgba, EffectMaskChannel_Vector) (UseVectorMaskChannel).
+//   bSecond        (UseSecond): Second_RGB layer on the switch / screen UV, CPU cos/sin rotation, fmod(time, 600)
+//                  scroll, refine, x Second_ColorTint.  bNoise (UseNoise): R_Noise_A_Mask.r noise displaces the Second UV.
+//   bFresnelRim    (UseRim, PS __110584): + FresnelRim_RimColor x view fresnel.  bFlowEdge (UseFlowEffectEdge, PS
+//                  __284667): the effect-mask UV is displaced by Second_RGB.r x (FlowEffectEdge_Strength x 0.1).
+// The effect-layer math follows the cooked asm of each PS (same Kuro material function as WuwaToonBasePass_Monster.ush).
+float WuwaEyePowGuard(float X, float P)
+{
+	return (asfloat(0x33000002u) >= X) ? 0.0 : exp2(log2(X) * P);     // pow guard (0x33000002 = 2.98e-8)
+}
+
+// Round 5 (research/roster/round5/facehair_eye_special.md): M_Char_Eye with UseEyeSDF off (LOD2 male eye, PS __19588
+// l.254-316). Returns the GBufferB shadow colour and writes GBufferA.z. Inputs: Albedo (the eye albedo that feeds GBufferC),
+// A = MainTex.a * OpacityIntensity (as the emission), the raw vertex normal (TEXCOORD11.xyz, not normalised or overridden),
+// TEXCOORD2.yzw. Material-UB preshaders are written as Kuro evaluates them (RampShadowRange * -1, ShadowRange * -1 are exact
+// negations; (1 - ((1 - 1) * SolidShadowStrength)) is kept `precise`).
+//   A1 = Albedo * ShadowColor;  A2 = RampShadowIntensity * (Albedo * (A1 * RampShadowColorScale) - A1) + A1
+//   s1 = saturate(saturate(sign(0.5 - T)) * (((A >= 0.2 ? 0 : 1) - (ShadowOffset + 0.5)) * d) + ShadowOffset + 0.5),
+//        d = (0.5 - T) / (1 - T), T = SolidShadowThreshold
+//   light: the ToonLight0 point (ToonLight3.z > 0.5) relative to ActorWorldPosition + ActorPosition, lerped toward
+//        TEXCOORD2.yzw by saturate(distance * ToonLight0.w), used when ToonLight3.z >= 0.9; hl = dot(Nv, L) * 0.5 + 0.5
+//   x0 = s1 * 1.0229 - hl (0x3F82EE63);  C1 = lerp(A2, ShadowColor * Albedo, saturate((x0 - R) / R + 1)), R = RampShadowRange
+//   C2 = lerp(C1, lerp(lum, C1 * SolidShadowView, SolidShadowSaturation), sat(sign) * d), lum = Rec.709 luma of C1 * View
+//   GBufferB = desaturate(C2);  GBufferA.z = ((1 - saturate((x0 - SR) / SR + 1)) * 0.5 + 0.5) * (1 - 0 * SolidShadowStrength)
+float3 WuwaEyeHalfLambertTail(float3 Albedo, float A, float3 WorldNormal, float3 LightDirVS, float4 ToonLight0, float4 ToonLight3,
+	float3 PrimActorWorldPosition, float3 ActorPosition, float3 ShadowColor, float RampShadowColorScale, float RampShadowIntensity,
+	float SolidShadowThreshold, float ShadowOffset, float RampShadowRange, float SolidShadowSaturation, float SolidShadowView,
+	float ShadowRange, float SolidShadowStrength, float Desaturation, out float GBufferAz)
+{
+	// ---- l.254-257: ramp-shadow tint ---------------------------------------------------------------------------------------
+	float3 A1 = Albedo * ShadowColor;
+	float3 A2 = RampShadowIntensity * (Albedo * (A1 * RampShadowColorScale) - A1) + A1;
+	// ---- l.258-270: solid-shadow step from the iris alpha, threshold remap ---------------------------------------------------
+	float sh  = (A >= asfloat(0x3E4CCCCDu)) ? 0.0 : 1.0;                                     // 0.2
+	float ofs = ShadowOffset + 0.5;
+	float tx  = 0.5 - SolidShadowThreshold;
+	float ty  = 1.0 - SolidShadowThreshold;
+	float d   = tx / ty;
+	float sg  = saturate((float)WuwaKuroSignI(tx));                                         // lt / lt / iadd / itof / sat
+	float s1  = saturate(sg * ((sh - ofs) * d) + ofs);
+	// ---- l.271-294: light direction ----------------------------------------------------------------------------------------
+	bool  on  = (0.5 < ToonLight3.z);
+	float3 Lp = float3(on ? ToonLight0.x : 0.0, on ? ToonLight0.y : 0.0, on ? ToonLight0.z : 0.0);   // per component (no vector ?:)
+	float Lw  = on ? ToonLight0.w : 1.0;
+	float l3z = on ? ToonLight3.z : 0.0;
+	float3 ap = PrimActorWorldPosition + ActorPosition;
+	float3 dv = Lp - ap;
+	float3 dir = dv / sqrt(dot(dv, dv));
+	float3 dw = ap - Lp;
+	float  f  = saturate(sqrt(dot(dw, dw)) * Lw);
+	float3 loc = f * (LightDirVS - dir) + dir;
+	float  uL = (l3z >= asfloat(0x3F666666u)) ? 1.0 : 0.0;                                   // 0.9
+	float3 L  = uL * (loc - LightDirVS) + LightDirVS;
+	L = L / sqrt(dot(L, L));
+	float hl = dot(WorldNormal, L) * 0.5 + 0.5;
+	// ---- l.295-310: ramp-shadow blend, solid-shadow saturation, desaturate -> GBufferB ----------------------------------------
+	float x0 = s1 * asfloat(0x3F82EE63u) - hl;                                               // 1.02289999
+	float rr = saturate((x0 + RampShadowRange * -1.0) / RampShadowRange + 1.0);
+	float3 C1 = rr * (ShadowColor * Albedo - A2) + A2;
+	float3 V1 = C1 * SolidShadowView;
+	float lum = dot(V1, float3(asfloat(0x3E59999Au), asfloat(0x3F372474u), asfloat(0x3D93A92Au)));   // 0.2125, 0.7154, 0.0721
+	float3 S3 = SolidShadowSaturation * (C1 * SolidShadowView - lum) + lum;
+	float3 C2 = sg * (d * (S3 - C1)) + C1;
+	// ---- l.311-316: GBufferA.z ---------------------------------------------------------------------------------------------
+	float az = saturate((x0 + ShadowRange * -1.0) / ShadowRange + 1.0);
+	az = (1.0 - az) * 0.5 + 0.5;
+	precise float ssK = 1.0 - ((1.0 - 1.0) * SolidShadowStrength);                          // preshader cb[128].w
+	GBufferAz = az * ssK;
+	return WuwaBPDesaturate(C2, Desaturation);
+}
+
+FWuwaToonGBuffer WuwaToonEyeBasePass_R4Impl(const bool bAlphaEmission, const bool bBreath,
+	const bool bNoParallax, const bool bDiffColorEyes, const bool bIrisUV2,
+	const bool bEffect, const int EffMaskMode, const bool bSecond, const bool bNoise, const bool bFresnelRim, const bool bFlowEdge,
+	const bool bXingHen,
+
+	Texture2D HeightLightMap, SamplerState HeightLightMapSampler,
+	Texture2D EM, SamplerState EMSampler,
+	Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D MaskTex, SamplerState MaskTexClampSampler,      // T_FemaleMFace_SDF via the shared View clamp sampler
+	float2 UV0, float2 UV1, float4 VertexColor, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask, float GameTime,
+	// ---- M_Char_Eye parameters ----
+	float SecondLight_WidthX, float SecondLight_WidthY, float LightNormlScale,
+	float SecondLight_PositionX, float SecondLight_PositionY, float SecondLight_Position_02X, float SecondLight_Position_02Y,
+	float LightPositionX, float LightPositionY,
+	float HeightLight_WidthX, float HeightLight_WidthY, float HeightLight_PositionX, float HeightLight_PositionY,
+	float4 HeightLight_Color, float3 ParallaxOffset, float2 EyeSize, float EyeScale, float3 MainTexColorTint,
+	float Rot01Cos, float Rot01Sin, float ShapeScaleX, float ShapeScaleY, float3 EdgeColor, float3 HeightLightColor, float4 OutLineColor,
+	float4 EyeLightSimulation_Color, float4 EyeLightSimulation_TongKong, float4 EyeLightSimulation_YanBai,
+	float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor, float3 SubsurfaceColor,
+	float ScaleTransition_Speed, float EyeLight_TransitionScale, float UseEyeScaleTransition, float LightDifferentScale,
+	float LightShakeSpeed, float LightShakeScale, float LightShakPositionX, float LightShakPositionY,
+	float RotateAngle, float LightEmissiveInt, float LightDisable, float HeightLightScale, float ParallaxHeight,
+	float ShapePosition01X, float ShapePosition01Y, float EdgeWidth, float UseProLight, float OpacityIntensity,
+	float Main_EmissionPower, float Desaturation, float SolidShadowProcess, float SolidShadowStrength,
+	float LightOffset_Pitch, float SDFPitchPosition, float ShadowProcess, float ShadowWidth,
+	// ---- CPD / MPC / toon light / view ----
+	float CPD1, float3 CPD_HeadForward, float3 CPD_HeadSide, float CPD11, float CPD12, float CPD13,
+	float MPC_EyeEmissive,                                      // EyesParameter MPC scalar 18 (CB4[4].z)
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask,
+	float BreatheStrength, float BreatheFrequency, float BreathePropotion, float EmissionStrength, float EmissionBreathThreshold,
+	// ---- round 4 inputs (unused unless the matching switch is on) ----
+	float2 UV2, float2 UV3, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize,
+	Texture2D Second_RGB, SamplerState Second_RGBSampler, Texture2D R_Noise_A_Mask, SamplerState R_Noise_A_MaskSampler,
+	float4 SecondTex_UVSwitch, float Second_UseScreenUV, float Second_RotCos, float Second_RotSin, float4 Second_UV,
+	float2 Second_UV_Offset, float4 Second_Refine, float3 Second_ColorTint, float3 EffectMaskColor, float4 EffectMaskChannel_Vector,
+	float EffectMaskTexUV2Switch, float Effect_Progress,
+	float4 Noise_UVSwitch, float Noise_UseScreenUV, float4 NoiseUV, float NoiseStrength, float Second_NoiseStrength,
+	float FresnelRim_RimRange, float FresnelRim_Smooth, float FresnelRim_Reverse, float3 FresnelRim_RimColor,
+	float FlowEffectEdge_Strength,
+	Texture2D D, SamplerState DSampler, Texture2D Noise, SamplerState NoiseSampler, Texture2D Noise02, SamplerState Noise02Sampler,
+	float4 SDFColor, float4 SDFColor02, float ShakeNoiseInt, float XingHenUV, float UVScaleX, float UVScaleY, float UVpositionX, float UVpositionY,
+	float XingHenControl, float SDFStart, float SoundWaveTiling01, float SoundWaveSpeed01, float SoundWaveInt01,
+	float SoundWaveTiling02, float SoundWaveSpeed02, float SoundWaveInt02, float XHMax,
+	// ---- Round 5 (research/roster/round5/facehair_eye_special.md; trailing defaulted, every earlier call is unchanged) ----
+	//   bNoHighlightPattern  UseHighLightPattern off (LOD2 male eye PS __19588 l.109-119): no EM.r primary highlight; the
+	//                        base colour is Iris.rgb * MainTexColorTint (the EM.ga iris mask and HeightLight_* are unused)
+	//   bHalfLambert         UseEyeSDF off (PS __19588 l.254-316): no MaskTex / face-SDF head frame and no GBufferB from
+	//                        SubsurfaceColor; WuwaEyeHalfLambertTail (below) builds GBufferB and GBufferA.z from a half-Lambert
+	//                        toon light (local toon light about Primitive ActorWorldPosition + ActorPosition) with
+	//                        ShadowColor / RampShadow* / SolidShadow* terms
+	const bool bNoHighlightPattern = false, const bool bHalfLambert = false,
+	float3 ShadowColor = float3(0.0, 0.0, 0.0), float3 ActorPosition = float3(0.0, 0.0, 0.0), float3 PrimActorWorldPosition = float3(0.0, 0.0, 0.0),
+	float RampShadowColorScale = 0.0, float RampShadowIntensity = 0.0, float SolidShadowThreshold = 0.0, float ShadowOffset = 0.0,
+	float RampShadowRange = 1.0, float SolidShadowSaturation = 1.0, float SolidShadowView = 1.0, float ShadowRange = 1.0)
+{
+	FWuwaToonGBuffer G;
+	const float  TwoPi = asfloat(0x40C90FDBu);   // 6.283185 (E82, E93); also used for the 6.28319 preshader constant [I]
+	const float  eyeSide = VertexColor.g;        // COLOR0.y: left/right eye [I]
+	const float3 V = CameraVector;
+
+	// ---- E63-65: bitangent; E75-80: N = normalize(v1*(1-w) + v1*w) ------------------------------------------------------
+	float3 B = cross(WorldNormal, WorldTangent) * TangentSign;
+	float  nw = NormalOverrideParameter.w;
+	float3 Nu = (1.0 - nw) * WorldNormal;
+	Nu = WorldNormal * nw + Nu;
+	float3 N = Nu * rsqrt(dot(Nu, Nu));
+
+	// ---- preshaders (ToonFace_Eye_cb5.txt) ------------------------------------------------------------------------------
+	float2 SecondLightSize = float2(SecondLight_WidthX, SecondLight_WidthY) * 0.225;
+	float2 LightNormlScale2 = float2(LightNormlScale, LightNormlScale);
+	float2 SecondLightPos = float2(SecondLight_PositionX, SecondLight_PositionY);
+	// precise: E96 subtracts the two uniforms (Pos02 + Pos) - Pos; without it fxc folds that to Pos02, which is not
+	// the same float (ShaderDiff_BasePass_FaceEye.md, fix E1).
+	precise float2 SecondLightPos2 = float2(SecondLight_Position_02X, SecondLight_Position_02Y) + SecondLightPos;
+	float2 LightPosition = float2(LightPositionX, LightPositionY);
+	float2 HeightLightWidth = float2(HeightLight_WidthX, HeightLight_WidthY);
+	float2 HeightLightPos = float2(HeightLight_PositionX, HeightLight_PositionY);
+	float2 EyeScaleSize = EyeScale * EyeSize;
+	// cos/sin(RotationAnlgle01 * 2pi) are Kuro CPU preshaders (cb5[63]/[64]): they enter as Rot01Cos / Rot01Sin (spec kind
+	// uniform_expression, CPU-evaluated like a UE uniform expression) instead of GPU cos/sin (round 3c; removes the former
+	// 99.848% Eye residual, ShaderDiff_BasePass_FaceEye.md)
+	float2 Rot01Row0 = float2(Rot01Cos, Rot01Sin * -1.0);
+	float2 Rot01Row1 = float2(Rot01Sin, Rot01Cos);
+	float2 ShapeScale = float2(ShapeScaleX, ShapeScaleY);
+	float2 LightNormlScaleS = float2(LightNormlScale, LightNormlScale) * float2(10.0, 20.0);
+	float3 OutLineColorPremul = OutLineColor.rgb * OutLineColor.a;
+	float3 EyeLightSimColor = EyeLightSimulation_Color.rgb * EyeLightSimulation_Color.a;
+	float  EyeLightTrans075 = EyeLight_TransitionScale * 0.75;
+	precise float EdgeHi = EdgeWidth + 0.22;
+	precise float EdgeLo = EdgeWidth * (0.22 + 1.0) - 0.22;   // CPU: (EW * 1.22) - 0.22, two roundings (no mad)
+	float  ShadowHi = ShadowWidth + ShadowProcess;
+	float  ShadowLo = ShadowProcess - ShadowWidth;
+
+	// ---- E81-95: breathing scale transition and highlight shake --------------------------------------------------------
+	float t01 = sin((GameTime * ScaleTransition_Speed) * TwoPi);
+	t01 = (t01 + 1.0) * 0.5;
+	bool  bTrans = (UseEyeScaleTransition >= 0.5);
+	float2 sz = (t01 * EyeLight_TransitionScale + 1.0) * SecondLightSize;
+	sz = bTrans ? sz : SecondLightSize;
+	sz = (sz - LightNormlScale2) * LightDifferentScale;
+	float shake = sin((GameTime * LightShakeSpeed) * TwoPi) * LightShakeScale;
+
+	// ---- E96-121: secondary highlight (HeightLightMap), rotated about its centre ---------------------------------------
+	precise float2 dSecondLightPos = SecondLightPos2 - SecondLightPos;                  // E96 (kept unfolded, fix E1)
+	float2 p = eyeSide * dSecondLightPos + SecondLightPos;
+	float2 c = float2(LightShakPositionX * shake + p.x + LightPosition.x, LightShakPositionY * shake + p.y)
+	         + float2(0.05, LightPosition.y);
+	float2 invSz = 1.0 / sz;
+	float2 cs = invSz * c;
+	float  sn, co;
+	sincos(RotateAngle, sn, co);
+	float3 rowX = float3(invSz.x * co, invSz.y * -sn, (-co * cs.x + cs.y * sn) + 0.5);
+	float3 rowY = float3(invSz.x * sn, invSz.y * co, (-sn * cs.x - cs.y * co) + 0.5);
+	float3 uv1h = float3(UV0, 1.0);
+	float2 hlUV = float2(dot(rowX, uv1h), dot(rowY, uv1h));
+	float3 HLM = HeightLightMap.SampleBias(HeightLightMapSampler, hlUV, MaterialTextureMipBias).rgb;
+	float  hlEmis = HLM.b * LightEmissiveInt;
+	hlEmis = LightDisable * -hlEmis + hlEmis;
+
+	// ---- E124-137: primary highlight EM.r, iris mask from EM.a -----------------------------------------------------------
+	float2 invW = 1.0 / HeightLightWidth;
+	float2 hoff = -HeightLightPos * invW + 0.5;
+	float2 h1UV = float2(dot(float2(invW.x, hoff.x), float2(UV0.x, 1.0)), dot(float2(invW.y, hoff.y), float2(UV0.y, 1.0)));
+	float  hl1 = EM.SampleBias(EMSampler, h1UV, MaterialTextureMipBias).r;
+	float2 UVI = UV0;                                            // round 4: iris / parallax UV (UV2 with bIrisUV2)
+	if (bIrisUV2)
+	{
+		UVI = UV2;
+	}
+	float2 EMga = EM.SampleBias(EMSampler, UVI, MaterialTextureMipBias).ga;
+	float  irisMask = saturate((1.0 / HeightLightScale) * (1.0 - EMga.y));
+	irisMask = (irisMask * irisMask) * (irisMask * -2.0 + 3.0);
+	float3 Highlight = (hl1 * irisMask) * HeightLight_Color.rgb;
+
+	// ---- E138-182: parallax (height scale (1 - EM.g) * ParallaxHeight), POM on EM.g --------------------------------------
+	float2 off = float2(0.0, 0.0);
+	if (!bNoParallax)
+	{
+		float  VtsZ;
+		float2 P = WuwaEyeParallaxDir(WorldTangent, B, WorldNormal, V, ParallaxOffset, eyeSide, (1.0 - EMga.x) * ParallaxHeight, VtsZ);
+		off = WuwaEyePOM(EM, EMSampler, UVI, P, VtsZ);          // E157-182; E326-353 repeats it with identical inputs
+	}
+
+	// ---- E183-194: iris sample scaled about the centre -----------------------------------------------------------------
+	float2 irisScale = WuwaEyeIrisScale(EMga.y, EyeScale, EyeSize);
+	float2 irisUV;
+	if (bDiffColorEyes)
+	{
+		float2 uvp = UVI;
+		if (!bNoParallax)
+		{
+			uvp = off + UVI;
+		}
+		float2 cen = float2(0.75, 0.5);                          // PS __234218 l.185-194 (per component, no vector ?:)
+		cen.x = (0.5 >= uvp.x) ? 0.25 : 0.75;
+		irisUV = (uvp - cen) * irisScale + cen;
+	}
+	else if (bNoParallax)
+	{
+		irisUV = (UVI + -0.5) * irisScale + 0.5;                 // LOD2 PS __264707
+	}
+	else
+	{
+		irisUV = ((off + UVI) + -0.5) * irisScale + 0.5;
+	}
+	float4 Iris = MainTex.SampleBias(MainTexSampler, irisUV, MaterialTextureMipBias);
+	float3 Base;
+	if (bNoHighlightPattern)
+		Base = Iris.rgb * MainTexColorTint;                                                 // round 5, PS __19588
+	else
+		Base = Highlight * HeightLight_Color.a + Iris.rgb * MainTexColorTint;
+
+	// ---- E195-227: AniShape (UseHeightLightShape): highlight disc + edge ring, weighted by UseProLight ---------------
+	float2 q = float2(LightShakPositionX * shake + ShapePosition01X, LightShakPositionY * shake + ShapePosition01Y) + LightPosition;
+	q = UV0 - q;
+	float2 qr = float2(dot(q, Rot01Row0), dot(q, Rot01Row1));
+	float2 ss = (-t01 * EyeLightTrans075 + 1.0) * ShapeScale;
+	ss = bTrans ? ss : ShapeScale;
+	ss = (ss + LightNormlScaleS) * LightDifferentScale;
+	qr = ss * qr;
+	float dl   = sqrt(dot(qr, qr));
+	float disc = saturate((-dl * 2.0 + 1.0) * 100000.0);
+	float3 col = Base + disc;
+	float ring = saturate((-dl * asfloat(0x3FC4EC4Fu) + 1.0) * asfloat(0x3FF1826Au));   // 1.53846157, 1.88679242
+	ring = ring + -0.5;
+	ring = ring + ring;
+	ring = 1.0 - abs(ring);
+	float edge = saturate((ring - EdgeLo) * (1.0 / (EdgeHi - EdgeLo)));
+	edge = (edge * edge) * (edge * -2.0 + 3.0);
+	col = edge * (EdgeColor - col) + col;
+	col = UseProLight * (col - Base) + Base;
+
+	// ---- E228-233: HeightLightMap recolouring, LightDisable ---------------------------------------------------------------
+	col = HLM.r * (HeightLightColor - col) + col;
+	col = HLM.g * (OutLineColorPremul - col) + col;
+	float3 Albedo = LightDisable * (Base - col) + col;
+	float3 hlE = hlEmis;
+	if (bXingHen)
+	{
+		// UseCharXingHen (PS __170587 l.122-126, 184-266, 333-336, 353): star mark from D / Noise / Noise02 on
+		// lerp(UV0, parallaxed UV, XingHenUV), scaled about 0.5 and offset; recolours the albedo and replaces the
+		// HeightLightMap emission inside the D window, faded out where 1 - VC.r * (1 - VC.g) (vertex colour) is high.
+		float2 uvx = UVI;
+		if (!bNoParallax)
+		{
+			uvx = off + UVI;
+		}
+		uvx = XingHenUV * (uvx - UV0) + UV0;
+		uvx = (uvx + -0.5) * float2(UVScaleX, UVScaleY) + 0.5;
+		uvx = uvx - float2(UVpositionX, UVpositionY);
+		float4 Dt = D.Sample(DSampler, uvx);
+		float  shk = (abs(ShakeNoiseInt) >= 0.001) ? 0.2 : 0.0;
+		float3 c02 = (shk + SDFColor02.w) * SDFColor02.xyz;
+		float  k85 = min(XingHenControl, 0.85);                               // CPU preshader
+		float4 P1 = k85 * (float4(1.2, 3.5, -0.2, 15.0) - float4(SDFStart, SoundWaveTiling01, SoundWaveSpeed01, SoundWaveInt01))
+		          + float4(SDFStart, SoundWaveTiling01, SoundWaveSpeed01, SoundWaveInt01);
+		float3 P2 = k85 * (float3(2.8, -0.4, 15.0) - float3(SoundWaveTiling02, SoundWaveSpeed02, SoundWaveInt02))
+		          + float3(SoundWaveTiling02, SoundWaveSpeed02, SoundWaveInt02);
+		float  ss = saturate(abs(ShakeNoiseInt) * 3.0);                       // preshader abs(S) * 3
+		ss = (ss * ss) * (ss * -2.0 + 3.0);
+		float  w = (1.0 - Dt.x);
+		w = ss * -w + w;
+		float  tm = fmod(GameTime, 48.0);
+		float  n1 = Noise.Sample(NoiseSampler, uvx * float2(1.0, P1.y) + tm * float2(0.0, P1.z)).r;
+		n1 = (n1 * asfloat(0xBD6A0EC7u) + asfloat(0x3C1C0A8Du)) * max(P1.w * 0.5, 1.0);   // -0.057143, 0.009524
+		float  n2 = Noise02.Sample(Noise02Sampler, uvx * float2(1.0, P2.x) + tm * float2(0.0, P2.y)).r;
+		n2 = n2 * asfloat(0xBD6A0EC7u) + asfloat(0x3C1C0A8Du);
+		float  wave = ((0.513 >= uvx.x) ? 1.0 : 0.0) * (n2 * max(P2.z * 0.5, 1.0) - n1) + n1;
+		w = w + ((P1.x * 0.5 - wave >= Dt.y) ? 1.0 : 0.0);
+		float  pe = saturate(abs(ShakeNoiseInt)) * asfloat(0xC1EC3D71u) + 30.0;           // preshader saturate(abs(S)); -29.53
+		float  pu = min(exp2(log2(Dt.z) * pe), 1.0);
+		pu = (asfloat(0x33000002u) >= Dt.z) ? 0.0 : pu;                                    // pow guard
+		float  ph = frac(pu * 3.0 + tm * 3.0);
+		float  sa = (ph * -2.0 + 3.0) * (ph * ph);
+		float  sb = saturate((ph + -1.0) * (1.0 / (XHMax + -1.0)));
+		sb = (sb * sb) * (sb * -2.0 + 3.0);
+		pu = pu * (sb * sa);
+		precise float s03 = ShakeNoiseInt * 0.3;                                          // CPU preshader (S * 0.3), rounded first
+		w = pu * s03 + w;
+		precise float3 sdfP = SDFColor.xyz * SDFColor.w;                                 // CPU preshader SDFColor.xyz * SDFColor.w
+		float3 xc = w * (sdfP - c02) + c02;
+		float  inX = ((uvx.x >= 0.01) ? 1.0 : 0.0) * ((0.99 >= uvx.x) ? 1.0 : 0.0);
+		float  inY = ((uvx.y >= 0.01) ? 1.0 : 0.0) * ((0.99 >= uvx.y) ? 1.0 : 0.0);
+		float  xa = 0.0;
+		if (inY * inX >= 1.0)
+		{
+			xa = Dt.w * w;
+		}
+		xa = saturate(xa);
+		float  vcm = -VertexColor.r * (1.0 - VertexColor.g) + 1.0;
+		float3 hl3 = xa * (xc - hlEmis) + hlEmis;
+		hlE = vcm * (hlEmis - hl3) + hl3;
+		float3 Alb2 = xa * (xc - Albedo) + Albedo;
+		Albedo = vcm * (Albedo - Alb2) + Alb2;
+	}
+
+	// ---- E234-250: EyeLightSimulation (pupil / sclera radial falloff) -------------------------------------------------
+	float3 Emis = Albedo * EyeLightSimColor;
+	float  pupil = (0.99 >= EMga.x) ? 1.0 : 0.0;
+	float4 sp = pupil * (EyeLightSimulation_TongKong - EyeLightSimulation_YanBai) + EyeLightSimulation_YanBai;
+	float2 dd = UV0 - sp.xy;
+	float  f = sqrt(dot(dd, dd));
+	f = saturate((f + f) / sp.z);
+	float  fall = (asfloat(0x33000002u) >= f) ? 0.0 : exp2(log2(f) * sp.w);   // pow guard (0x33000002 = 2.98e-8, printed as 0.000000 by the plain disassembler; round 3b, Port_CharCom_Coverage.md#round-3b)
+	Emis = fall * -Emis + Emis;
+	Emis = Emis + hlE;
+
+	// ---- E251-267: alpha emission, MPC EyeEmissive tint, motion emissive, selection -------------------------------
+	float a  = Iris.a * OpacityIntensity;
+	float3 e;
+	if (bAlphaEmission)
+	{
+		e = a * EmissionColor;
+	}
+	else
+	{
+		float em = (exp2(log2(a) * Main_EmissionPower) >= 0.9) ? 1.0 : 0.0;
+		em = (asfloat(0x33000002u) >= a) ? 0.0 : em;                                   // pow guard (E252-258)
+		if (bBreath)
+		{
+			float3 e0 = em * Albedo;
+			float3 eB = e0 * EmissionColor;
+			float  br = cos(GameTime * BreatheFrequency);
+			br = BreatheStrength * br + BreatheStrength * BreathePropotion;
+			br = br * EmissionStrength;
+			eB = br * eB;
+			float sel = (EmissionBreathThreshold >= em) ? 1.0 : 0.0;
+			e = sel * (EmissionColor * e0 - eB) + eB;
+		}
+		else
+		{
+			e = (em * Albedo) * EmissionColor;
+		}
+	}
+	float3 t = (Albedo * pupil) * float3(1.2, asfloat(0x3F0CF367u), asfloat(0x3EA16E37u)) - e;   // 0.550589, 0.315294
+	e = MPC_EyeEmissive * t + e;
+	Emis = Emis + e;
+	if (bEffect)
+	{
+		// round 4 effect layer (PS __132164 l.84-94, __15658 l.86-128, __110584 / __284667 / __315257 l.86-135)
+		float2 ScreenUV = (SvPositionXY - ViewRectMin) * ViewSizeAndInvSize.zw;
+		float3 X = EffectMaskColor;
+		float  S2r = 0.0;
+		if (bSecond)
+		{
+			float2 suv;
+			suv.x = dot(SecondTex_UVSwitch, float4(UV0.x, UV1.x, UV2.x, UV3.x));
+			suv.y = dot(SecondTex_UVSwitch, float4(UV0.y, UV1.y, UV2.y, UV3.y));
+			suv = Second_UseScreenUV * (ScreenUV - suv) + suv;
+			suv = suv + -0.5;
+			suv = float2(dot(suv, float2(Second_RotCos, Second_RotSin * -1.0)), dot(suv, float2(Second_RotSin, Second_RotCos))) + 0.5;
+			float  t600 = fmod(GameTime, 600.0);
+			suv = suv * Second_UV.xy + t600 * Second_UV.zw;
+			suv = suv + Second_UV_Offset;                         // (+ (Second_NoiseStrength * 0) without bNoise: == 0, not written)
+			if (bNoise)
+			{
+				float2 nuv;
+				nuv.x = dot(Noise_UVSwitch, float4(UV0.x, UV1.x, UV2.x, UV3.x));
+				nuv.y = dot(Noise_UVSwitch, float4(UV0.y, UV1.y, UV2.y, UV3.y));
+				nuv = Noise_UseScreenUV * (ScreenUV - nuv) + nuv;
+				nuv = nuv * NoiseUV.xy;
+				nuv = GameTime * NoiseUV.zw + nuv;
+				float nz = R_Noise_A_Mask.SampleBias(R_Noise_A_MaskSampler, nuv, MaterialTextureMipBias).r * NoiseStrength;
+				suv = Second_NoiseStrength * nz + suv;
+			}
+			float3 S2 = Second_RGB.SampleBias(Second_RGBSampler, suv, MaterialTextureMipBias).rgb;
+			S2r = S2.r;
+			float3 S2p;
+			S2p.x = WuwaEyePowGuard(S2.x, Second_Refine.x);
+			S2p.y = WuwaEyePowGuard(S2.y, Second_Refine.x);
+			S2p.z = WuwaEyePowGuard(S2.z, Second_Refine.x);
+			S2p = S2p * Second_Refine.y;
+			S2 = Second_Refine.w * (S2 * Second_Refine.z - S2p) + S2p;
+			if (bFresnelRim)
+			{
+				float fr = 1.0 - max(dot(N, V), 0.0);
+				fr = exp2(log2(max(abs(fr), asfloat(0x38D1B717u))) * FresnelRim_RimRange);   // max(|x|, 1e-4)
+				fr = fr * (1.0 - FresnelRim_Smooth) + FresnelRim_Smooth;
+				fr = FresnelRim_Reverse * (fr * -2.0 + 1.0) + fr;
+				X = S2 * Second_ColorTint + fr * FresnelRim_RimColor;
+			}
+			else
+			{
+				X = S2 * Second_ColorTint;
+			}
+		}
+		float2 euv = EffectMaskTexUV2Switch * (UV2 - UV0) + UV0;
+		if (bFlowEdge)
+		{
+			// precise: Kuro's preshader (FlowEffectEdge_Strength * 0.1) is rounded first; fxc would otherwise emit (S2r * F) * 0.1
+			precise float flowK = FlowEffectEdge_Strength * 0.1;
+			euv = S2r * flowK + euv;
+		}
+		float4 EMt = R_Noise_A_Mask.SampleBias(R_Noise_A_MaskSampler, euv, MaterialTextureMipBias);
+		float3 Eff;
+		if (EffMaskMode == 2)
+		{
+			float3 em3;
+			em3.x = WuwaEyePowGuard(EMt.r, 1.0 - Effect_Progress);
+			em3.y = WuwaEyePowGuard(EMt.g, 1.0 - Effect_Progress);
+			em3.z = WuwaEyePowGuard(EMt.b, 1.0 - Effect_Progress);
+			Eff = X * em3;
+		}
+		else
+		{
+			float m = EMt.a;
+			if (EffMaskMode == 1)
+			{
+				m = EMt.r;
+			}
+			else if (EffMaskMode == 3)
+			{
+				m = dot(EMt, EffectMaskChannel_Vector);
+			}
+			if (bSecond)
+			{
+				Eff = X * WuwaEyePowGuard(m, 1.0 - Effect_Progress);
+			}
+			else
+			{
+				// PS __132164 l.86-93: pow x EffectMaskColor first, then the guard selects 0 (keeps +0 for a negative colour)
+				Eff = exp2(log2(m) * (1.0 - Effect_Progress)) * X;
+				if (asfloat(0x33000002u) >= m)
+				{
+					Eff = float3(0.0, 0.0, 0.0);
+				}
+			}
+		}
+		Eff = MotionEmissiveMask * E_Motion_Emissive + Eff;
+		Emis = Eff + Emis;
+	}
+	else
+	{
+		Emis = MotionEmissiveMask * E_Motion_Emissive + Emis;
+	}
+	Emis = SelectionColor.a * (SelectionColor.rgb - Emis) + Emis;
+	G.C = float4(WuwaBPDesaturate(Albedo, Desaturation), 0.0);                                    // E268-270, E521
+
+	// ---- E305-322: emissive -> SceneColor --------------------------------------------------------------------------------
+	G.Emissive = WuwaBPFinalEmissive(Emis, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+
+	float3 SC;
+	if (bHalfLambert)
+	{
+		// round 5, PS __19588 l.254-316 (UseEyeSDF off): GBufferB / GBufferA.z from the half-Lambert toon light
+		SC = WuwaEyeHalfLambertTail(Albedo, a, WorldNormal, LightDirVS, ToonLight0, ToonLight3, PrimActorWorldPosition, ActorPosition,
+			ShadowColor, RampShadowColorScale, RampShadowIntensity, SolidShadowThreshold, ShadowOffset, RampShadowRange,
+			SolidShadowSaturation, SolidShadowView, ShadowRange, SolidShadowStrength, Desaturation, G.A.z);
+	}
+	else
+	{
+	// ---- E323-325: shadow colour = desaturated SubsurfaceColor ------------------------------------------------------------
+	SC = WuwaBPDesaturate(SubsurfaceColor, Desaturation);
+
+	// ---- E326-367: solid-shadow mask from MainTex.a at the parallax UV --------------------------------------------------
+	float a2 = MainTex.SampleBias(MainTexSampler, irisUV, MaterialTextureMipBias).a;
+	float x  = min(a2 * OpacityIntensity, SolidShadowProcess);
+	float k  = x / max(x, 0.01);
+	float solidScale = -(1.0 - k) * SolidShadowStrength + 1.0;
+	float solidMask  = (min(max(k, 0.9), 1.0) + -0.9) * asfloat(0x411FFFFEu);                   // 9.99999809
+
+	// ---- E368-426: light direction (point-light vector from the pixel) --------------------------------------------------
+	float3 L = WuwaBPMainLightDir(LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+
+	// ---- E427-478: face-SDF head frame on UV1 ("UseEyeSDF"), R + A channels -------------------------------------------
+	FWuwaFaceSDFSetup S = WuwaFaceSDFSetup(L, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, UV1, SDFPitchPosition);
+	float2 SDFra = MaskTex.Sample(MaskTexClampSampler, S.SdfUV).ra;
+	float qv = SDFra.y + SDFra.x;
+	qv = -qv * 0.5 + 1.0;
+	qv = -S.T + qv;
+	qv = qv + 1.0;
+	qv = -qv * 0.5 + 1.0;
+	float s = saturate((1.0 / (ShadowHi - ShadowLo)) * (qv - ShadowLo));
+	s = (s * s) * (s * -2.0 + 3.0);
+	G.A.z = ((s * solidMask) * 0.5 + 0.5) * solidScale;
+	}
+
+	// ---- E479-523: encode ----------------------------------------------------------------------------------------------------
+	G.A.xy  = WuwaBPOctEncode(N);
+	G.A.w   = (KuroGBufferMode == 1.0) ? 1.0 : 0.0;
+	G.B     = float4(sqrt(saturate(SC)), WuwaBPShadingModelByte(LightingChannelMask, 12u));
+	G.D     = float4(0.0, 0.0, 0.0, 0.0);
+	return G;
+}
+
+// Pre-round-4 switch set (rounds 0-3c entries): every round-4 switch off; the round-4 inputs get inert stand-ins (dead code).
+FWuwaToonGBuffer WuwaToonEyeBasePass_Impl(const bool bAlphaEmission, const bool bBreath,
+	Texture2D HeightLightMap, SamplerState HeightLightMapSampler,
+	Texture2D EM, SamplerState EMSampler,
+	Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D MaskTex, SamplerState MaskTexClampSampler,
+	float2 UV0, float2 UV1, float4 VertexColor, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask, float GameTime,
+	float SecondLight_WidthX, float SecondLight_WidthY, float LightNormlScale,
+	float SecondLight_PositionX, float SecondLight_PositionY, float SecondLight_Position_02X, float SecondLight_Position_02Y,
+	float LightPositionX, float LightPositionY,
+	float HeightLight_WidthX, float HeightLight_WidthY, float HeightLight_PositionX, float HeightLight_PositionY,
+	float4 HeightLight_Color, float3 ParallaxOffset, float2 EyeSize, float EyeScale, float3 MainTexColorTint,
+	float Rot01Cos, float Rot01Sin, float ShapeScaleX, float ShapeScaleY, float3 EdgeColor, float3 HeightLightColor, float4 OutLineColor,
+	float4 EyeLightSimulation_Color, float4 EyeLightSimulation_TongKong, float4 EyeLightSimulation_YanBai,
+	float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor, float3 SubsurfaceColor,
+	float ScaleTransition_Speed, float EyeLight_TransitionScale, float UseEyeScaleTransition, float LightDifferentScale,
+	float LightShakeSpeed, float LightShakeScale, float LightShakPositionX, float LightShakPositionY,
+	float RotateAngle, float LightEmissiveInt, float LightDisable, float HeightLightScale, float ParallaxHeight,
+	float ShapePosition01X, float ShapePosition01Y, float EdgeWidth, float UseProLight, float OpacityIntensity,
+	float Main_EmissionPower, float Desaturation, float SolidShadowProcess, float SolidShadowStrength,
+	float LightOffset_Pitch, float SDFPitchPosition, float ShadowProcess, float ShadowWidth,
+	float CPD1, float3 CPD_HeadForward, float3 CPD_HeadSide, float CPD11, float CPD12, float CPD13,
+	float MPC_EyeEmissive,
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask,
+	float BreatheStrength, float BreatheFrequency, float BreathePropotion, float EmissionStrength, float EmissionBreathThreshold)
+{
+	const float4 z4 = float4(0.0, 0.0, 0.0, 0.0);
+	return WuwaToonEyeBasePass_R4Impl(bAlphaEmission, bBreath, false, false, false, false, 0, false, false, false, false, false,
+		HeightLightMap, HeightLightMapSampler, EM, EMSampler, MainTex, MainTexSampler, MaskTex, MaskTexClampSampler, UV0, UV1, VertexColor, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, GameTime, SecondLight_WidthX, SecondLight_WidthY, LightNormlScale, SecondLight_PositionX, SecondLight_PositionY, SecondLight_Position_02X, SecondLight_Position_02Y, LightPositionX, LightPositionY, HeightLight_WidthX, HeightLight_WidthY, HeightLight_PositionX, HeightLight_PositionY, HeightLight_Color, ParallaxOffset, EyeSize, EyeScale, MainTexColorTint, Rot01Cos, Rot01Sin, ShapeScaleX, ShapeScaleY, EdgeColor, HeightLightColor, OutLineColor, EyeLightSimulation_Color, EyeLightSimulation_TongKong, EyeLightSimulation_YanBai, EmissionColor, E_Motion_Emissive, SelectionColor, SubsurfaceColor, ScaleTransition_Speed, EyeLight_TransitionScale, UseEyeScaleTransition, LightDifferentScale, LightShakeSpeed, LightShakeScale, LightShakPositionX, LightShakPositionY, RotateAngle, LightEmissiveInt, LightDisable, HeightLightScale, ParallaxHeight, ShapePosition01X, ShapePosition01Y, EdgeWidth, UseProLight, OpacityIntensity, Main_EmissionPower, Desaturation, SolidShadowProcess, SolidShadowStrength, LightOffset_Pitch, SDFPitchPosition, ShadowProcess, ShadowWidth, CPD1, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, CPD13, MPC_EyeEmissive, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask,
+		BreatheStrength, BreatheFrequency, BreathePropotion, EmissionStrength, EmissionBreathThreshold,
+		UV0, UV0, UV0, UV0, z4, EM, EMSampler, EM, EMSampler,
+		z4, 0.0, 1.0, 0.0, z4, UV0, z4, z4.xyz, z4.xyz, z4, 0.0, 0.0, z4, 0.0, z4, 0.0, 0.0, 0.0, 0.0, 0.0, z4.xyz, 0.0,
+		EM, EMSampler, EM, EMSampler, EM, EMSampler, z4, z4, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+}
+
+// Yangyang eye (PS __67697; 32 roster MIs share it).
+FWuwaToonGBuffer WuwaToonEyeBasePass(
+	Texture2D HeightLightMap, SamplerState HeightLightMapSampler,
+	Texture2D EM, SamplerState EMSampler,
+	Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D MaskTex, SamplerState MaskTexClampSampler,      // T_FemaleMFace_SDF via the shared View clamp sampler
+	float2 UV0, float2 UV1, float4 VertexColor, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask, float GameTime,
+	// ---- M_Char_Eye parameters ----
+	float SecondLight_WidthX, float SecondLight_WidthY, float LightNormlScale,
+	float SecondLight_PositionX, float SecondLight_PositionY, float SecondLight_Position_02X, float SecondLight_Position_02Y,
+	float LightPositionX, float LightPositionY,
+	float HeightLight_WidthX, float HeightLight_WidthY, float HeightLight_PositionX, float HeightLight_PositionY,
+	float4 HeightLight_Color, float3 ParallaxOffset, float2 EyeSize, float EyeScale, float3 MainTexColorTint,
+	float Rot01Cos, float Rot01Sin, float ShapeScaleX, float ShapeScaleY, float3 EdgeColor, float3 HeightLightColor, float4 OutLineColor,
+	float4 EyeLightSimulation_Color, float4 EyeLightSimulation_TongKong, float4 EyeLightSimulation_YanBai,
+	float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor, float3 SubsurfaceColor,
+	float ScaleTransition_Speed, float EyeLight_TransitionScale, float UseEyeScaleTransition, float LightDifferentScale,
+	float LightShakeSpeed, float LightShakeScale, float LightShakPositionX, float LightShakPositionY,
+	float RotateAngle, float LightEmissiveInt, float LightDisable, float HeightLightScale, float ParallaxHeight,
+	float ShapePosition01X, float ShapePosition01Y, float EdgeWidth, float UseProLight, float OpacityIntensity,
+	float Main_EmissionPower, float Desaturation, float SolidShadowProcess, float SolidShadowStrength,
+	float LightOffset_Pitch, float SDFPitchPosition, float ShadowProcess, float ShadowWidth,
+	// ---- CPD / MPC / toon light / view ----
+	float CPD1, float3 CPD_HeadForward, float3 CPD_HeadSide, float CPD11, float CPD12, float CPD13,
+	float MPC_EyeEmissive,                                      // EyesParameter MPC scalar 18 (CB4[4].z)
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask)
+{
+	return WuwaToonEyeBasePass_Impl(false, false,
+		HeightLightMap, HeightLightMapSampler, EM, EMSampler, MainTex, MainTexSampler, MaskTex, MaskTexClampSampler, UV0, UV1, VertexColor, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, GameTime, SecondLight_WidthX, SecondLight_WidthY, LightNormlScale, SecondLight_PositionX, SecondLight_PositionY, SecondLight_Position_02X, SecondLight_Position_02Y, LightPositionX, LightPositionY, HeightLight_WidthX, HeightLight_WidthY, HeightLight_PositionX, HeightLight_PositionY, HeightLight_Color, ParallaxOffset, EyeSize, EyeScale, MainTexColorTint, Rot01Cos, Rot01Sin, ShapeScaleX, ShapeScaleY, EdgeColor, HeightLightColor, OutLineColor, EyeLightSimulation_Color, EyeLightSimulation_TongKong, EyeLightSimulation_YanBai, EmissionColor, E_Motion_Emissive, SelectionColor, SubsurfaceColor, ScaleTransition_Speed, EyeLight_TransitionScale, UseEyeScaleTransition, LightDifferentScale, LightShakeSpeed, LightShakeScale, LightShakPositionX, LightShakPositionY, RotateAngle, LightEmissiveInt, LightDisable, HeightLightScale, ParallaxHeight, ShapePosition01X, ShapePosition01Y, EdgeWidth, UseProLight, OpacityIntensity, Main_EmissionPower, Desaturation, SolidShadowProcess, SolidShadowStrength, LightOffset_Pitch, SDFPitchPosition, ShadowProcess, ShadowWidth, CPD1, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, CPD13, MPC_EyeEmissive, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, 0.0, 0.0, 0.0, 0.0, 0.0);
+}
+
+// UseAlphaBlendMode (PS __152039, 19 roster MIs, e.g. MI_R2T1ChunMd1001Eye): Main_EmissionPower unused.
+FWuwaToonGBuffer WuwaToonEyeBasePass_AlphaEmission(
+	Texture2D HeightLightMap, SamplerState HeightLightMapSampler,
+	Texture2D EM, SamplerState EMSampler,
+	Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D MaskTex, SamplerState MaskTexClampSampler,      // T_FemaleMFace_SDF via the shared View clamp sampler
+	float2 UV0, float2 UV1, float4 VertexColor, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask, float GameTime,
+	// ---- M_Char_Eye parameters ----
+	float SecondLight_WidthX, float SecondLight_WidthY, float LightNormlScale,
+	float SecondLight_PositionX, float SecondLight_PositionY, float SecondLight_Position_02X, float SecondLight_Position_02Y,
+	float LightPositionX, float LightPositionY,
+	float HeightLight_WidthX, float HeightLight_WidthY, float HeightLight_PositionX, float HeightLight_PositionY,
+	float4 HeightLight_Color, float3 ParallaxOffset, float2 EyeSize, float EyeScale, float3 MainTexColorTint,
+	float Rot01Cos, float Rot01Sin, float ShapeScaleX, float ShapeScaleY, float3 EdgeColor, float3 HeightLightColor, float4 OutLineColor,
+	float4 EyeLightSimulation_Color, float4 EyeLightSimulation_TongKong, float4 EyeLightSimulation_YanBai,
+	float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor, float3 SubsurfaceColor,
+	float ScaleTransition_Speed, float EyeLight_TransitionScale, float UseEyeScaleTransition, float LightDifferentScale,
+	float LightShakeSpeed, float LightShakeScale, float LightShakPositionX, float LightShakPositionY,
+	float RotateAngle, float LightEmissiveInt, float LightDisable, float HeightLightScale, float ParallaxHeight,
+	float ShapePosition01X, float ShapePosition01Y, float EdgeWidth, float UseProLight, float OpacityIntensity,
+	float Desaturation, float SolidShadowProcess, float SolidShadowStrength,
+	float LightOffset_Pitch, float SDFPitchPosition, float ShadowProcess, float ShadowWidth,
+	// ---- CPD / MPC / toon light / view ----
+	float CPD1, float3 CPD_HeadForward, float3 CPD_HeadSide, float CPD11, float CPD12, float CPD13,
+	float MPC_EyeEmissive,                                      // EyesParameter MPC scalar 18 (CB4[4].z)
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask)
+{
+	return WuwaToonEyeBasePass_Impl(true, false,
+		HeightLightMap, HeightLightMapSampler, EM, EMSampler, MainTex, MainTexSampler, MaskTex, MaskTexClampSampler, UV0, UV1, VertexColor, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, GameTime, SecondLight_WidthX, SecondLight_WidthY, LightNormlScale, SecondLight_PositionX, SecondLight_PositionY, SecondLight_Position_02X, SecondLight_Position_02Y, LightPositionX, LightPositionY, HeightLight_WidthX, HeightLight_WidthY, HeightLight_PositionX, HeightLight_PositionY, HeightLight_Color, ParallaxOffset, EyeSize, EyeScale, MainTexColorTint, Rot01Cos, Rot01Sin, ShapeScaleX, ShapeScaleY, EdgeColor, HeightLightColor, OutLineColor, EyeLightSimulation_Color, EyeLightSimulation_TongKong, EyeLightSimulation_YanBai, EmissionColor, E_Motion_Emissive, SelectionColor, SubsurfaceColor, ScaleTransition_Speed, EyeLight_TransitionScale, UseEyeScaleTransition, LightDifferentScale, LightShakeSpeed, LightShakeScale, LightShakPositionX, LightShakPositionY, RotateAngle, LightEmissiveInt, LightDisable, HeightLightScale, ParallaxHeight, ShapePosition01X, ShapePosition01Y, EdgeWidth, UseProLight, OpacityIntensity, 0.0, Desaturation, SolidShadowProcess, SolidShadowStrength, LightOffset_Pitch, SDFPitchPosition, ShadowProcess, ShadowWidth, CPD1, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, CPD13, MPC_EyeEmissive, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, 0.0, 0.0, 0.0, 0.0, 0.0);
+}
+
+// UseBreathLight (PS __248909, 5 roster MIs, e.g. MI_R2T1AimisiMd10011Eye).
+FWuwaToonGBuffer WuwaToonEyeBasePass_Breath(
+	Texture2D HeightLightMap, SamplerState HeightLightMapSampler,
+	Texture2D EM, SamplerState EMSampler,
+	Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D MaskTex, SamplerState MaskTexClampSampler,      // T_FemaleMFace_SDF via the shared View clamp sampler
+	float2 UV0, float2 UV1, float4 VertexColor, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask, float GameTime,
+	// ---- M_Char_Eye parameters ----
+	float SecondLight_WidthX, float SecondLight_WidthY, float LightNormlScale,
+	float SecondLight_PositionX, float SecondLight_PositionY, float SecondLight_Position_02X, float SecondLight_Position_02Y,
+	float LightPositionX, float LightPositionY,
+	float HeightLight_WidthX, float HeightLight_WidthY, float HeightLight_PositionX, float HeightLight_PositionY,
+	float4 HeightLight_Color, float3 ParallaxOffset, float2 EyeSize, float EyeScale, float3 MainTexColorTint,
+	float Rot01Cos, float Rot01Sin, float ShapeScaleX, float ShapeScaleY, float3 EdgeColor, float3 HeightLightColor, float4 OutLineColor,
+	float4 EyeLightSimulation_Color, float4 EyeLightSimulation_TongKong, float4 EyeLightSimulation_YanBai,
+	float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor, float3 SubsurfaceColor,
+	float ScaleTransition_Speed, float EyeLight_TransitionScale, float UseEyeScaleTransition, float LightDifferentScale,
+	float LightShakeSpeed, float LightShakeScale, float LightShakPositionX, float LightShakPositionY,
+	float RotateAngle, float LightEmissiveInt, float LightDisable, float HeightLightScale, float ParallaxHeight,
+	float ShapePosition01X, float ShapePosition01Y, float EdgeWidth, float UseProLight, float OpacityIntensity,
+	float Main_EmissionPower, float Desaturation, float SolidShadowProcess, float SolidShadowStrength,
+	float LightOffset_Pitch, float SDFPitchPosition, float ShadowProcess, float ShadowWidth,
+	// ---- CPD / MPC / toon light / view ----
+	float CPD1, float3 CPD_HeadForward, float3 CPD_HeadSide, float CPD11, float CPD12, float CPD13,
+	float MPC_EyeEmissive,                                      // EyesParameter MPC scalar 18 (CB4[4].z)
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask,
+	float BreatheStrength, float BreatheFrequency, float BreathePropotion, float EmissionStrength, float EmissionBreathThreshold)
+{
+	return WuwaToonEyeBasePass_Impl(false, true,
+		HeightLightMap, HeightLightMapSampler, EM, EMSampler, MainTex, MainTexSampler, MaskTex, MaskTexClampSampler, UV0, UV1, VertexColor, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, GameTime, SecondLight_WidthX, SecondLight_WidthY, LightNormlScale, SecondLight_PositionX, SecondLight_PositionY, SecondLight_Position_02X, SecondLight_Position_02Y, LightPositionX, LightPositionY, HeightLight_WidthX, HeightLight_WidthY, HeightLight_PositionX, HeightLight_PositionY, HeightLight_Color, ParallaxOffset, EyeSize, EyeScale, MainTexColorTint, Rot01Cos, Rot01Sin, ShapeScaleX, ShapeScaleY, EdgeColor, HeightLightColor, OutLineColor, EyeLightSimulation_Color, EyeLightSimulation_TongKong, EyeLightSimulation_YanBai, EmissionColor, E_Motion_Emissive, SelectionColor, SubsurfaceColor, ScaleTransition_Speed, EyeLight_TransitionScale, UseEyeScaleTransition, LightDifferentScale, LightShakeSpeed, LightShakeScale, LightShakPositionX, LightShakPositionY, RotateAngle, LightEmissiveInt, LightDisable, HeightLightScale, ParallaxHeight, ShapePosition01X, ShapePosition01Y, EdgeWidth, UseProLight, OpacityIntensity, Main_EmissionPower, Desaturation, SolidShadowProcess, SolidShadowStrength, LightOffset_Pitch, SDFPitchPosition, ShadowProcess, ShadowWidth, CPD1, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, CPD13, MPC_EyeEmissive, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask,
+		BreatheStrength, BreatheFrequency, BreathePropotion, EmissionStrength, EmissionBreathThreshold);
+}
+
+// Eye_HET (M_WriteStencil + UseParallax). EyeSide = vertex colour G. See WuwaToonWriteStencil_Impl.
+FWuwaToonGBuffer WuwaToonEyeHETBasePass(
+	Texture2D EM, SamplerState EMSampler, Texture2D Mask, SamplerState MaskSampler,
+	float2 UV0, float4 VertexColor, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 CameraVector, float2 SvPositionXY,
+	float4 SelectionColor, float E_Link_UseSplitScreen, float4 E_Link_AngleLinePosLineDis, float E_LinkPos,
+	float3 ParallaxOffset, float ParallaxHeight, float EyeScale, float2 EyeSize, float E_Dissolve_Progress, float UseEyeHET,
+	float KuroPrimDitherEnable, float KuroPrimDitherFade,
+	float4 ViewSizeAndInvSize, float2 ViewRectMin, float MaterialTextureMipBias, float4 NormalOverrideParameter,
+	float KuroGBufferMode, float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask,
+	float3 ObjectWorldPosition, float3 ObjectBounds, uint LightingChannelMask, out float OpacityMask)
+{
+	return WuwaToonWriteStencil_Impl(true, false, EM, EMSampler, Mask, MaskSampler,
+		UV0, UV0, VertexColor.g, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, SvPositionXY,
+		SelectionColor, E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis, E_LinkPos,
+		ParallaxOffset, ParallaxHeight, EyeScale, EyeSize, E_Dissolve_Progress, UseEyeHET,
+		KuroPrimDitherEnable, KuroPrimDitherFade,
+		ViewSizeAndInvSize, ViewRectMin, MaterialTextureMipBias, NormalOverrideParameter,
+		KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask,
+		ObjectWorldPosition, ObjectBounds, LightingChannelMask, OpacityMask);
+}
+
+// UseDifferentColorEyes (M_WriteStencil PS __143118, 5 roster MIs, e.g. MI_R2T1ChunMd10011Eye_HET): per-eye atlas centre.
+FWuwaToonGBuffer WuwaToonEyeHETBasePass_DiffColorEyes(
+	Texture2D EM, SamplerState EMSampler, Texture2D Mask, SamplerState MaskSampler,
+	float2 UV0, float4 VertexColor, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 CameraVector, float2 SvPositionXY,
+	float4 SelectionColor, float E_Link_UseSplitScreen, float4 E_Link_AngleLinePosLineDis, float E_LinkPos,
+	float3 ParallaxOffset, float ParallaxHeight, float EyeScale, float2 EyeSize, float E_Dissolve_Progress, float UseEyeHET,
+	float KuroPrimDitherEnable, float KuroPrimDitherFade,
+	float4 ViewSizeAndInvSize, float2 ViewRectMin, float MaterialTextureMipBias, float4 NormalOverrideParameter,
+	float KuroGBufferMode, float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask,
+	float3 ObjectWorldPosition, float3 ObjectBounds, uint LightingChannelMask, out float OpacityMask)
+{
+	return WuwaToonWriteStencil_Impl(true, true, EM, EMSampler, Mask, MaskSampler,
+		UV0, UV0, VertexColor.g, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, SvPositionXY,
+		SelectionColor, E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis, E_LinkPos,
+		ParallaxOffset, ParallaxHeight, EyeScale, EyeSize, E_Dissolve_Progress, UseEyeHET,
+		KuroPrimDitherEnable, KuroPrimDitherFade,
+		ViewSizeAndInvSize, ViewRectMin, MaterialTextureMipBias, NormalOverrideParameter,
+		KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask,
+		ObjectWorldPosition, ObjectBounds, LightingChannelMask, OpacityMask);
+}
+
+// UseDifferentColorEyes + UseUV2 (PS __261099, 4 roster MIs, e.g. MI_R2T1FuluoluoMd10011Eye_HET): parallax + mask on UV2 (TEXCOORD1.xy).
+FWuwaToonGBuffer WuwaToonEyeHETBasePass_DiffColorEyesUV2(
+	Texture2D EM, SamplerState EMSampler, Texture2D Mask, SamplerState MaskSampler,
+	float2 UV0, float2 UV2, float4 VertexColor, float3 WorldTangent, float3 WorldNormal, float TangentSign,
+	float3 WorldPosition, float3 CameraVector, float2 SvPositionXY,
+	float4 SelectionColor, float E_Link_UseSplitScreen, float4 E_Link_AngleLinePosLineDis, float E_LinkPos,
+	float3 ParallaxOffset, float ParallaxHeight, float EyeScale, float2 EyeSize, float E_Dissolve_Progress, float UseEyeHET,
+	float KuroPrimDitherEnable, float KuroPrimDitherFade,
+	float4 ViewSizeAndInvSize, float2 ViewRectMin, float MaterialTextureMipBias, float4 NormalOverrideParameter,
+	float KuroGBufferMode, float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask,
+	float3 ObjectWorldPosition, float3 ObjectBounds, uint LightingChannelMask, out float OpacityMask)
+{
+	return WuwaToonWriteStencil_Impl(true, true, EM, EMSampler, Mask, MaskSampler,
+		UV0, UV2, VertexColor.g, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, SvPositionXY,
+		SelectionColor, E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis, E_LinkPos,
+		ParallaxOffset, ParallaxHeight, EyeScale, EyeSize, E_Dissolve_Progress, UseEyeHET,
+		KuroPrimDitherEnable, KuroPrimDitherFade,
+		ViewSizeAndInvSize, ViewRectMin, MaterialTextureMipBias, NormalOverrideParameter,
+		KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask,
+		ObjectWorldPosition, ObjectBounds, LightingChannelMask, OpacityMask);
+}
+
+// ==== ROUND4-EYE-WRAPPERS BEGIN (generated by tools/shaderdiff/roster_eyeoutline/eye_r4.py gen) ====
+// DiffColorEyesUV2: PS __234218 (2 roster MIs, e.g. MI_R2T1LuokekeMd10011Eye). UseDifferentColorEyes: EM.ga, the parallax march and the iris use UV2; the iris-scale centre is (0.25, 0.5) for parallaxed U <= 0.5 else (0.75, 0.5).
+FWuwaToonGBuffer WuwaToonEyeBasePass_DiffColorEyesUV2(
+	Texture2D HeightLightMap,
+	SamplerState HeightLightMapSampler,
+	Texture2D EM,
+	SamplerState EMSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MaskTex,
+	SamplerState MaskTexClampSampler,
+	float2 UV0,
+	float2 UV1,
+	float4 VertexColor,
+	float3 WorldTangent,
+	float3 WorldNormal,
+	float TangentSign,
+	float3 WorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float GameTime,
+	float SecondLight_WidthX,
+	float SecondLight_WidthY,
+	float LightNormlScale,
+	float SecondLight_PositionX,
+	float SecondLight_PositionY,
+	float SecondLight_Position_02X,
+	float SecondLight_Position_02Y,
+	float LightPositionX,
+	float LightPositionY,
+	float HeightLight_WidthX,
+	float HeightLight_WidthY,
+	float HeightLight_PositionX,
+	float HeightLight_PositionY,
+	float4 HeightLight_Color,
+	float3 ParallaxOffset,
+	float2 EyeSize,
+	float EyeScale,
+	float3 MainTexColorTint,
+	float Rot01Cos,
+	float Rot01Sin,
+	float ShapeScaleX,
+	float ShapeScaleY,
+	float3 EdgeColor,
+	float3 HeightLightColor,
+	float4 OutLineColor,
+	float4 EyeLightSimulation_Color,
+	float4 EyeLightSimulation_TongKong,
+	float4 EyeLightSimulation_YanBai,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SubsurfaceColor,
+	float ScaleTransition_Speed,
+	float EyeLight_TransitionScale,
+	float UseEyeScaleTransition,
+	float LightDifferentScale,
+	float LightShakeSpeed,
+	float LightShakeScale,
+	float LightShakPositionX,
+	float LightShakPositionY,
+	float RotateAngle,
+	float LightEmissiveInt,
+	float LightDisable,
+	float HeightLightScale,
+	float ParallaxHeight,
+	float ShapePosition01X,
+	float ShapePosition01Y,
+	float EdgeWidth,
+	float UseProLight,
+	float OpacityIntensity,
+	float Main_EmissionPower,
+	float Desaturation,
+	float SolidShadowProcess,
+	float SolidShadowStrength,
+	float LightOffset_Pitch,
+	float SDFPitchPosition,
+	float ShadowProcess,
+	float ShadowWidth,
+	float CPD1,
+	float3 CPD_HeadForward,
+	float3 CPD_HeadSide,
+	float CPD11,
+	float CPD12,
+	float CPD13,
+	float MPC_EyeEmissive,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float KuroGBufferMode,
+	float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale,
+	float OutOfBoundsMask,
+	float3 ObjectWorldPosition,
+	float3 ObjectBounds,
+	uint LightingChannelMask,
+	float2 UV2)
+{
+	const float4 z4 = float4(0.0, 0.0, 0.0, 0.0);
+	return WuwaToonEyeBasePass_R4Impl(false, false, false, true, true, false, 0, false, false, false, false, false,
+		HeightLightMap, HeightLightMapSampler, EM, EMSampler, MainTex, MainTexSampler, MaskTex, MaskTexClampSampler, UV0, UV1, VertexColor, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, GameTime, SecondLight_WidthX, SecondLight_WidthY, LightNormlScale, SecondLight_PositionX, SecondLight_PositionY, SecondLight_Position_02X, SecondLight_Position_02Y, LightPositionX, LightPositionY, HeightLight_WidthX, HeightLight_WidthY, HeightLight_PositionX, HeightLight_PositionY, HeightLight_Color, ParallaxOffset, EyeSize, EyeScale, MainTexColorTint, Rot01Cos, Rot01Sin, ShapeScaleX, ShapeScaleY, EdgeColor, HeightLightColor, OutLineColor, EyeLightSimulation_Color, EyeLightSimulation_TongKong, EyeLightSimulation_YanBai, EmissionColor, E_Motion_Emissive, SelectionColor, SubsurfaceColor, ScaleTransition_Speed, EyeLight_TransitionScale, UseEyeScaleTransition, LightDifferentScale, LightShakeSpeed, LightShakeScale, LightShakPositionX, LightShakPositionY, RotateAngle, LightEmissiveInt, LightDisable, HeightLightScale, ParallaxHeight, ShapePosition01X, ShapePosition01Y, EdgeWidth, UseProLight, OpacityIntensity, Main_EmissionPower, Desaturation, SolidShadowProcess, SolidShadowStrength, LightOffset_Pitch, SDFPitchPosition, ShadowProcess, ShadowWidth, CPD1, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, CPD13, MPC_EyeEmissive, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, 0.0, 0.0, 0.0, 0.0, 0.0, UV2, UV0, UV0, UV0, z4, EM, EMSampler, EM, EMSampler, z4, 0.0, 1.0, 0.0, z4, z4.xy, z4, z4.xyz, z4.xyz, z4, 0.0, 0.0, z4, 0.0, z4, 0.0, 0.0, 0.0, 0.0, 0.0, z4.xyz, 0.0, EM, EMSampler, EM, EMSampler, EM, EMSampler, z4, z4, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+}
+
+// NoParallax: PS __264707 (1 roster MI, e.g. MI_R2T1PlayerFemaleMd10011Eye_LOD2). LOD2 eye (UseParallaxOcclusion off): no parallax march; iris and solid-shadow mask at UV0. WorldTangent / TangentSign are unused (the original has no TEXCOORD10).
+FWuwaToonGBuffer WuwaToonEyeBasePass_NoParallax(
+	Texture2D HeightLightMap,
+	SamplerState HeightLightMapSampler,
+	Texture2D EM,
+	SamplerState EMSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MaskTex,
+	SamplerState MaskTexClampSampler,
+	float2 UV0,
+	float2 UV1,
+	float4 VertexColor,
+	float3 WorldTangent,
+	float3 WorldNormal,
+	float TangentSign,
+	float3 WorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float GameTime,
+	float SecondLight_WidthX,
+	float SecondLight_WidthY,
+	float LightNormlScale,
+	float SecondLight_PositionX,
+	float SecondLight_PositionY,
+	float SecondLight_Position_02X,
+	float SecondLight_Position_02Y,
+	float LightPositionX,
+	float LightPositionY,
+	float HeightLight_WidthX,
+	float HeightLight_WidthY,
+	float HeightLight_PositionX,
+	float HeightLight_PositionY,
+	float4 HeightLight_Color,
+	float3 ParallaxOffset,
+	float2 EyeSize,
+	float EyeScale,
+	float3 MainTexColorTint,
+	float Rot01Cos,
+	float Rot01Sin,
+	float ShapeScaleX,
+	float ShapeScaleY,
+	float3 EdgeColor,
+	float3 HeightLightColor,
+	float4 OutLineColor,
+	float4 EyeLightSimulation_Color,
+	float4 EyeLightSimulation_TongKong,
+	float4 EyeLightSimulation_YanBai,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SubsurfaceColor,
+	float ScaleTransition_Speed,
+	float EyeLight_TransitionScale,
+	float UseEyeScaleTransition,
+	float LightDifferentScale,
+	float LightShakeSpeed,
+	float LightShakeScale,
+	float LightShakPositionX,
+	float LightShakPositionY,
+	float RotateAngle,
+	float LightEmissiveInt,
+	float LightDisable,
+	float HeightLightScale,
+	float ParallaxHeight,
+	float ShapePosition01X,
+	float ShapePosition01Y,
+	float EdgeWidth,
+	float UseProLight,
+	float OpacityIntensity,
+	float Main_EmissionPower,
+	float Desaturation,
+	float SolidShadowProcess,
+	float SolidShadowStrength,
+	float LightOffset_Pitch,
+	float SDFPitchPosition,
+	float ShadowProcess,
+	float ShadowWidth,
+	float CPD1,
+	float3 CPD_HeadForward,
+	float3 CPD_HeadSide,
+	float CPD11,
+	float CPD12,
+	float CPD13,
+	float MPC_EyeEmissive,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float KuroGBufferMode,
+	float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale,
+	float OutOfBoundsMask,
+	float3 ObjectWorldPosition,
+	float3 ObjectBounds,
+	uint LightingChannelMask)
+{
+	const float4 z4 = float4(0.0, 0.0, 0.0, 0.0);
+	return WuwaToonEyeBasePass_R4Impl(false, false, true, false, false, false, 0, false, false, false, false, false,
+		HeightLightMap, HeightLightMapSampler, EM, EMSampler, MainTex, MainTexSampler, MaskTex, MaskTexClampSampler, UV0, UV1, VertexColor, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, GameTime, SecondLight_WidthX, SecondLight_WidthY, LightNormlScale, SecondLight_PositionX, SecondLight_PositionY, SecondLight_Position_02X, SecondLight_Position_02Y, LightPositionX, LightPositionY, HeightLight_WidthX, HeightLight_WidthY, HeightLight_PositionX, HeightLight_PositionY, HeightLight_Color, ParallaxOffset, EyeSize, EyeScale, MainTexColorTint, Rot01Cos, Rot01Sin, ShapeScaleX, ShapeScaleY, EdgeColor, HeightLightColor, OutLineColor, EyeLightSimulation_Color, EyeLightSimulation_TongKong, EyeLightSimulation_YanBai, EmissionColor, E_Motion_Emissive, SelectionColor, SubsurfaceColor, ScaleTransition_Speed, EyeLight_TransitionScale, UseEyeScaleTransition, LightDifferentScale, LightShakeSpeed, LightShakeScale, LightShakPositionX, LightShakPositionY, RotateAngle, LightEmissiveInt, LightDisable, HeightLightScale, ParallaxHeight, ShapePosition01X, ShapePosition01Y, EdgeWidth, UseProLight, OpacityIntensity, Main_EmissionPower, Desaturation, SolidShadowProcess, SolidShadowStrength, LightOffset_Pitch, SDFPitchPosition, ShadowProcess, ShadowWidth, CPD1, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, CPD13, MPC_EyeEmissive, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, 0.0, 0.0, 0.0, 0.0, 0.0, UV0, UV0, UV0, UV0, z4, EM, EMSampler, EM, EMSampler, z4, 0.0, 1.0, 0.0, z4, z4.xy, z4, z4.xyz, z4.xyz, z4, 0.0, 0.0, z4, 0.0, z4, 0.0, 0.0, 0.0, 0.0, 0.0, z4.xyz, 0.0, EM, EMSampler, EM, EMSampler, EM, EMSampler, z4, z4, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+}
+
+// EffectMaskR: PS __132164 (1 roster MI, e.g. MI_R2T1TaidaonvMd10011Eye01). UseEffectMaterial: + pow(R_Noise_A_Mask.r at lerp(UV0, UV2, EffectMaskTexUV2Switch), 1 - Effect_Progress) x EffectMaskColor.
+FWuwaToonGBuffer WuwaToonEyeBasePass_EffectMaskR(
+	Texture2D HeightLightMap,
+	SamplerState HeightLightMapSampler,
+	Texture2D EM,
+	SamplerState EMSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MaskTex,
+	SamplerState MaskTexClampSampler,
+	float2 UV0,
+	float2 UV1,
+	float4 VertexColor,
+	float3 WorldTangent,
+	float3 WorldNormal,
+	float TangentSign,
+	float3 WorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float GameTime,
+	float SecondLight_WidthX,
+	float SecondLight_WidthY,
+	float LightNormlScale,
+	float SecondLight_PositionX,
+	float SecondLight_PositionY,
+	float SecondLight_Position_02X,
+	float SecondLight_Position_02Y,
+	float LightPositionX,
+	float LightPositionY,
+	float HeightLight_WidthX,
+	float HeightLight_WidthY,
+	float HeightLight_PositionX,
+	float HeightLight_PositionY,
+	float4 HeightLight_Color,
+	float3 ParallaxOffset,
+	float2 EyeSize,
+	float EyeScale,
+	float3 MainTexColorTint,
+	float Rot01Cos,
+	float Rot01Sin,
+	float ShapeScaleX,
+	float ShapeScaleY,
+	float3 EdgeColor,
+	float3 HeightLightColor,
+	float4 OutLineColor,
+	float4 EyeLightSimulation_Color,
+	float4 EyeLightSimulation_TongKong,
+	float4 EyeLightSimulation_YanBai,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SubsurfaceColor,
+	float ScaleTransition_Speed,
+	float EyeLight_TransitionScale,
+	float UseEyeScaleTransition,
+	float LightDifferentScale,
+	float LightShakeSpeed,
+	float LightShakeScale,
+	float LightShakPositionX,
+	float LightShakPositionY,
+	float RotateAngle,
+	float LightEmissiveInt,
+	float LightDisable,
+	float HeightLightScale,
+	float ParallaxHeight,
+	float ShapePosition01X,
+	float ShapePosition01Y,
+	float EdgeWidth,
+	float UseProLight,
+	float OpacityIntensity,
+	float Main_EmissionPower,
+	float Desaturation,
+	float SolidShadowProcess,
+	float SolidShadowStrength,
+	float LightOffset_Pitch,
+	float SDFPitchPosition,
+	float ShadowProcess,
+	float ShadowWidth,
+	float CPD1,
+	float3 CPD_HeadForward,
+	float3 CPD_HeadSide,
+	float CPD11,
+	float CPD12,
+	float CPD13,
+	float MPC_EyeEmissive,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float KuroGBufferMode,
+	float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale,
+	float OutOfBoundsMask,
+	float3 ObjectWorldPosition,
+	float3 ObjectBounds,
+	uint LightingChannelMask,
+	float2 UV2,
+	Texture2D R_Noise_A_Mask,
+	SamplerState R_Noise_A_MaskSampler,
+	float3 EffectMaskColor,
+	float EffectMaskTexUV2Switch,
+	float Effect_Progress)
+{
+	const float4 z4 = float4(0.0, 0.0, 0.0, 0.0);
+	return WuwaToonEyeBasePass_R4Impl(false, false, false, false, false, true, 1, false, false, false, false, false,
+		HeightLightMap, HeightLightMapSampler, EM, EMSampler, MainTex, MainTexSampler, MaskTex, MaskTexClampSampler, UV0, UV1, VertexColor, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, GameTime, SecondLight_WidthX, SecondLight_WidthY, LightNormlScale, SecondLight_PositionX, SecondLight_PositionY, SecondLight_Position_02X, SecondLight_Position_02Y, LightPositionX, LightPositionY, HeightLight_WidthX, HeightLight_WidthY, HeightLight_PositionX, HeightLight_PositionY, HeightLight_Color, ParallaxOffset, EyeSize, EyeScale, MainTexColorTint, Rot01Cos, Rot01Sin, ShapeScaleX, ShapeScaleY, EdgeColor, HeightLightColor, OutLineColor, EyeLightSimulation_Color, EyeLightSimulation_TongKong, EyeLightSimulation_YanBai, EmissionColor, E_Motion_Emissive, SelectionColor, SubsurfaceColor, ScaleTransition_Speed, EyeLight_TransitionScale, UseEyeScaleTransition, LightDifferentScale, LightShakeSpeed, LightShakeScale, LightShakPositionX, LightShakPositionY, RotateAngle, LightEmissiveInt, LightDisable, HeightLightScale, ParallaxHeight, ShapePosition01X, ShapePosition01Y, EdgeWidth, UseProLight, OpacityIntensity, Main_EmissionPower, Desaturation, SolidShadowProcess, SolidShadowStrength, LightOffset_Pitch, SDFPitchPosition, ShadowProcess, ShadowWidth, CPD1, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, CPD13, MPC_EyeEmissive, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, 0.0, 0.0, 0.0, 0.0, 0.0, UV2, UV0, UV0, UV0, z4, EM, EMSampler, R_Noise_A_Mask, R_Noise_A_MaskSampler, z4, 0.0, 1.0, 0.0, z4, z4.xy, z4, z4.xyz, EffectMaskColor, z4, EffectMaskTexUV2Switch, Effect_Progress, z4, 0.0, z4, 0.0, 0.0, 0.0, 0.0, 0.0, z4.xyz, 0.0, EM, EMSampler, EM, EMSampler, EM, EMSampler, z4, z4, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+}
+
+// AlphaEmissionSecond: PS __15658 (3 roster MIs, e.g. MI_R2T1MoneMd10011Eye). UseAlphaBlendMode + UseEffectMaterial + UseSecond: the Second layer x pow(R_Noise_A_Mask.a, 1 - Effect_Progress) is added to the eye emissive.
+FWuwaToonGBuffer WuwaToonEyeBasePass_AlphaEmissionSecond(
+	Texture2D HeightLightMap,
+	SamplerState HeightLightMapSampler,
+	Texture2D EM,
+	SamplerState EMSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MaskTex,
+	SamplerState MaskTexClampSampler,
+	float2 UV0,
+	float2 UV1,
+	float4 VertexColor,
+	float3 WorldTangent,
+	float3 WorldNormal,
+	float TangentSign,
+	float3 WorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float GameTime,
+	float SecondLight_WidthX,
+	float SecondLight_WidthY,
+	float LightNormlScale,
+	float SecondLight_PositionX,
+	float SecondLight_PositionY,
+	float SecondLight_Position_02X,
+	float SecondLight_Position_02Y,
+	float LightPositionX,
+	float LightPositionY,
+	float HeightLight_WidthX,
+	float HeightLight_WidthY,
+	float HeightLight_PositionX,
+	float HeightLight_PositionY,
+	float4 HeightLight_Color,
+	float3 ParallaxOffset,
+	float2 EyeSize,
+	float EyeScale,
+	float3 MainTexColorTint,
+	float Rot01Cos,
+	float Rot01Sin,
+	float ShapeScaleX,
+	float ShapeScaleY,
+	float3 EdgeColor,
+	float3 HeightLightColor,
+	float4 OutLineColor,
+	float4 EyeLightSimulation_Color,
+	float4 EyeLightSimulation_TongKong,
+	float4 EyeLightSimulation_YanBai,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SubsurfaceColor,
+	float ScaleTransition_Speed,
+	float EyeLight_TransitionScale,
+	float UseEyeScaleTransition,
+	float LightDifferentScale,
+	float LightShakeSpeed,
+	float LightShakeScale,
+	float LightShakPositionX,
+	float LightShakPositionY,
+	float RotateAngle,
+	float LightEmissiveInt,
+	float LightDisable,
+	float HeightLightScale,
+	float ParallaxHeight,
+	float ShapePosition01X,
+	float ShapePosition01Y,
+	float EdgeWidth,
+	float UseProLight,
+	float OpacityIntensity,
+	float Desaturation,
+	float SolidShadowProcess,
+	float SolidShadowStrength,
+	float LightOffset_Pitch,
+	float SDFPitchPosition,
+	float ShadowProcess,
+	float ShadowWidth,
+	float CPD1,
+	float3 CPD_HeadForward,
+	float3 CPD_HeadSide,
+	float CPD11,
+	float CPD12,
+	float CPD13,
+	float MPC_EyeEmissive,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float KuroGBufferMode,
+	float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale,
+	float OutOfBoundsMask,
+	float3 ObjectWorldPosition,
+	float3 ObjectBounds,
+	uint LightingChannelMask,
+	float2 UV2,
+	float2 UV3,
+	float2 SvPositionXY,
+	float2 ViewRectMin,
+	float4 ViewSizeAndInvSize,
+	Texture2D Second_RGB,
+	SamplerState Second_RGBSampler,
+	Texture2D R_Noise_A_Mask,
+	SamplerState R_Noise_A_MaskSampler,
+	float4 SecondTex_UVSwitch,
+	float Second_UseScreenUV,
+	float Second_RotCos,
+	float Second_RotSin,
+	float4 Second_UV,
+	float2 Second_UV_Offset,
+	float4 Second_Refine,
+	float3 Second_ColorTint,
+	float EffectMaskTexUV2Switch,
+	float Effect_Progress)
+{
+	const float4 z4 = float4(0.0, 0.0, 0.0, 0.0);
+	return WuwaToonEyeBasePass_R4Impl(true, false, false, false, false, true, 0, true, false, false, false, false,
+		HeightLightMap, HeightLightMapSampler, EM, EMSampler, MainTex, MainTexSampler, MaskTex, MaskTexClampSampler, UV0, UV1, VertexColor, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, GameTime, SecondLight_WidthX, SecondLight_WidthY, LightNormlScale, SecondLight_PositionX, SecondLight_PositionY, SecondLight_Position_02X, SecondLight_Position_02Y, LightPositionX, LightPositionY, HeightLight_WidthX, HeightLight_WidthY, HeightLight_PositionX, HeightLight_PositionY, HeightLight_Color, ParallaxOffset, EyeSize, EyeScale, MainTexColorTint, Rot01Cos, Rot01Sin, ShapeScaleX, ShapeScaleY, EdgeColor, HeightLightColor, OutLineColor, EyeLightSimulation_Color, EyeLightSimulation_TongKong, EyeLightSimulation_YanBai, EmissionColor, E_Motion_Emissive, SelectionColor, SubsurfaceColor, ScaleTransition_Speed, EyeLight_TransitionScale, UseEyeScaleTransition, LightDifferentScale, LightShakeSpeed, LightShakeScale, LightShakPositionX, LightShakPositionY, RotateAngle, LightEmissiveInt, LightDisable, HeightLightScale, ParallaxHeight, ShapePosition01X, ShapePosition01Y, EdgeWidth, UseProLight, OpacityIntensity, 0.0, Desaturation, SolidShadowProcess, SolidShadowStrength, LightOffset_Pitch, SDFPitchPosition, ShadowProcess, ShadowWidth, CPD1, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, CPD13, MPC_EyeEmissive, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, 0.0, 0.0, 0.0, 0.0, 0.0, UV2, UV3, SvPositionXY, ViewRectMin, ViewSizeAndInvSize, Second_RGB, Second_RGBSampler, R_Noise_A_Mask, R_Noise_A_MaskSampler, SecondTex_UVSwitch, Second_UseScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset, Second_Refine, Second_ColorTint, z4.xyz, z4, EffectMaskTexUV2Switch, Effect_Progress, z4, 0.0, z4, 0.0, 0.0, 0.0, 0.0, 0.0, z4.xyz, 0.0, EM, EMSampler, EM, EMSampler, EM, EMSampler, z4, z4, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+}
+
+// Second: PS __144694 (1 roster MI, e.g. MI_R2T1QianXiaMd10011Eye). UseEffectMaterial + UseSecond (mask R_Noise_A_Mask.r).
+FWuwaToonGBuffer WuwaToonEyeBasePass_Second(
+	Texture2D HeightLightMap,
+	SamplerState HeightLightMapSampler,
+	Texture2D EM,
+	SamplerState EMSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MaskTex,
+	SamplerState MaskTexClampSampler,
+	float2 UV0,
+	float2 UV1,
+	float4 VertexColor,
+	float3 WorldTangent,
+	float3 WorldNormal,
+	float TangentSign,
+	float3 WorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float GameTime,
+	float SecondLight_WidthX,
+	float SecondLight_WidthY,
+	float LightNormlScale,
+	float SecondLight_PositionX,
+	float SecondLight_PositionY,
+	float SecondLight_Position_02X,
+	float SecondLight_Position_02Y,
+	float LightPositionX,
+	float LightPositionY,
+	float HeightLight_WidthX,
+	float HeightLight_WidthY,
+	float HeightLight_PositionX,
+	float HeightLight_PositionY,
+	float4 HeightLight_Color,
+	float3 ParallaxOffset,
+	float2 EyeSize,
+	float EyeScale,
+	float3 MainTexColorTint,
+	float Rot01Cos,
+	float Rot01Sin,
+	float ShapeScaleX,
+	float ShapeScaleY,
+	float3 EdgeColor,
+	float3 HeightLightColor,
+	float4 OutLineColor,
+	float4 EyeLightSimulation_Color,
+	float4 EyeLightSimulation_TongKong,
+	float4 EyeLightSimulation_YanBai,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SubsurfaceColor,
+	float ScaleTransition_Speed,
+	float EyeLight_TransitionScale,
+	float UseEyeScaleTransition,
+	float LightDifferentScale,
+	float LightShakeSpeed,
+	float LightShakeScale,
+	float LightShakPositionX,
+	float LightShakPositionY,
+	float RotateAngle,
+	float LightEmissiveInt,
+	float LightDisable,
+	float HeightLightScale,
+	float ParallaxHeight,
+	float ShapePosition01X,
+	float ShapePosition01Y,
+	float EdgeWidth,
+	float UseProLight,
+	float OpacityIntensity,
+	float Main_EmissionPower,
+	float Desaturation,
+	float SolidShadowProcess,
+	float SolidShadowStrength,
+	float LightOffset_Pitch,
+	float SDFPitchPosition,
+	float ShadowProcess,
+	float ShadowWidth,
+	float CPD1,
+	float3 CPD_HeadForward,
+	float3 CPD_HeadSide,
+	float CPD11,
+	float CPD12,
+	float CPD13,
+	float MPC_EyeEmissive,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float KuroGBufferMode,
+	float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale,
+	float OutOfBoundsMask,
+	float3 ObjectWorldPosition,
+	float3 ObjectBounds,
+	uint LightingChannelMask,
+	float2 UV2,
+	float2 UV3,
+	float2 SvPositionXY,
+	float2 ViewRectMin,
+	float4 ViewSizeAndInvSize,
+	Texture2D Second_RGB,
+	SamplerState Second_RGBSampler,
+	Texture2D R_Noise_A_Mask,
+	SamplerState R_Noise_A_MaskSampler,
+	float4 SecondTex_UVSwitch,
+	float Second_UseScreenUV,
+	float Second_RotCos,
+	float Second_RotSin,
+	float4 Second_UV,
+	float2 Second_UV_Offset,
+	float4 Second_Refine,
+	float3 Second_ColorTint,
+	float EffectMaskTexUV2Switch,
+	float Effect_Progress)
+{
+	const float4 z4 = float4(0.0, 0.0, 0.0, 0.0);
+	return WuwaToonEyeBasePass_R4Impl(false, false, false, false, false, true, 1, true, false, false, false, false,
+		HeightLightMap, HeightLightMapSampler, EM, EMSampler, MainTex, MainTexSampler, MaskTex, MaskTexClampSampler, UV0, UV1, VertexColor, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, GameTime, SecondLight_WidthX, SecondLight_WidthY, LightNormlScale, SecondLight_PositionX, SecondLight_PositionY, SecondLight_Position_02X, SecondLight_Position_02Y, LightPositionX, LightPositionY, HeightLight_WidthX, HeightLight_WidthY, HeightLight_PositionX, HeightLight_PositionY, HeightLight_Color, ParallaxOffset, EyeSize, EyeScale, MainTexColorTint, Rot01Cos, Rot01Sin, ShapeScaleX, ShapeScaleY, EdgeColor, HeightLightColor, OutLineColor, EyeLightSimulation_Color, EyeLightSimulation_TongKong, EyeLightSimulation_YanBai, EmissionColor, E_Motion_Emissive, SelectionColor, SubsurfaceColor, ScaleTransition_Speed, EyeLight_TransitionScale, UseEyeScaleTransition, LightDifferentScale, LightShakeSpeed, LightShakeScale, LightShakPositionX, LightShakPositionY, RotateAngle, LightEmissiveInt, LightDisable, HeightLightScale, ParallaxHeight, ShapePosition01X, ShapePosition01Y, EdgeWidth, UseProLight, OpacityIntensity, Main_EmissionPower, Desaturation, SolidShadowProcess, SolidShadowStrength, LightOffset_Pitch, SDFPitchPosition, ShadowProcess, ShadowWidth, CPD1, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, CPD13, MPC_EyeEmissive, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, 0.0, 0.0, 0.0, 0.0, 0.0, UV2, UV3, SvPositionXY, ViewRectMin, ViewSizeAndInvSize, Second_RGB, Second_RGBSampler, R_Noise_A_Mask, R_Noise_A_MaskSampler, SecondTex_UVSwitch, Second_UseScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset, Second_Refine, Second_ColorTint, z4.xyz, z4, EffectMaskTexUV2Switch, Effect_Progress, z4, 0.0, z4, 0.0, 0.0, 0.0, 0.0, 0.0, z4.xyz, 0.0, EM, EMSampler, EM, EMSampler, EM, EMSampler, z4, z4, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+}
+
+// AlphaEmissionSecondFlowEdge: PS __284667 (1 roster MI, e.g. MI_R2T1YounuoMd10011Eye). UseFlowEffectEdge: the mask UV is displaced by Second_RGB.r x FlowEffectEdge_Strength x 0.1; per-channel .rgb mask.
+FWuwaToonGBuffer WuwaToonEyeBasePass_AlphaEmissionSecondFlowEdge(
+	Texture2D HeightLightMap,
+	SamplerState HeightLightMapSampler,
+	Texture2D EM,
+	SamplerState EMSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MaskTex,
+	SamplerState MaskTexClampSampler,
+	float2 UV0,
+	float2 UV1,
+	float4 VertexColor,
+	float3 WorldTangent,
+	float3 WorldNormal,
+	float TangentSign,
+	float3 WorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float GameTime,
+	float SecondLight_WidthX,
+	float SecondLight_WidthY,
+	float LightNormlScale,
+	float SecondLight_PositionX,
+	float SecondLight_PositionY,
+	float SecondLight_Position_02X,
+	float SecondLight_Position_02Y,
+	float LightPositionX,
+	float LightPositionY,
+	float HeightLight_WidthX,
+	float HeightLight_WidthY,
+	float HeightLight_PositionX,
+	float HeightLight_PositionY,
+	float4 HeightLight_Color,
+	float3 ParallaxOffset,
+	float2 EyeSize,
+	float EyeScale,
+	float3 MainTexColorTint,
+	float Rot01Cos,
+	float Rot01Sin,
+	float ShapeScaleX,
+	float ShapeScaleY,
+	float3 EdgeColor,
+	float3 HeightLightColor,
+	float4 OutLineColor,
+	float4 EyeLightSimulation_Color,
+	float4 EyeLightSimulation_TongKong,
+	float4 EyeLightSimulation_YanBai,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SubsurfaceColor,
+	float ScaleTransition_Speed,
+	float EyeLight_TransitionScale,
+	float UseEyeScaleTransition,
+	float LightDifferentScale,
+	float LightShakeSpeed,
+	float LightShakeScale,
+	float LightShakPositionX,
+	float LightShakPositionY,
+	float RotateAngle,
+	float LightEmissiveInt,
+	float LightDisable,
+	float HeightLightScale,
+	float ParallaxHeight,
+	float ShapePosition01X,
+	float ShapePosition01Y,
+	float EdgeWidth,
+	float UseProLight,
+	float OpacityIntensity,
+	float Desaturation,
+	float SolidShadowProcess,
+	float SolidShadowStrength,
+	float LightOffset_Pitch,
+	float SDFPitchPosition,
+	float ShadowProcess,
+	float ShadowWidth,
+	float CPD1,
+	float3 CPD_HeadForward,
+	float3 CPD_HeadSide,
+	float CPD11,
+	float CPD12,
+	float CPD13,
+	float MPC_EyeEmissive,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float KuroGBufferMode,
+	float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale,
+	float OutOfBoundsMask,
+	float3 ObjectWorldPosition,
+	float3 ObjectBounds,
+	uint LightingChannelMask,
+	float2 UV2,
+	float2 UV3,
+	float2 SvPositionXY,
+	float2 ViewRectMin,
+	float4 ViewSizeAndInvSize,
+	Texture2D Second_RGB,
+	SamplerState Second_RGBSampler,
+	Texture2D R_Noise_A_Mask,
+	SamplerState R_Noise_A_MaskSampler,
+	float4 SecondTex_UVSwitch,
+	float Second_UseScreenUV,
+	float Second_RotCos,
+	float Second_RotSin,
+	float4 Second_UV,
+	float2 Second_UV_Offset,
+	float4 Second_Refine,
+	float3 Second_ColorTint,
+	float EffectMaskTexUV2Switch,
+	float Effect_Progress,
+	float FlowEffectEdge_Strength)
+{
+	const float4 z4 = float4(0.0, 0.0, 0.0, 0.0);
+	return WuwaToonEyeBasePass_R4Impl(true, false, false, false, false, true, 2, true, false, false, true, false,
+		HeightLightMap, HeightLightMapSampler, EM, EMSampler, MainTex, MainTexSampler, MaskTex, MaskTexClampSampler, UV0, UV1, VertexColor, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, GameTime, SecondLight_WidthX, SecondLight_WidthY, LightNormlScale, SecondLight_PositionX, SecondLight_PositionY, SecondLight_Position_02X, SecondLight_Position_02Y, LightPositionX, LightPositionY, HeightLight_WidthX, HeightLight_WidthY, HeightLight_PositionX, HeightLight_PositionY, HeightLight_Color, ParallaxOffset, EyeSize, EyeScale, MainTexColorTint, Rot01Cos, Rot01Sin, ShapeScaleX, ShapeScaleY, EdgeColor, HeightLightColor, OutLineColor, EyeLightSimulation_Color, EyeLightSimulation_TongKong, EyeLightSimulation_YanBai, EmissionColor, E_Motion_Emissive, SelectionColor, SubsurfaceColor, ScaleTransition_Speed, EyeLight_TransitionScale, UseEyeScaleTransition, LightDifferentScale, LightShakeSpeed, LightShakeScale, LightShakPositionX, LightShakPositionY, RotateAngle, LightEmissiveInt, LightDisable, HeightLightScale, ParallaxHeight, ShapePosition01X, ShapePosition01Y, EdgeWidth, UseProLight, OpacityIntensity, 0.0, Desaturation, SolidShadowProcess, SolidShadowStrength, LightOffset_Pitch, SDFPitchPosition, ShadowProcess, ShadowWidth, CPD1, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, CPD13, MPC_EyeEmissive, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, 0.0, 0.0, 0.0, 0.0, 0.0, UV2, UV3, SvPositionXY, ViewRectMin, ViewSizeAndInvSize, Second_RGB, Second_RGBSampler, R_Noise_A_Mask, R_Noise_A_MaskSampler, SecondTex_UVSwitch, Second_UseScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset, Second_Refine, Second_ColorTint, z4.xyz, z4, EffectMaskTexUV2Switch, Effect_Progress, z4, 0.0, z4, 0.0, 0.0, 0.0, 0.0, 0.0, z4.xyz, FlowEffectEdge_Strength, EM, EMSampler, EM, EMSampler, EM, EMSampler, z4, z4, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+}
+
+// SecondDiffColorEyesUV2: PS __245417 (1 roster MI, e.g. MI_R2T1FuluoluoMd10011Eye). Second (mask .r) + UseDifferentColorEyes on UV2.
+FWuwaToonGBuffer WuwaToonEyeBasePass_SecondDiffColorEyesUV2(
+	Texture2D HeightLightMap,
+	SamplerState HeightLightMapSampler,
+	Texture2D EM,
+	SamplerState EMSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MaskTex,
+	SamplerState MaskTexClampSampler,
+	float2 UV0,
+	float2 UV1,
+	float4 VertexColor,
+	float3 WorldTangent,
+	float3 WorldNormal,
+	float TangentSign,
+	float3 WorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float GameTime,
+	float SecondLight_WidthX,
+	float SecondLight_WidthY,
+	float LightNormlScale,
+	float SecondLight_PositionX,
+	float SecondLight_PositionY,
+	float SecondLight_Position_02X,
+	float SecondLight_Position_02Y,
+	float LightPositionX,
+	float LightPositionY,
+	float HeightLight_WidthX,
+	float HeightLight_WidthY,
+	float HeightLight_PositionX,
+	float HeightLight_PositionY,
+	float4 HeightLight_Color,
+	float3 ParallaxOffset,
+	float2 EyeSize,
+	float EyeScale,
+	float3 MainTexColorTint,
+	float Rot01Cos,
+	float Rot01Sin,
+	float ShapeScaleX,
+	float ShapeScaleY,
+	float3 EdgeColor,
+	float3 HeightLightColor,
+	float4 OutLineColor,
+	float4 EyeLightSimulation_Color,
+	float4 EyeLightSimulation_TongKong,
+	float4 EyeLightSimulation_YanBai,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SubsurfaceColor,
+	float ScaleTransition_Speed,
+	float EyeLight_TransitionScale,
+	float UseEyeScaleTransition,
+	float LightDifferentScale,
+	float LightShakeSpeed,
+	float LightShakeScale,
+	float LightShakPositionX,
+	float LightShakPositionY,
+	float RotateAngle,
+	float LightEmissiveInt,
+	float LightDisable,
+	float HeightLightScale,
+	float ParallaxHeight,
+	float ShapePosition01X,
+	float ShapePosition01Y,
+	float EdgeWidth,
+	float UseProLight,
+	float OpacityIntensity,
+	float Main_EmissionPower,
+	float Desaturation,
+	float SolidShadowProcess,
+	float SolidShadowStrength,
+	float LightOffset_Pitch,
+	float SDFPitchPosition,
+	float ShadowProcess,
+	float ShadowWidth,
+	float CPD1,
+	float3 CPD_HeadForward,
+	float3 CPD_HeadSide,
+	float CPD11,
+	float CPD12,
+	float CPD13,
+	float MPC_EyeEmissive,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float KuroGBufferMode,
+	float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale,
+	float OutOfBoundsMask,
+	float3 ObjectWorldPosition,
+	float3 ObjectBounds,
+	uint LightingChannelMask,
+	float2 UV2,
+	float2 UV3,
+	float2 SvPositionXY,
+	float2 ViewRectMin,
+	float4 ViewSizeAndInvSize,
+	Texture2D Second_RGB,
+	SamplerState Second_RGBSampler,
+	Texture2D R_Noise_A_Mask,
+	SamplerState R_Noise_A_MaskSampler,
+	float4 SecondTex_UVSwitch,
+	float Second_UseScreenUV,
+	float Second_RotCos,
+	float Second_RotSin,
+	float4 Second_UV,
+	float2 Second_UV_Offset,
+	float4 Second_Refine,
+	float3 Second_ColorTint,
+	float EffectMaskTexUV2Switch,
+	float Effect_Progress)
+{
+	const float4 z4 = float4(0.0, 0.0, 0.0, 0.0);
+	return WuwaToonEyeBasePass_R4Impl(false, false, false, true, true, true, 1, true, false, false, false, false,
+		HeightLightMap, HeightLightMapSampler, EM, EMSampler, MainTex, MainTexSampler, MaskTex, MaskTexClampSampler, UV0, UV1, VertexColor, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, GameTime, SecondLight_WidthX, SecondLight_WidthY, LightNormlScale, SecondLight_PositionX, SecondLight_PositionY, SecondLight_Position_02X, SecondLight_Position_02Y, LightPositionX, LightPositionY, HeightLight_WidthX, HeightLight_WidthY, HeightLight_PositionX, HeightLight_PositionY, HeightLight_Color, ParallaxOffset, EyeSize, EyeScale, MainTexColorTint, Rot01Cos, Rot01Sin, ShapeScaleX, ShapeScaleY, EdgeColor, HeightLightColor, OutLineColor, EyeLightSimulation_Color, EyeLightSimulation_TongKong, EyeLightSimulation_YanBai, EmissionColor, E_Motion_Emissive, SelectionColor, SubsurfaceColor, ScaleTransition_Speed, EyeLight_TransitionScale, UseEyeScaleTransition, LightDifferentScale, LightShakeSpeed, LightShakeScale, LightShakPositionX, LightShakPositionY, RotateAngle, LightEmissiveInt, LightDisable, HeightLightScale, ParallaxHeight, ShapePosition01X, ShapePosition01Y, EdgeWidth, UseProLight, OpacityIntensity, Main_EmissionPower, Desaturation, SolidShadowProcess, SolidShadowStrength, LightOffset_Pitch, SDFPitchPosition, ShadowProcess, ShadowWidth, CPD1, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, CPD13, MPC_EyeEmissive, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, 0.0, 0.0, 0.0, 0.0, 0.0, UV2, UV3, SvPositionXY, ViewRectMin, ViewSizeAndInvSize, Second_RGB, Second_RGBSampler, R_Noise_A_Mask, R_Noise_A_MaskSampler, SecondTex_UVSwitch, Second_UseScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset, Second_Refine, Second_ColorTint, z4.xyz, z4, EffectMaskTexUV2Switch, Effect_Progress, z4, 0.0, z4, 0.0, 0.0, 0.0, 0.0, 0.0, z4.xyz, 0.0, EM, EMSampler, EM, EMSampler, EM, EMSampler, z4, z4, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+}
+
+// AlphaEmissionSecondNoiseRim: PS __110584 (1 roster MI, e.g. MI_R2T1LucyMd10011Eye). UseNoise: R_Noise_A_Mask.r noise displaces the Second UV; UseRim: + FresnelRim_RimColor x view fresnel; mask .r.
+FWuwaToonGBuffer WuwaToonEyeBasePass_AlphaEmissionSecondNoiseRim(
+	Texture2D HeightLightMap,
+	SamplerState HeightLightMapSampler,
+	Texture2D EM,
+	SamplerState EMSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MaskTex,
+	SamplerState MaskTexClampSampler,
+	float2 UV0,
+	float2 UV1,
+	float4 VertexColor,
+	float3 WorldTangent,
+	float3 WorldNormal,
+	float TangentSign,
+	float3 WorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float GameTime,
+	float SecondLight_WidthX,
+	float SecondLight_WidthY,
+	float LightNormlScale,
+	float SecondLight_PositionX,
+	float SecondLight_PositionY,
+	float SecondLight_Position_02X,
+	float SecondLight_Position_02Y,
+	float LightPositionX,
+	float LightPositionY,
+	float HeightLight_WidthX,
+	float HeightLight_WidthY,
+	float HeightLight_PositionX,
+	float HeightLight_PositionY,
+	float4 HeightLight_Color,
+	float3 ParallaxOffset,
+	float2 EyeSize,
+	float EyeScale,
+	float3 MainTexColorTint,
+	float Rot01Cos,
+	float Rot01Sin,
+	float ShapeScaleX,
+	float ShapeScaleY,
+	float3 EdgeColor,
+	float3 HeightLightColor,
+	float4 OutLineColor,
+	float4 EyeLightSimulation_Color,
+	float4 EyeLightSimulation_TongKong,
+	float4 EyeLightSimulation_YanBai,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SubsurfaceColor,
+	float ScaleTransition_Speed,
+	float EyeLight_TransitionScale,
+	float UseEyeScaleTransition,
+	float LightDifferentScale,
+	float LightShakeSpeed,
+	float LightShakeScale,
+	float LightShakPositionX,
+	float LightShakPositionY,
+	float RotateAngle,
+	float LightEmissiveInt,
+	float LightDisable,
+	float HeightLightScale,
+	float ParallaxHeight,
+	float ShapePosition01X,
+	float ShapePosition01Y,
+	float EdgeWidth,
+	float UseProLight,
+	float OpacityIntensity,
+	float Desaturation,
+	float SolidShadowProcess,
+	float SolidShadowStrength,
+	float LightOffset_Pitch,
+	float SDFPitchPosition,
+	float ShadowProcess,
+	float ShadowWidth,
+	float CPD1,
+	float3 CPD_HeadForward,
+	float3 CPD_HeadSide,
+	float CPD11,
+	float CPD12,
+	float CPD13,
+	float MPC_EyeEmissive,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float KuroGBufferMode,
+	float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale,
+	float OutOfBoundsMask,
+	float3 ObjectWorldPosition,
+	float3 ObjectBounds,
+	uint LightingChannelMask,
+	float2 UV2,
+	float2 UV3,
+	float2 SvPositionXY,
+	float2 ViewRectMin,
+	float4 ViewSizeAndInvSize,
+	Texture2D Second_RGB,
+	SamplerState Second_RGBSampler,
+	Texture2D R_Noise_A_Mask,
+	SamplerState R_Noise_A_MaskSampler,
+	float4 SecondTex_UVSwitch,
+	float Second_UseScreenUV,
+	float Second_RotCos,
+	float Second_RotSin,
+	float4 Second_UV,
+	float2 Second_UV_Offset,
+	float4 Second_Refine,
+	float3 Second_ColorTint,
+	float EffectMaskTexUV2Switch,
+	float Effect_Progress,
+	float4 Noise_UVSwitch,
+	float Noise_UseScreenUV,
+	float4 NoiseUV,
+	float NoiseStrength,
+	float Second_NoiseStrength,
+	float FresnelRim_RimRange,
+	float FresnelRim_Smooth,
+	float FresnelRim_Reverse,
+	float3 FresnelRim_RimColor)
+{
+	const float4 z4 = float4(0.0, 0.0, 0.0, 0.0);
+	return WuwaToonEyeBasePass_R4Impl(true, false, false, false, false, true, 1, true, true, true, false, false,
+		HeightLightMap, HeightLightMapSampler, EM, EMSampler, MainTex, MainTexSampler, MaskTex, MaskTexClampSampler, UV0, UV1, VertexColor, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, GameTime, SecondLight_WidthX, SecondLight_WidthY, LightNormlScale, SecondLight_PositionX, SecondLight_PositionY, SecondLight_Position_02X, SecondLight_Position_02Y, LightPositionX, LightPositionY, HeightLight_WidthX, HeightLight_WidthY, HeightLight_PositionX, HeightLight_PositionY, HeightLight_Color, ParallaxOffset, EyeSize, EyeScale, MainTexColorTint, Rot01Cos, Rot01Sin, ShapeScaleX, ShapeScaleY, EdgeColor, HeightLightColor, OutLineColor, EyeLightSimulation_Color, EyeLightSimulation_TongKong, EyeLightSimulation_YanBai, EmissionColor, E_Motion_Emissive, SelectionColor, SubsurfaceColor, ScaleTransition_Speed, EyeLight_TransitionScale, UseEyeScaleTransition, LightDifferentScale, LightShakeSpeed, LightShakeScale, LightShakPositionX, LightShakPositionY, RotateAngle, LightEmissiveInt, LightDisable, HeightLightScale, ParallaxHeight, ShapePosition01X, ShapePosition01Y, EdgeWidth, UseProLight, OpacityIntensity, 0.0, Desaturation, SolidShadowProcess, SolidShadowStrength, LightOffset_Pitch, SDFPitchPosition, ShadowProcess, ShadowWidth, CPD1, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, CPD13, MPC_EyeEmissive, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, 0.0, 0.0, 0.0, 0.0, 0.0, UV2, UV3, SvPositionXY, ViewRectMin, ViewSizeAndInvSize, Second_RGB, Second_RGBSampler, R_Noise_A_Mask, R_Noise_A_MaskSampler, SecondTex_UVSwitch, Second_UseScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset, Second_Refine, Second_ColorTint, z4.xyz, z4, EffectMaskTexUV2Switch, Effect_Progress, Noise_UVSwitch, Noise_UseScreenUV, NoiseUV, NoiseStrength, Second_NoiseStrength, FresnelRim_RimRange, FresnelRim_Smooth, FresnelRim_Reverse, FresnelRim_RimColor, 0.0, EM, EMSampler, EM, EMSampler, EM, EMSampler, z4, z4, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+}
+
+// BreathSecondNoiseVectorMask: PS __315257 (1 roster MI, e.g. MI_R2T1RebeccaMd10011Eye). UseBreathLight + Second + UseNoise + UseVectorMaskChannel (mask = dot(R_Noise_A_Mask, EffectMaskChannel_Vector)).
+FWuwaToonGBuffer WuwaToonEyeBasePass_BreathSecondNoiseVectorMask(
+	Texture2D HeightLightMap,
+	SamplerState HeightLightMapSampler,
+	Texture2D EM,
+	SamplerState EMSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MaskTex,
+	SamplerState MaskTexClampSampler,
+	float2 UV0,
+	float2 UV1,
+	float4 VertexColor,
+	float3 WorldTangent,
+	float3 WorldNormal,
+	float TangentSign,
+	float3 WorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float GameTime,
+	float SecondLight_WidthX,
+	float SecondLight_WidthY,
+	float LightNormlScale,
+	float SecondLight_PositionX,
+	float SecondLight_PositionY,
+	float SecondLight_Position_02X,
+	float SecondLight_Position_02Y,
+	float LightPositionX,
+	float LightPositionY,
+	float HeightLight_WidthX,
+	float HeightLight_WidthY,
+	float HeightLight_PositionX,
+	float HeightLight_PositionY,
+	float4 HeightLight_Color,
+	float3 ParallaxOffset,
+	float2 EyeSize,
+	float EyeScale,
+	float3 MainTexColorTint,
+	float Rot01Cos,
+	float Rot01Sin,
+	float ShapeScaleX,
+	float ShapeScaleY,
+	float3 EdgeColor,
+	float3 HeightLightColor,
+	float4 OutLineColor,
+	float4 EyeLightSimulation_Color,
+	float4 EyeLightSimulation_TongKong,
+	float4 EyeLightSimulation_YanBai,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SubsurfaceColor,
+	float ScaleTransition_Speed,
+	float EyeLight_TransitionScale,
+	float UseEyeScaleTransition,
+	float LightDifferentScale,
+	float LightShakeSpeed,
+	float LightShakeScale,
+	float LightShakPositionX,
+	float LightShakPositionY,
+	float RotateAngle,
+	float LightEmissiveInt,
+	float LightDisable,
+	float HeightLightScale,
+	float ParallaxHeight,
+	float ShapePosition01X,
+	float ShapePosition01Y,
+	float EdgeWidth,
+	float UseProLight,
+	float OpacityIntensity,
+	float Main_EmissionPower,
+	float Desaturation,
+	float SolidShadowProcess,
+	float SolidShadowStrength,
+	float LightOffset_Pitch,
+	float SDFPitchPosition,
+	float ShadowProcess,
+	float ShadowWidth,
+	float CPD1,
+	float3 CPD_HeadForward,
+	float3 CPD_HeadSide,
+	float CPD11,
+	float CPD12,
+	float CPD13,
+	float MPC_EyeEmissive,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float KuroGBufferMode,
+	float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale,
+	float OutOfBoundsMask,
+	float3 ObjectWorldPosition,
+	float3 ObjectBounds,
+	uint LightingChannelMask,
+	float BreatheStrength,
+	float BreatheFrequency,
+	float BreathePropotion,
+	float EmissionStrength,
+	float EmissionBreathThreshold,
+	float2 UV2,
+	float2 UV3,
+	float2 SvPositionXY,
+	float2 ViewRectMin,
+	float4 ViewSizeAndInvSize,
+	Texture2D Second_RGB,
+	SamplerState Second_RGBSampler,
+	Texture2D R_Noise_A_Mask,
+	SamplerState R_Noise_A_MaskSampler,
+	float4 SecondTex_UVSwitch,
+	float Second_UseScreenUV,
+	float Second_RotCos,
+	float Second_RotSin,
+	float4 Second_UV,
+	float2 Second_UV_Offset,
+	float4 Second_Refine,
+	float3 Second_ColorTint,
+	float4 EffectMaskChannel_Vector,
+	float EffectMaskTexUV2Switch,
+	float Effect_Progress,
+	float4 Noise_UVSwitch,
+	float Noise_UseScreenUV,
+	float4 NoiseUV,
+	float NoiseStrength,
+	float Second_NoiseStrength)
+{
+	const float4 z4 = float4(0.0, 0.0, 0.0, 0.0);
+	return WuwaToonEyeBasePass_R4Impl(false, true, false, false, false, true, 3, true, true, false, false, false,
+		HeightLightMap, HeightLightMapSampler, EM, EMSampler, MainTex, MainTexSampler, MaskTex, MaskTexClampSampler, UV0, UV1, VertexColor, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, GameTime, SecondLight_WidthX, SecondLight_WidthY, LightNormlScale, SecondLight_PositionX, SecondLight_PositionY, SecondLight_Position_02X, SecondLight_Position_02Y, LightPositionX, LightPositionY, HeightLight_WidthX, HeightLight_WidthY, HeightLight_PositionX, HeightLight_PositionY, HeightLight_Color, ParallaxOffset, EyeSize, EyeScale, MainTexColorTint, Rot01Cos, Rot01Sin, ShapeScaleX, ShapeScaleY, EdgeColor, HeightLightColor, OutLineColor, EyeLightSimulation_Color, EyeLightSimulation_TongKong, EyeLightSimulation_YanBai, EmissionColor, E_Motion_Emissive, SelectionColor, SubsurfaceColor, ScaleTransition_Speed, EyeLight_TransitionScale, UseEyeScaleTransition, LightDifferentScale, LightShakeSpeed, LightShakeScale, LightShakPositionX, LightShakPositionY, RotateAngle, LightEmissiveInt, LightDisable, HeightLightScale, ParallaxHeight, ShapePosition01X, ShapePosition01Y, EdgeWidth, UseProLight, OpacityIntensity, Main_EmissionPower, Desaturation, SolidShadowProcess, SolidShadowStrength, LightOffset_Pitch, SDFPitchPosition, ShadowProcess, ShadowWidth, CPD1, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, CPD13, MPC_EyeEmissive, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, BreatheStrength, BreatheFrequency, BreathePropotion, EmissionStrength, EmissionBreathThreshold, UV2, UV3, SvPositionXY, ViewRectMin, ViewSizeAndInvSize, Second_RGB, Second_RGBSampler, R_Noise_A_Mask, R_Noise_A_MaskSampler, SecondTex_UVSwitch, Second_UseScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset, Second_Refine, Second_ColorTint, z4.xyz, EffectMaskChannel_Vector, EffectMaskTexUV2Switch, Effect_Progress, Noise_UVSwitch, Noise_UseScreenUV, NoiseUV, NoiseStrength, Second_NoiseStrength, 0.0, 0.0, 0.0, z4.xyz, 0.0, EM, EMSampler, EM, EMSampler, EM, EMSampler, z4, z4, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+}
+
+// DiffColorEyesUV2XingHen: PS __170587 (2 roster MIs, e.g. MI_R2T1SanhuaMd10011Eye). UseCharXingHen (Sanhua): star mark from D / Noise / Noise02 on lerp(UV0, parallaxed UV2, XingHenUV) recolours the albedo and replaces the HeightLightMap emission, faded by 1 - VC.r * (1 - VC.g); plus UseDifferentColorEyes on UV2.
+FWuwaToonGBuffer WuwaToonEyeBasePass_DiffColorEyesUV2XingHen(
+	Texture2D HeightLightMap,
+	SamplerState HeightLightMapSampler,
+	Texture2D EM,
+	SamplerState EMSampler,
+	Texture2D MainTex,
+	SamplerState MainTexSampler,
+	Texture2D MaskTex,
+	SamplerState MaskTexClampSampler,
+	float2 UV0,
+	float2 UV1,
+	float4 VertexColor,
+	float3 WorldTangent,
+	float3 WorldNormal,
+	float TangentSign,
+	float3 WorldPosition,
+	float3 CameraVector,
+	float3 LightDirVS,
+	float MotionEmissiveMask,
+	float GameTime,
+	float SecondLight_WidthX,
+	float SecondLight_WidthY,
+	float LightNormlScale,
+	float SecondLight_PositionX,
+	float SecondLight_PositionY,
+	float SecondLight_Position_02X,
+	float SecondLight_Position_02Y,
+	float LightPositionX,
+	float LightPositionY,
+	float HeightLight_WidthX,
+	float HeightLight_WidthY,
+	float HeightLight_PositionX,
+	float HeightLight_PositionY,
+	float4 HeightLight_Color,
+	float3 ParallaxOffset,
+	float2 EyeSize,
+	float EyeScale,
+	float3 MainTexColorTint,
+	float Rot01Cos,
+	float Rot01Sin,
+	float ShapeScaleX,
+	float ShapeScaleY,
+	float3 EdgeColor,
+	float3 HeightLightColor,
+	float4 OutLineColor,
+	float4 EyeLightSimulation_Color,
+	float4 EyeLightSimulation_TongKong,
+	float4 EyeLightSimulation_YanBai,
+	float3 EmissionColor,
+	float3 E_Motion_Emissive,
+	float4 SelectionColor,
+	float3 SubsurfaceColor,
+	float ScaleTransition_Speed,
+	float EyeLight_TransitionScale,
+	float UseEyeScaleTransition,
+	float LightDifferentScale,
+	float LightShakeSpeed,
+	float LightShakeScale,
+	float LightShakPositionX,
+	float LightShakPositionY,
+	float RotateAngle,
+	float LightEmissiveInt,
+	float LightDisable,
+	float HeightLightScale,
+	float ParallaxHeight,
+	float ShapePosition01X,
+	float ShapePosition01Y,
+	float EdgeWidth,
+	float UseProLight,
+	float OpacityIntensity,
+	float Main_EmissionPower,
+	float Desaturation,
+	float SolidShadowProcess,
+	float SolidShadowStrength,
+	float LightOffset_Pitch,
+	float SDFPitchPosition,
+	float ShadowProcess,
+	float ShadowWidth,
+	float CPD1,
+	float3 CPD_HeadForward,
+	float3 CPD_HeadSide,
+	float CPD11,
+	float CPD12,
+	float CPD13,
+	float MPC_EyeEmissive,
+	float3 MPC_GlobalCharacterAmbientSkinColor,
+	float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0,
+	float4 ToonLight1,
+	float4 ToonLight2,
+	float4 ToonLight3,
+	float MaterialTextureMipBias,
+	float4 NormalOverrideParameter,
+	float KuroGBufferMode,
+	float3 KuroEmissiveScale,
+	float KuroSkipEmissiveScale,
+	float OutOfBoundsMask,
+	float3 ObjectWorldPosition,
+	float3 ObjectBounds,
+	uint LightingChannelMask,
+	float2 UV2,
+	Texture2D D,
+	SamplerState DSampler,
+	Texture2D Noise,
+	SamplerState NoiseSampler,
+	Texture2D Noise02,
+	SamplerState Noise02Sampler,
+	float4 SDFColor,
+	float4 SDFColor02,
+	float ShakeNoiseInt,
+	float XingHenUV,
+	float UVScaleX,
+	float UVScaleY,
+	float UVpositionX,
+	float UVpositionY,
+	float XingHenControl,
+	float SDFStart,
+	float SoundWaveTiling01,
+	float SoundWaveSpeed01,
+	float SoundWaveInt01,
+	float SoundWaveTiling02,
+	float SoundWaveSpeed02,
+	float SoundWaveInt02,
+	float XHMax)
+{
+	const float4 z4 = float4(0.0, 0.0, 0.0, 0.0);
+	return WuwaToonEyeBasePass_R4Impl(false, false, false, true, true, false, 0, false, false, false, false, true,
+		HeightLightMap, HeightLightMapSampler, EM, EMSampler, MainTex, MainTexSampler, MaskTex, MaskTexClampSampler, UV0, UV1, VertexColor, WorldTangent, WorldNormal, TangentSign, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, GameTime, SecondLight_WidthX, SecondLight_WidthY, LightNormlScale, SecondLight_PositionX, SecondLight_PositionY, SecondLight_Position_02X, SecondLight_Position_02Y, LightPositionX, LightPositionY, HeightLight_WidthX, HeightLight_WidthY, HeightLight_PositionX, HeightLight_PositionY, HeightLight_Color, ParallaxOffset, EyeSize, EyeScale, MainTexColorTint, Rot01Cos, Rot01Sin, ShapeScaleX, ShapeScaleY, EdgeColor, HeightLightColor, OutLineColor, EyeLightSimulation_Color, EyeLightSimulation_TongKong, EyeLightSimulation_YanBai, EmissionColor, E_Motion_Emissive, SelectionColor, SubsurfaceColor, ScaleTransition_Speed, EyeLight_TransitionScale, UseEyeScaleTransition, LightDifferentScale, LightShakeSpeed, LightShakeScale, LightShakPositionX, LightShakPositionY, RotateAngle, LightEmissiveInt, LightDisable, HeightLightScale, ParallaxHeight, ShapePosition01X, ShapePosition01Y, EdgeWidth, UseProLight, OpacityIntensity, Main_EmissionPower, Desaturation, SolidShadowProcess, SolidShadowStrength, LightOffset_Pitch, SDFPitchPosition, ShadowProcess, ShadowWidth, CPD1, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, CPD13, MPC_EyeEmissive, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, ToonLight0, ToonLight1, ToonLight2, ToonLight3, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask, 0.0, 0.0, 0.0, 0.0, 0.0, UV2, UV0, UV0, UV0, z4, EM, EMSampler, EM, EMSampler, z4, 0.0, 1.0, 0.0, z4, z4.xy, z4, z4.xyz, z4.xyz, z4, 0.0, 0.0, z4, 0.0, z4, 0.0, 0.0, 0.0, 0.0, 0.0, z4.xyz, 0.0, D, DSampler, Noise, NoiseSampler, Noise02, Noise02Sampler, SDFColor, SDFColor02, ShakeNoiseInt, XingHenUV, UVScaleX, UVScaleY, UVpositionX, UVpositionY, XingHenControl, SDFStart, SoundWaveTiling01, SoundWaveSpeed01, SoundWaveInt01, SoundWaveTiling02, SoundWaveSpeed02, SoundWaveInt02, XHMax);
+}
+// ==== ROUND4-EYE-WRAPPERS END ====
+
+// =====================================================================================================================
+// Round 5 (research/roster/round5/facehair_eye_special.md): LOD2 male eye, M_Char_Eye with UseParallaxOcclusion off,
+// UseHighLightPattern off and UseEyeSDF off (PS __19588 / VS __19585, MI_R2T1PlayerMaleMd10011Eyes_LOD2).
+// =====================================================================================================================
+// VS __19585 l.274-372 (asm_orig/19585.asm.txt): TEXCOORD2.yzw light direction. Both yaw sources go through the Kuro degree sincos with the pitch fixed
+// at 45 degrees; Kuro's compiler folded cos/sin(45 deg) of that polynomial into 0x3F3504F5 (xy scale) and 0x3F3504F1 (z):
+//   d(yaw) = (cos(yaw) * c45, sin(yaw) * c45, s45) / |.|;  yaw0 = MPC_GlobalShaderParameters GlobalCharacterMainLightYaw (VS cb3[0].z),
+//   yaw1 = CPD0;  TEXCOORD2.yzw = lerp(d(yaw0), d(yaw1), saturate(sign(CPD1 - 0.5)))  (z = s45 / |.| as its own divide)
+// TEXCOORD2.x (motion mask) and SV_POSITION are the verified WuwaToonBaseVS_WPO (VS __19585 == Face VS __35570 on those outputs).
+float3 WuwaToonEyeLOD2VS_LightDir(float CPD0, float CPD1, float MPC_GlobalCharacterMainLightYaw)
+{
+	const float c45 = asfloat(0x3F3504F5u);
+	const float s45 = asfloat(0x3F3504F1u);
+	float s0, c0, s1, c1;
+	WuwaKuroSinCosDeg(MPC_GlobalCharacterMainLightYaw, s0, c0);
+	float3 d0 = float3(c0 * c45, s0 * c45, s45);
+	float  l0 = sqrt(dot(d0, d0));
+	WuwaKuroSinCosDeg(CPD0, s1, c1);
+	float3 d1 = float3(c1 * c45, s1 * c45, s45);
+	float  l1 = sqrt(dot(d1, d1));
+	float  sel = saturate((float)WuwaKuroSignI(CPD1 - 0.5));
+	float2 xy0 = d0.xy / l0;
+	float2 xy = sel * (d1.xy / l1 - xy0) + xy0;
+	float  z0 = s45 / l0;
+	float  z = sel * (s45 / l1 - z0) + z0;
+	return float3(xy, z);
+}
+
+// PS __19588: the round-4 NoParallax eye body with bNoHighlightPattern + bHalfLambert. Inputs of the SDF eye that this
+// variant does not read (MaskTex, UV1, tangent frame, CameraVector, HeightLight_* / Parallax*, SubsurfaceColor, SolidShadowProcess,
+// LightOffset_Pitch / SDFPitchPosition / ShadowProcess / ShadowWidth, CPD, the global MPC and ToonLight1/2) are not exposed;
+// the body gets inert stand-ins for them (dead code).
+FWuwaToonGBuffer WuwaToonEyeBasePass_LOD2HalfLambert(
+	Texture2D HeightLightMap, SamplerState HeightLightMapSampler, Texture2D EM, SamplerState EMSampler,
+	Texture2D MainTex, SamplerState MainTexSampler,
+	float2 UV0, float4 VertexColor, float3 WorldNormal, float3 WorldPosition, float3 LightDirVS, float MotionEmissiveMask, float GameTime,
+	float SecondLight_WidthX, float SecondLight_WidthY, float LightNormlScale,
+	float SecondLight_PositionX, float SecondLight_PositionY, float SecondLight_Position_02X, float SecondLight_Position_02Y,
+	float LightPositionX, float LightPositionY,
+	float2 EyeSize, float EyeScale, float3 MainTexColorTint,
+	float Rot01Cos, float Rot01Sin, float ShapeScaleX, float ShapeScaleY, float3 EdgeColor, float3 HeightLightColor, float4 OutLineColor,
+	float4 EyeLightSimulation_Color, float4 EyeLightSimulation_TongKong, float4 EyeLightSimulation_YanBai,
+	float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor,
+	float ScaleTransition_Speed, float EyeLight_TransitionScale, float UseEyeScaleTransition, float LightDifferentScale,
+	float LightShakeSpeed, float LightShakeScale, float LightShakPositionX, float LightShakPositionY,
+	float RotateAngle, float LightEmissiveInt, float LightDisable,
+	float ShapePosition01X, float ShapePosition01Y, float EdgeWidth, float UseProLight, float OpacityIntensity,
+	float Main_EmissionPower, float Desaturation, float SolidShadowStrength,
+	float MPC_EyeEmissive, float4 ToonLight0, float4 ToonLight3,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask,
+	float3 ShadowColor, float3 ActorPosition, float3 PrimActorWorldPosition, float RampShadowColorScale, float RampShadowIntensity,
+	float SolidShadowThreshold, float ShadowOffset, float RampShadowRange, float SolidShadowSaturation, float SolidShadowView, float ShadowRange)
+{
+	const float4 z4 = float4(0.0, 0.0, 0.0, 0.0);
+	return WuwaToonEyeBasePass_R4Impl(false, false, true, false, false, false, 0, false, false, false, false, false,
+		HeightLightMap, HeightLightMapSampler, EM, EMSampler, MainTex, MainTexSampler, EM, EMSampler,
+		UV0, UV0, VertexColor, z4.xyz, WorldNormal, 1.0, WorldPosition, float3(0.0, 0.0, 1.0), LightDirVS, MotionEmissiveMask, GameTime,
+		SecondLight_WidthX, SecondLight_WidthY, LightNormlScale,
+		SecondLight_PositionX, SecondLight_PositionY, SecondLight_Position_02X, SecondLight_Position_02Y, LightPositionX, LightPositionY,
+		1.0, 1.0, 0.0, 0.0, z4, z4.xyz, EyeSize, EyeScale, MainTexColorTint,
+		Rot01Cos, Rot01Sin, ShapeScaleX, ShapeScaleY, EdgeColor, HeightLightColor, OutLineColor,
+		EyeLightSimulation_Color, EyeLightSimulation_TongKong, EyeLightSimulation_YanBai,
+		EmissionColor, E_Motion_Emissive, SelectionColor, z4.xyz,
+		ScaleTransition_Speed, EyeLight_TransitionScale, UseEyeScaleTransition, LightDifferentScale,
+		LightShakeSpeed, LightShakeScale, LightShakPositionX, LightShakPositionY,
+		RotateAngle, LightEmissiveInt, LightDisable, 1.0, 0.0,
+		ShapePosition01X, ShapePosition01Y, EdgeWidth, UseProLight, OpacityIntensity,
+		Main_EmissionPower, Desaturation, 0.0, SolidShadowStrength,
+		0.0, 0.0, 0.0, 1.0,
+		0.0, z4.xyz, z4.xyz, 0.0, 0.0, 0.0,
+		MPC_EyeEmissive, z4.xyz, z4.xyz,
+		ToonLight0, z4, z4, ToonLight3,
+		MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode,
+		KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask,
+		0.0, 0.0, 0.0, 0.0, 0.9,
+		UV0, UV0, UV0, UV0, z4, EM, EMSampler, EM, EMSampler,
+		z4, 0.0, 1.0, 0.0, z4, z4.xy, z4, z4.xyz, z4.xyz, z4, 0.0, 0.0, z4, 0.0, z4, 0.0, 0.0, 0.0, 0.0, 0.0, z4.xyz, 0.0,
+		EM, EMSampler, EM, EMSampler, EM, EMSampler, z4, z4, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+		true, true, ShadowColor, ActorPosition, PrimActorWorldPosition, RampShadowColorScale, RampShadowIntensity,
+		SolidShadowThreshold, ShadowOffset, RampShadowRange, SolidShadowSaturation, SolidShadowView, ShadowRange);
+}

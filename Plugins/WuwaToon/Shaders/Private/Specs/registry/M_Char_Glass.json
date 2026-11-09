@@ -1,0 +1,72 @@
+{
+ "root_material": "M_Char_Glass",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "Char_Glass_2SThick.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "446afb3320585abd1fa60b4bfd1b498d80d2761b"
+    ],
+    "base_pass_vs_hash": [
+     "3be53aa34d908c497a857b816a392a9876fe260e"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/glass/results_multi_final.json summary.glass_446afb (33 runs, o0 540672/540672 bit-exact); VS #2466 engine_only (no Material uniform buffer declared (CB0[260] TranslucentBasePass, CB1[309] View, CB2[45] Primitive, CB3[1] GPU-skin VF); same cbuffer set as round-1 engine_only VS #2157; evidence/validation/shaderdiff/weapons/round3/glass/vs_status_glass.json (r3/glass_vs_status.py))",
+   "ps_archive_index": 58467,
+   "vs_archive_index": [
+    2466
+   ],
+   "vs_status": {
+    "3be53aa34d908c497a857b816a392a9876fe260e": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 2,
+   "roster_slot_uses": 3,
+   "entities": [
+    "character:Zhezhi",
+    "skin:Downtown Repose",
+    "skin:Mountain's Palette"
+   ],
+   "example_mis": [
+    "MI_EZanniSunniesMd10011Glass",
+    "MI_R2T1ZhezhiMd10011Glass"
+   ],
+   "notes": "MI_R2T1ZhezhiMd10011Glass (Zhezhi), MI_EZanniSunniesMd10011Glass (Zani sunglasses). 33 runs, o0 540672/540672 bit-exact (engine tail kuro_tail_glass.hlsli). Lit translucent: UE material = unlit translucent, Emissive = X.Emissive + ForwardLighting; engine inputs (Kuro ambient View rows, Kuro local-light buffer, EyeAdaptation) listed in the spec engine_inputs. Uniform expressions E_Tex_RotCos / E_Tex_RotSin."
+  },
+  {
+   "spec": "Char_Glass_1S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "474cc6dc0dd2ae61c6888167cf1d3168ad1f79ef"
+    ],
+    "base_pass_vs_hash": [
+     "3be53aa34d908c497a857b816a392a9876fe260e"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/glass/results_multi_final.json summary.glass_474cc6 (30 runs, o0 491520/491520 bit-exact); VS #2466 engine_only (no Material uniform buffer declared (CB0[260] TranslucentBasePass, CB1[309] View, CB2[45] Primitive, CB3[1] GPU-skin VF); same cbuffer set as round-1 engine_only VS #2157; evidence/validation/shaderdiff/weapons/round3/glass/vs_status_glass.json (r3/glass_vs_status.py))",
+   "ps_archive_index": 215181,
+   "vs_archive_index": [
+    2466
+   ],
+   "vs_status": {
+    "3be53aa34d908c497a857b816a392a9876fe260e": "engine_only"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Yuanwu",
+    "skin:An Elegant Cut"
+   ],
+   "example_mis": [
+    "MI_R2T1YuanwuMd10011Glass"
+   ],
+   "notes": "MI_R2T1YuanwuMd10011Glass (Yuanwu). 30 runs, o0 491520/491520 bit-exact. Same contract as Char_Glass_2SThick (one-sided, no UseThickColor)."
+  }
+ ]
+}

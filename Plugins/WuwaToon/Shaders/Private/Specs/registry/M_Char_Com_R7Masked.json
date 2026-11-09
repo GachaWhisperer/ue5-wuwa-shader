@@ -1,0 +1,479 @@
+{
+ "root_material": "M_Char_Com",
+ "generated_by": "tools/shaderdiff/roster_charcom/register_round7_masked.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 7 (masked): masked / UseTranslucent / fur weapon and prop PS (WuwaToonBasePass_CommonMasked.ush). One variant per verified (PS, VS set); research/roster/round7/masked.md",
+ "variants": [
+  {
+   "spec": "ToonCommon_BodyUpNoNormalMapNoPBRNoRampNoVDLBreathTwoSidedRimMasked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "5ffce3f3b5643411d6b362e282a59afdbf65d26e"
+    ],
+    "base_pass_vs_hash": [
+     "a887ad782dd5ead290eb3471137557b1ab5e5f5c"
+    ]
+   },
+   "verified": "research/roster/round7/masked.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/masked/results_round7_masked.json variants.r7m_bodyup_nonm_nopbr_noramp_novdl_breath_2s_rim_masked_141492 (537852/537852 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #21055 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 141492,
+   "vs_archive_index": [
+    21055
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Sword505Md20001_01_Effect"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": true,
+    "UseRampColor": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true,
+    "UsePBR": false,
+    "UseNormalMap": false,
+    "UseRim": true,
+    "UseEffectMaterial": true,
+    "effect_mask_channel": "A"
+   },
+   "round": "7 (masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoNormalMapNoRampNoVDLBreathTwoSidedRimMasked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "24ff44f866777da51ade3cd2c374ad2d32130da2"
+    ],
+    "base_pass_vs_hash": [
+     "28bc64f2f0f9707e61b9916793566721beb8a535"
+    ]
+   },
+   "verified": "research/roster/round7/masked.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/masked/results_round7_masked.json variants.r7m_bodyup_nonm_noramp_novdl_breath_2s_rim_masked_117951 (555799/555799 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #112448 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 117951,
+   "vs_archive_index": [
+    112448
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Device506Md20001Effect_01"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": true,
+    "UseRampColor": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true,
+    "UseNormalMap": false,
+    "UseRim": true,
+    "UseEffectMaterial": true,
+    "effect_mask_channel": "A"
+   },
+   "round": "7 (masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoNormalMapNoRampNoVDLBreathScalarPBRTwoSidedMasked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "237ff4e381a713d5225dc728f8b60a273d56ca4d"
+    ],
+    "base_pass_vs_hash": [
+     "b36f95cfb98dfa15bf8ea35cd7935ebae344d3e4"
+    ]
+   },
+   "verified": "research/roster/round7/masked.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/masked/results_round7_masked.json variants.r7m_bodyup_nonm_noramp_novdl_breath_scalarpbr_2s_masked_245715 (638622/638622 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #36717 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 245715,
+   "vs_archive_index": [
+    36717
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Device509Md20001_Effect"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": true,
+    "UseRampColor": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true,
+    "UseNormalMap": false,
+    "UsePBRMask (使用PBRMask)": false
+   },
+   "round": "7 (masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoRampMaskedDTAA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "cddc34c0dc3f79237293ddc7f46b473c170f0e02"
+    ],
+    "base_pass_vs_hash": [
+     "1a854a1eb97cfe2b445fa77919c6feb55f380281"
+    ]
+   },
+   "verified": "research/roster/round7/masked.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/masked/results_round7_masked.json variants.r7m_bodyup_noramp_dtaa_320587 (531886/531886 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #35700",
+   "ps_archive_index": 320587,
+   "vs_archive_index": [
+    35700
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Scabbard507Md20001Effect_03"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": true,
+    "UseRampColor": false,
+    "UseVDLShadowoffset": true,
+    "UseBreathLight": false,
+    "UseTranslucent": true
+   },
+   "round": "7 (masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoRampNoVDLBreathScalarPBRMaskedDTAA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "df7e035f52c9985057343a4d962dc877c4fabfb1"
+    ],
+    "base_pass_vs_hash": [
+     "a7cc8b8bdb8fbc3a9acff4e51fd94102fb542276"
+    ]
+   },
+   "verified": "research/roster/round7/masked.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/masked/results_round7_masked.json variants.r7m_bodyup_noramp_novdl_breath_scalarpbr_dtaa_297586 (842804/842804 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #267012 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 297586,
+   "vs_archive_index": [
+    267012
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Gun505Md20001_Glass"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": true,
+    "UseRampColor": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true,
+    "UsePBRMask (使用PBRMask)": false,
+    "UseTranslucent": true
+   },
+   "round": "7 (masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoRampNoVDLBreathScalarPBRMasked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0c6a2509a94234c2cc813fb37e70c02e06373b7f"
+    ],
+    "base_pass_vs_hash": [
+     "ad8374fcb0e576289b5e7aede9a202d21576e537"
+    ]
+   },
+   "verified": "research/roster/round7/masked.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/masked/results_round7_masked.json variants.r7m_bodyup_noramp_novdl_breath_scalarpbr_masked_60830 (668395/668395 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #23019 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 60830,
+   "vs_archive_index": [
+    23019
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ELinnaeaPhoneMd10011_Bengti"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": true,
+    "UseRampColor": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true,
+    "UsePBRMask (使用PBRMask)": false
+   },
+   "round": "7 (masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoRampNoVDLBreathScalarPBRSecondBumpMaskedDTAA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "e35e62819de8ddb45aa109f8984c4ff15a5944e1"
+    ],
+    "base_pass_vs_hash": [
+     "51c08f063db99733f7bd831eb0a5ba200d416b32"
+    ]
+   },
+   "verified": "research/roster/round7/masked.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/masked/results_round7_masked.json variants.r7m_bodyup_noramp_novdl_breath_scalarpbr_secondbump_dtaa_7805 (909505/909505 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #7752 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 7805,
+   "vs_archive_index": [
+    7752
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ELuoselaCameraMd10011_Glass"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": true,
+    "UseRampColor": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true,
+    "UsePBRMask (使用PBRMask)": false,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "UseNoise": false,
+    "UseFlowEffectEdge": false,
+    "UseBumpOffset": true,
+    "Second_UseObjectScreenUV": false,
+    "effect_mask_channel": "A",
+    "UseTranslucent": true
+   },
+   "round": "7 (masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoRampNoVDLBreathSecondNoiseBumpMasked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "e07b3d276f477f2a444068a46e4dbff2c382c1f1"
+    ],
+    "base_pass_vs_hash": [
+     "87f47ef3ae858255d56985c645045235712ce213"
+    ]
+   },
+   "verified": "research/roster/round7/masked.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/masked/results_round7_masked.json variants.r7m_bodyup_noramp_novdl_breath_secondnoisebump_masked_304228 (561259/561259 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #66467 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 304228,
+   "vs_archive_index": [
+    66467
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ELuoselaFencingMd10011"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": true,
+    "UseRampColor": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "UseNoise": true,
+    "UseFlowEffectEdge": false,
+    "UseBumpOffset": true,
+    "effect_mask_channel": "R"
+   },
+   "round": "7 (masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoRampNoVDLNoDoubleSpecBreathParallaxFur.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "97e6bc6497e0a43d3faec09b09578be567c48f2a"
+    ],
+    "base_pass_vs_hash": [
+     "0d1666b8e87051db52fcfaf0f5c66c5e1211d6fc"
+    ]
+   },
+   "verified": "research/roster/round7/masked.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/masked/results_round7_masked.json variants.r7m_bodyup_noramp_novdl_nods_breath_parallax_fur_8760 (763613/763613 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches, SV_DepthLessEqual 763613/763613); VS #8719 == #50707 (symbolic, evidence/validation/shaderdiff/roster_charcom/round7/masked/vs_round7_masked.json) = round-6 VS port WuwaToonBaseVS_WPO_Fur (evidence/validation/shaderdiff/roster_charcom/round6/vs/vs_verified.json)",
+   "ps_archive_index": 8760,
+   "vs_archive_index": [
+    8719
+   ],
+   "vs_status": "ported_wpo_verified",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ERebeccadogMd10011_Fur"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": true,
+    "UseRampColor": false,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true,
+    "UseFurry": true,
+    "UseFurryParallax": true,
+    "UseDoubleSpecular": false,
+    "UseTangentClip": false
+   },
+   "round": "7 (masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCTwoSidedSecondNoiseMaskedDTAA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "bd778a3534bbc522c6d8ec636756169954853b75"
+    ],
+    "base_pass_vs_hash": [
+     "f90d49a0c58aae77c2d4583dc084c27741cf300f"
+    ]
+   },
+   "verified": "research/roster/round7/masked.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/masked/results_round7_masked.json variants.r7m_bodyup_noskinrampc_2s_secondnoise_dtaa_253413 (595799/595799 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches), variants.r7m_bodyup_noskinrampc_2s_secondnoise_dtaa_253413_tail2 (134011/134011 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches), variants.r7m_bodyup_noskinrampc_2s_secondnoise_dtaa_253413_tail3 (135990/135990 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #253427 == #224964 (symbolic, evidence/validation/shaderdiff/roster_charcom/round7/masked/vs_round7_masked.json) = round-6 VS port WuwaToonBaseVS_WPO_Ghost (evidence/validation/shaderdiff/roster_charcom/round6/vs/vs_verified.json)",
+   "ps_archive_index": 253413,
+   "vs_archive_index": [
+    253427
+   ],
+   "vs_status": "ported_wpo_verified",
+   "roster_mis": 3,
+   "example_mis": [
+    "MI_SS1HuliTail1",
+    "MI_SS1HuliTail2",
+    "MI_SS1HuliTail3"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "UseRampColor": true,
+    "UseVDLShadowoffset": true,
+    "UseBreathLight": false,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "UseNoise": true,
+    "UseFlowEffectEdge": false,
+    "UseBumpOffset": false,
+    "effect_mask_channel": "A",
+    "UseTranslucent": true
+   },
+   "round": "7 (masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCNoVDLNoDoubleSpecBreathSecondNoiseObjUVMasked.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "23460cefcc6c01b9fa2391447a1a41599913d629"
+    ],
+    "base_pass_vs_hash": [
+     "eccbc436034f91f4128bfb5bb0f1e014aa9504b7"
+    ]
+   },
+   "verified": "research/roster/round7/masked.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/masked/results_round7_masked.json variants.r7m_bodyup_noskinrampc_novdl_nods_breath_secondnoise_objuv_masked_10310 (616373/616373 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #10369 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 10310,
+   "vs_archive_index": [
+    10369
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_ELeizhudunMd10011_02"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "UseRampColor": true,
+    "UseVDLShadowoffset": false,
+    "UseBreathLight": true,
+    "UseDoubleSpecular": false,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "UseNoise": true,
+    "UseFlowEffectEdge": false,
+    "UseBumpOffset": false,
+    "Second_UseObjectScreenUV": true,
+    "effect_mask_channel": "R"
+   },
+   "round": "7 (masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCScalarPBRSecondFlowRimMaskedDTAA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "966b9fd203ce3d6a2f7ee1901578ef64f7af5589"
+    ],
+    "base_pass_vs_hash": [
+     "ccce2a01f8e9d965226a360dc9b6b0654aed2a52"
+    ]
+   },
+   "verified": "research/roster/round7/masked.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/masked/results_round7_masked.json variants.r7m_bodyup_noskinrampc_scalarpbr_secondflow_rim_dtaa_24033 (1170310/1170310 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #24052 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 24033,
+   "vs_archive_index": [
+    24052
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_EAimisiWeaponMd10011_Touming"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "UseRampColor": true,
+    "UseVDLShadowoffset": true,
+    "UseBreathLight": false,
+    "UsePBRMask (使用PBRMask)": false,
+    "UseRim": true,
+    "UseEffectMaterial": true,
+    "UseSecond": true,
+    "UseNoise": false,
+    "UseFlowEffectEdge": true,
+    "UseBumpOffset": false,
+    "Second_UseObjectScreenUV": false,
+    "effect_mask_channel": "A",
+    "UseTranslucent": true
+   },
+   "round": "7 (masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCSecondFlowRimMaskedDTAA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "fb8c3b5081e02bf7a37444f4b79f1798f6983ef0"
+    ],
+    "base_pass_vs_hash": [
+     "04105047a6032ad61e17a9e1dd26d9cf20aee1ee"
+    ]
+   },
+   "verified": "research/roster/round7/masked.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/masked/results_round7_masked.json variants.r7m_bodyup_noskinrampc_secondflow_rim_dtaa_300943 (359039/359039 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #300869 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 300943,
+   "vs_archive_index": [
+    300869
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Scabbard507Md20001Effect_01"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "UseRampColor": true,
+    "UseVDLShadowoffset": true,
+    "UseBreathLight": false,
+    "UseRim": true,
+    "UseEffectMaterial": true,
+    "UseSecond": true,
+    "UseNoise": false,
+    "UseFlowEffectEdge": true,
+    "UseBumpOffset": false,
+    "Second_UseObjectScreenUV": false,
+    "effect_mask_channel": "A",
+    "UseTranslucent": true
+   },
+   "round": "7 (masked)"
+  },
+  {
+   "spec": "ToonCommon_BodyUpNoSkinRampCSecondFlowBumpRimMaskedDTAA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "11fc98ea80151e9e00552b6be948b5f3147a83c8"
+    ],
+    "base_pass_vs_hash": [
+     "12dcc2f28567f8bc2cae67bed390d4b214f3770c"
+    ]
+   },
+   "verified": "research/roster/round7/masked.md; PS: evidence/validation/shaderdiff/roster_charcom/round7/masked/results_round7_masked.json variants.r7m_bodyup_noskinrampc_secondflowbump_rim_dtaa_328791 (901153/901153 px bit-exact on o0 o1 o2 o3 o6, 0 discard mismatches); VS #266009 == #35700 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 328791,
+   "vs_archive_index": [
+    266009
+   ],
+   "vs_status": "verified_or_equivalent",
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R5Knuckles506Md20001Effect_01"
+   ],
+   "static_switches_informational": {
+    "UseSkinAllRampColor": false,
+    "UseRampColor": true,
+    "UseVDLShadowoffset": true,
+    "UseBreathLight": false,
+    "UseRim": true,
+    "UseEffectMaterial": true,
+    "UseSecond": true,
+    "UseNoise": false,
+    "UseFlowEffectEdge": true,
+    "UseBumpOffset": true,
+    "Second_UseObjectScreenUV": false,
+    "effect_mask_channel": "A",
+    "UseTranslucent": true
+   },
+   "round": "7 (masked)"
+  }
+ ]
+}

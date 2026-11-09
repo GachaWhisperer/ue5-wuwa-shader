@@ -1,0 +1,758 @@
+// WuwaToonBasePass_DepthFX.ush — Kuro "AdvancedEffect ... Depth" effect shells on character / weapon meshes (round 3):
+//   M_AdvancedEffect_Depth_CM_ForDragon / _ForDragon_Outline (Galbrena's snake / dragon blueprint parts; translucent and additive)
+//   M_AdvancedEffect_Depth_CM (Luuk Herssen sickle prop, Jinxi dragon horn; translucent, unlit)
+//
+// Same effect graph as M_AdvancedEffect_CM (WuwaToonBasePass_WeaponFX.ush: clock, UV select, rotator, panner, noise, Second / Base /
+// Mask / Dissolve layers, Fresnel rim, light colour, Niagara grey shift, Kuro effect grading), compiled with four texture
+// coordinates (dot(<L>_UVSwitch, (UV0, UV1, UV2, UV3)) per axis), plus:
+//   * "Depth" = a DEPTH DITHER (not a scene-depth read: none of these PS samples SceneDepth / SceneTexture). The opacity is
+//     dithered with UE's DitherTemporalAA pattern: ((uint(x + TAA.x) + 2 uint(y + TAA.x)) % 5 + Good64x64TilingNoiseHighFreq(Pix / 64).r) / 6
+//     against op * lerp(DepthDitherFactorNight, DepthDitherFactorDay, lerp(MPC GlobalDayNightFactor, 1, UseWholeDayDither >= 0.2)).
+//     ForDragon:   Opacity = saturate(op * (op * f + dither - 0.5))   (soft)
+//     Depth_CM:    Opacity = saturate(step(0, op * f + dither - 0.5) * op)   (binary)
+//     No screen fade in either root.
+//   * ForDragon only: a BumpNoise colour layer (UV0 * S_O.xy + GameTime * S_O.zw, lerp by "Lerp") and a 1.2 gain before the
+//     selection colour; optional NoiseMask (masks the noise distortion) and the static switch UseAdvancedScreenPosition (bAdvScreen:
+//     the "screen UV" of every layer is anchored at the actor's projected position and scaled by its view depth / 100).
+//   * Depth_CM: selection on the MPC-tinted colour (M_Refraction_CM form, no View[286].y saturation step).
+// Output FWuwaFXOutput {Emissive, Opacity} ("resolve": false). Engine tail (fog, OOB, emissive scale, effect grading / additive
+// premultiply) is not ported; tools/shaderdiff/weapons/hlsl/kuro_tail_depthfx.hlsli reproduces it for the diff only.
+// Line refs D### = evidence/roster/shadermaps/weapons/asm_hex/229631_a670c694d0*.asm.txt (ForDragon, AdvScreen) unless noted.
+#ifndef WUWA_TOON_BASEPASS_DEPTHFX_USH
+#define WUWA_TOON_BASEPASS_DEPTHFX_USH
+
+#ifndef WUWA_TOON_BASEPASS_WEAPONFX_USH_INCLUDED
+#define WUWA_TOON_BASEPASS_WEAPONFX_USH_INCLUDED
+#include "WuwaToonBasePass_WeaponFX.ush"    // WuwaFXClock / WuwaFXRotate / WuwaFXClampLerp / WuwaFXRefine (read-only)
+#endif
+
+// 4-channel UV select, then lerp toward the screen UV (passed precomputed: stock Pix * InvViewSize or the AdvScreen UV).
+float2 WuwaDFXUV(float4 Switch, float4 Ux, float4 Uy, float bScreenUV, float2 ScreenUV)
+{
+	float2 uv = float2(dot(Switch, Ux), dot(Switch, Uy));
+	return bScreenUV * (ScreenUV - uv) + uv;
+}
+
+// D53-71 (UseAdvancedScreenPosition): the actor origin projected to the screen, the pixel's screen UV re-centred on it, aspect
+// corrected and scaled by the actor's view depth * 0.01 (texture size constant in world units), + 0.5.
+float2 WuwaDFXAdvScreenUV(float2 Pix, float4 ViewSizeAndInvSize, float3 ActorPositionWS, float3 PreViewTranslation,
+	float4x4 TranslatedWorldToCameraView, float ClipToView00, float ClipToView11)
+{
+	float3 ov = mul(float4(ActorPositionWS + PreViewTranslation, 1.0), TranslatedWorldToCameraView).xyz;
+	float k = ov.z * asfloat(0x3C23D70Au);                                   // 0.01
+	float2 o = ov.xy / float2(ov.z * ClipToView00, ov.z * ClipToView11);
+	o = o * float2(0.5, -0.5);
+	float2 s = Pix * ViewSizeAndInvSize.zw - o;
+	s = s + -0.5;
+	s = s * float2(ViewSizeAndInvSize.x / ViewSizeAndInvSize.y, 1.0);
+	return k * s + 0.5;
+}
+
+// UE DitherTemporalAA threshold (D218-227): ((uint(Pix.x + TAA.x) + 2 * uint(Pix.y + TAA.x)) % 5 + Noise(Pix / 64).r) / 6.
+float WuwaDFXDitherTemporalAA(Texture2D DitherNoise, SamplerState DitherNoiseSampler, float2 Pix, float TemporalAAParamsX,
+	float MaterialTextureMipBias)
+{
+	uint2 ip = (uint2)(Pix + TemporalAAParamsX);
+	uint ix = (ip.y << 1) + ip.x;
+	float dz = (float)(ix % 5u);
+	float nz = DitherNoise.SampleBias(DitherNoiseSampler, Pix * 0.015625, MaterialTextureMipBias).x;
+	return (nz + dz) * asfloat(0x3E2AAAABu);                                  // 1/6
+}
+
+FWuwaFXOutput WuwaDepthFX_Impl(const bool bAdvScreen, const bool bNoise, const bool bNoiseMask, const bool bSecond, const bool bRim,
+	const bool bTwoSided, const bool bDragon,
+	Texture2D Noise, SamplerState NoiseSampler, Texture2D NoiseMask, SamplerState NoiseMaskSampler,
+	Texture2D Second, SamplerState SecondSampler, Texture2D Base, SamplerState BaseSampler,
+	Texture2D Dissolve, SamplerState DissolveSampler, Texture2D Mask, SamplerState MaskSampler,
+	Texture2D BumpNoise, SamplerState BumpNoiseSampler, Texture2D DitherNoise, SamplerState DitherNoiseSampler,
+	float2 UV0, float2 UV1, float2 UV2, float2 UV3, float3 WorldTangent, float3 WorldNormal, float TangentSign, float TwoSidedSign,
+	float3 TranslatedWorldPosition, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime,
+	float3 ActorPositionWS, float3 PreViewTranslation, float4x4 TranslatedWorldToCameraView, float ClipToView00, float ClipToView11,
+	float TemporalAAParamsX, float3 KuroViewLightColorA, float3 KuroViewLightColorB,
+	float UseSpecificTime, float EffectTime, float EffectTimeScale,
+	float4 Noise_UVSwitch, float Noise_bScreenUV, float Noise_RotCos, float Noise_RotSin, float4 Noise_UV, float Noise_Offset, float Noise_Strength,
+	float4 NoiseMask_UVSwitch, float NoiseMask_bScreenUV, float NoiseMask_RotCos, float NoiseMask_RotSin, float4 NoiseMask_UV, float bInvertNoiseMask,
+	float4 Second_UVSwitch, float Second_bScreenUV, float Second_RotCos, float Second_RotSin, float4 Second_UV, float4 Second_UV_Offset,
+	float Second_bClamp, float4 Second_Contorl,
+	float4 Base_UVSwitch, float Base_bScreenUV, float Base_RotCos, float Base_RotSin, float4 Base_UV, float4 Base_UV_Offset,
+	float Base_bClamp, float Base_NoiseStrength, float Base_bClampAfterNoise, float4 Base_EmissiveSwitch, float Base_bUseChannelAsEmissive,
+	float4 Base_Refine, float Base_Emissive_Add, float Base_bAddSecond, float4 Base_ColorTint, float4 Base_AlphaSwitch, float Base_Alpha_Multiply,
+	float Rim_Range, float Rim_BaseReflect, float Rim_Intensity, float4 Rim_Color, float Rim_EffectAsEmissiveColor,
+	float Rim_EffectAsAlphaInvert, float Rim_EffectAsAlpha,
+	float4 Dissolve_UVSwitch, float Dissolve_bScreenUV, float Dissolve_RotCos, float Dissolve_RotSin, float4 Dissolve_UV,
+	float DIssolve_TimeOffset, float Dissolve_bClamp, float Dissolve_NoiseStrength, float Dissolve_UOffset, float Dissolve_VOffset,
+	float4 Dissolve_ChannelSwitch, float Dissolve_MaskLerp, float Dissolve_Invert, float Dissolve_Smooth, float Dissolve_Dissolve,
+	float4 Dissolve_EdgeColor,
+	float4 Mask_UVSwitch, float Mask_bScreenUV, float Mask_RotCos, float Mask_RotSin, float4 Mask_UV, float4 Mask_UV_Offset,
+	float Mask_bClamp, float Mask_NoiseStrength, float4 Mask_AlphaSwitch, float Mask_Invert, float Mask_Alpha_Multiply,
+	float LightColorStrength, float4 NiagaraShiftLowGrayColor, float4 NiagaraShiftHighGrayColor, float NiagaraShiftColorParam,
+	float4 BumpOffsetTexUV_S_O, float4 BumpNoiseColorMul, float Lerp,
+	float4 SelectionColor, float E_Dither_DitherValue, float E_Dither_UseDither,
+	float UseWholeDayDither, float DepthDitherFactorDay, float DepthDitherFactorNight,
+	float MPC_KuroEffectColorGradingDesaturate, float3 MPC_KuroEffectColorGradingTint, float MPC_GlobalDayNightFactor,
+	float4 NormalOverrideParameter, float MaterialTextureMipBias)
+{
+	FWuwaFXOutput X;
+	float2 Pix = SvPositionXY - ViewRectMin;
+	float4 Ux = float4(UV0.x, UV1.x, UV2.x, UV3.x);
+	float4 Uy = float4(UV0.y, UV1.y, UV2.y, UV3.y);
+	float2 SUV;
+	if (bAdvScreen)
+		SUV = WuwaDFXAdvScreenUV(Pix, ViewSizeAndInvSize, ActorPositionWS, PreViewTranslation, TranslatedWorldToCameraView,
+			ClipToView00, ClipToView11);
+	else
+		SUV = Pix * ViewSizeAndInvSize.zw;
+
+	// rim shading normal (Depth_CM, 251136 l.53-74): NormalOverride shading normal [x two-sided sign]
+	float3 N = 0.0, V = 0.0;
+	if (bRim)
+	{
+		V = rsqrt(dot(-TranslatedWorldPosition, -TranslatedWorldPosition)) * -TranslatedWorldPosition;
+		float3 Bt = cross(WorldNormal, WorldTangent) * TangentSign;
+		N = WuwaWShadingNormal(WorldTangent, Bt, WorldNormal, NormalOverrideParameter);
+		if (bTwoSided)
+			N = N * TwoSidedSign;
+	}
+
+	// ---- clock (D79-85) --------------------------------------------------------------------------------------------------
+	float t = WuwaFXClock(GameTime, UseSpecificTime, EffectTime);
+	float T = t * EffectTimeScale;
+
+	// ---- noise (D53-78, D90-92) [x NoiseMask (317497)] ---------------------------------------------------------------------
+	float2 nz = 0.0;
+	if (bNoise)
+	{
+		float2 nuv = WuwaFXRotate(WuwaDFXUV(Noise_UVSwitch, Ux, Uy, Noise_bScreenUV, SUV), Noise_RotCos, Noise_RotSin);
+		nuv = nuv * Noise_UV.xy;
+		nuv = T * Noise_UV.zw + nuv;
+		nz = (Noise.SampleBias(NoiseSampler, nuv, MaterialTextureMipBias).xy + Noise_Offset) * Noise_Strength;
+		if (bNoiseMask)
+		{
+			float2 muv = WuwaFXRotate(WuwaDFXUV(NoiseMask_UVSwitch, Ux, Uy, NoiseMask_bScreenUV, SUV), NoiseMask_RotCos, NoiseMask_RotSin);
+			muv = muv * NoiseMask_UV.xy + T * NoiseMask_UV.zw;
+			float nm = NoiseMask.SampleBias(NoiseMaskSampler, muv, MaterialTextureMipBias).x;
+			nm = bInvertNoiseMask * (nm * -2.0 + 1.0) + nm;
+			nz = nz * nm;
+		}
+	}
+
+	// ---- Second layer (D39-49, D86-100) --------------------------------------------------------------------------------
+	float3 S = 0.0, Sk = 0.0;
+	if (bSecond)
+	{
+		float2 suv = WuwaFXRotate(WuwaDFXUV(Second_UVSwitch, Ux, Uy, Second_bScreenUV, SUV), Second_RotCos, Second_RotSin);
+		float ts = EffectTimeScale * t + 1.0;
+		ts = Second_bClamp * (1.0 - ts) + ts;
+		suv = suv * Second_UV.xy + ts * Second_UV.zw;
+		suv = suv + Second_UV_Offset.xy;
+		if (bNoise)
+			suv = Second_Contorl.z * nz + suv;
+		suv = WuwaFXClampLerp(suv, Second_bClamp);
+		S = Second.SampleBias(SecondSampler, suv, MaterialTextureMipBias).rgb;
+		S = Second_Contorl.x * (dot(S, float3(asfloat(0x3E99999Au), asfloat(0x3F170A3Du), asfloat(0x3DE147AEu))) - S) + S;
+		Sk = S * Second_Contorl.y;
+	}
+
+	// ---- Base layer (D101-140) ---------------------------------------------------------------------------------------------
+	float2 buv = WuwaFXRotate(WuwaDFXUV(Base_UVSwitch, Ux, Uy, Base_bScreenUV, SUV), Base_RotCos, Base_RotSin);
+	float tb = Base_bClamp * -T + T;
+	buv = buv * Base_UV.xy + tb * Base_UV.zw;
+	buv = buv + Base_UV_Offset.xy;
+	if (bNoise)
+	{
+		float2 bn = nz * Base_NoiseStrength;
+		buv = bn * (1.0 - Base_bClampAfterNoise) + buv;
+		buv = WuwaFXClampLerp(buv, Base_bClamp);
+		buv = bn * Base_bClampAfterNoise + buv;
+	}
+	else
+	{
+		buv = WuwaFXClampLerp(buv, Base_bClamp);
+	}
+	float4 Bs = Base.SampleBias(BaseSampler, buv, MaterialTextureMipBias);
+	float3 Bc = Base_bUseChannelAsEmissive * (dot(Bs, Base_EmissiveSwitch) - Bs.rgb) + Bs.rgb;
+	Bc = WuwaFXRefine(Bc, Base_Refine, Base_Emissive_Add);
+	float3 C;
+	if (bSecond)
+	{
+		float3 SB = Sk * Bc;
+		C = S * Second_Contorl.y + Bc;
+		C = -Sk * Bc + C;
+		C = Base_bAddSecond * C + SB;
+	}
+	else
+	{
+		C = Bc + Base_bAddSecond;
+	}
+
+	// ---- rim (Depth_CM) ----------------------------------------------------------------------------------------------------
+	float rim = 0.0;
+	float3 E = 0.0;
+	if (bRim)
+	{
+		rim = exp2(log2(max(abs(1.0 - max(dot(N, V), 0.0)), asfloat(0x38D1B717u))) * Rim_Range);
+		rim = rim * (1.0 - Rim_BaseReflect) + Rim_BaseReflect;
+		float3 Ct = C * Base_ColorTint.rgb;
+		float3 Cr = rim * (-Base_ColorTint.rgb * C + Rim_Intensity * Rim_Color.rgb);
+		E = ceil(Rim_EffectAsEmissiveColor) * Cr + Ct;
+	}
+
+	// ---- mask (D157-170) ---------------------------------------------------------------------------------------------------
+	float2 muv = WuwaFXRotate(WuwaDFXUV(Mask_UVSwitch, Ux, Uy, Mask_bScreenUV, SUV), Mask_RotCos, Mask_RotSin);
+	float tm = Mask_bClamp * -T + T;
+	muv = muv * Mask_UV.xy + tm * Mask_UV.zw;
+	muv = muv + Mask_UV_Offset.xy;
+	if (bNoise)
+		muv = nz * Mask_NoiseStrength + muv;
+	muv = WuwaFXClampLerp(muv, Mask_bClamp);
+	float m = dot(Mask.SampleLevel(MaskSampler, muv, MaterialTextureMipBias - 1.0), Mask_AlphaSwitch);
+	m = Mask_Invert * (m * -2.0 + 1.0) + m;
+	float mm = m * Mask_Alpha_Multiply;
+
+	// ---- dissolve with edge colour (D141-156, D171-186) ----------------------------------------------------------------------
+	float2 duv = WuwaFXRotate(WuwaDFXUV(Dissolve_UVSwitch, Ux, Uy, Dissolve_bScreenUV, SUV), Dissolve_RotCos, Dissolve_RotSin);
+	float td = -EffectTimeScale * t + DIssolve_TimeOffset;
+	td = Dissolve_bClamp * td + T;
+	duv = duv * Dissolve_UV.xy + td * Dissolve_UV.zw;
+	if (bNoise)
+		duv = nz * Dissolve_NoiseStrength + duv;
+	duv = WuwaFXClampLerp(duv, Dissolve_bClamp);
+	duv = duv + float2(Dissolve_UOffset, Dissolve_VOffset);
+	float d = dot(Dissolve.SampleBias(DissolveSampler, duv, MaterialTextureMipBias), Dissolve_ChannelSwitch);
+	d = Dissolve_MaskLerp * (Mask_Alpha_Multiply * m - d) + d;
+	d = Dissolve_Invert * (d * -2.0 + 1.0) + d;
+	float dd = Dissolve_Dissolve * (-Dissolve_Smooth + -1.0) + Dissolve_Smooth;
+	d = d * Dissolve_Smooth - dd;
+	float edge = 1.0 - min(abs(d + -1.0), 1.0);
+	if (bRim)
+		E = edge * Dissolve_EdgeColor.rgb + E;
+	else
+		E = C * Base_ColorTint.rgb + edge * Dissolve_EdgeColor.rgb;
+
+	// ---- light colour, Niagara grey shift, Kuro effect grading (D187-199) ----------------------------------------------------
+	float3 Lc = (KuroViewLightColorA - KuroViewLightColorB) * 0.5 + KuroViewLightColorB;
+	E = LightColorStrength * (E * Lc - E) + E;
+	float g = dot(E, float3(asfloat(0x3DE147AEu), asfloat(0x3F170A3Du), asfloat(0x3E99999Au)));
+	float3 Sh = saturate(g) * (NiagaraShiftLowGrayColor.rgb - NiagaraShiftHighGrayColor.rgb) + NiagaraShiftHighGrayColor.rgb;
+	E = NiagaraShiftColorParam * (Sh * g - E) + E;
+	float gl = dot(E, float3(asfloat(0x3E991687u), asfloat(0x3F1645A2u), asfloat(0x3DE978D5u)));
+	E = (gl - E) * MPC_KuroEffectColorGradingDesaturate + E;
+	if (bDragon)
+	{
+		// D200-209: BumpNoise colour layer, x1.2, selection colour
+		E = E * MPC_KuroEffectColorGradingTint;
+		float2 kuv = UV0 * BumpOffsetTexUV_S_O.xy + GameTime * BumpOffsetTexUV_S_O.zw;
+		float3 K = BumpNoise.SampleBias(BumpNoiseSampler, kuv, MaterialTextureMipBias).rgb;
+		E = Lerp * (BumpNoiseColorMul.rgb * K - E) + E;
+		float3 E12 = E * asfloat(0x3F99999Au);                                       // 1.2
+		X.Emissive = SelectionColor.a * (-E * asfloat(0x3F99999Au) + SelectionColor.rgb) + E12;
+	}
+	else
+	{
+		// 251136: selection on the MPC-tinted colour (no View[286].y step)
+		float3 Eg = E * MPC_KuroEffectColorGradingTint;
+		X.Emissive = SelectionColor.a * (-E * MPC_KuroEffectColorGradingTint + SelectionColor.rgb) + Eg;
+	}
+
+	// ---- opacity: base alpha * mask * sat(dissolve) [rim alpha], dither value, depth dither (D210-235) -----------------------
+	float op = dot(Bs, Base_AlphaSwitch) * Base_Alpha_Multiply;
+	op = mm * op;
+	float ds = saturate(d);
+	if (bRim)
+	{
+		float op0 = ds * op;
+		float ra = Rim_EffectAsAlphaInvert * (rim * -2.0 + 1.0) + rim;
+		float o2 = (-op * ds + Rim_Color.a) * ra;
+		op = ceil(Rim_EffectAsAlpha) * o2 + op0;
+	}
+	else
+	{
+		op = ds * op;
+	}
+	op = E_Dither_UseDither * (E_Dither_DitherValue * op - op) + op;
+	float f = (UseWholeDayDither >= asfloat(0x3E4CCCCDu)) ? 1.0 : 0.0;          // 0.2
+	f = f * (1.0 - MPC_GlobalDayNightFactor) + MPC_GlobalDayNightFactor;
+	f = f * (DepthDitherFactorDay - DepthDitherFactorNight) + DepthDitherFactorNight;
+	float th = WuwaDFXDitherTemporalAA(DitherNoise, DitherNoiseSampler, Pix, TemporalAAParamsX, MaterialTextureMipBias);
+	float q = op * f + th;
+	q = q + -0.5;
+	if (bDragon)
+		X.Opacity = saturate(op * q);
+	else
+		X.Opacity = saturate(((q >= 0.0) ? 1.0 : 0.0) * op);
+	return X;
+}
+
+// ---- GENERATED entries (tools/shaderdiff/weapons/r3/depthfx_gen_entries.py) - do not edit by hand ----
+// @@DEPTHFX_ENTRIES_BEGIN@@
+// DragonAdvScreenNoiseSecond: M_AdvancedEffect_Depth_CM_ForDragon PS a670c694d0 (#229631) translucent; UseAdvancedScreenPosition
+FWuwaFXOutput WuwaDepthFX_DragonAdvScreenNoiseSecond(
+	Texture2D Noise, SamplerState NoiseSampler, Texture2D Second, SamplerState SecondSampler, Texture2D Base,
+	SamplerState BaseSampler, Texture2D Dissolve, SamplerState DissolveSampler, Texture2D Mask, SamplerState MaskSampler,
+	Texture2D BumpNoise, SamplerState BumpNoiseSampler, Texture2D DitherNoise, SamplerState DitherNoiseSampler, float2 UV0,
+	float2 UV1, float2 UV2, float2 UV3, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime,
+	float3 ActorPositionWS, float3 PreViewTranslation, float4x4 TranslatedWorldToCameraView, float ClipToView00,
+	float ClipToView11, float TemporalAAParamsX, float3 KuroViewLightColorA, float3 KuroViewLightColorB, float UseSpecificTime,
+	float EffectTime, float EffectTimeScale, float4 Noise_UVSwitch, float Noise_bScreenUV, float Noise_RotCos,
+	float Noise_RotSin, float4 Noise_UV, float Noise_Offset, float Noise_Strength, float4 Second_UVSwitch,
+	float Second_bScreenUV, float Second_RotCos, float Second_RotSin, float4 Second_UV, float4 Second_UV_Offset,
+	float Second_bClamp, float4 Second_Contorl, float4 Base_UVSwitch, float Base_bScreenUV, float Base_RotCos,
+	float Base_RotSin, float4 Base_UV, float4 Base_UV_Offset, float Base_bClamp, float Base_NoiseStrength,
+	float Base_bClampAfterNoise, float4 Base_EmissiveSwitch, float Base_bUseChannelAsEmissive, float4 Base_Refine,
+	float Base_Emissive_Add, float Base_bAddSecond, float4 Base_ColorTint, float4 Base_AlphaSwitch, float Base_Alpha_Multiply,
+	float4 Dissolve_UVSwitch, float Dissolve_bScreenUV, float Dissolve_RotCos, float Dissolve_RotSin, float4 Dissolve_UV,
+	float DIssolve_TimeOffset, float Dissolve_bClamp, float Dissolve_NoiseStrength, float Dissolve_UOffset,
+	float Dissolve_VOffset, float4 Dissolve_ChannelSwitch, float Dissolve_MaskLerp, float Dissolve_Invert,
+	float Dissolve_Smooth, float Dissolve_Dissolve, float4 Dissolve_EdgeColor, float4 Mask_UVSwitch, float Mask_bScreenUV,
+	float Mask_RotCos, float Mask_RotSin, float4 Mask_UV, float4 Mask_UV_Offset, float Mask_bClamp, float Mask_NoiseStrength,
+	float4 Mask_AlphaSwitch, float Mask_Invert, float Mask_Alpha_Multiply, float LightColorStrength,
+	float4 NiagaraShiftLowGrayColor, float4 NiagaraShiftHighGrayColor, float NiagaraShiftColorParam,
+	float4 BumpOffsetTexUV_S_O, float4 BumpNoiseColorMul, float Lerp, float4 SelectionColor, float E_Dither_DitherValue,
+	float E_Dither_UseDither, float UseWholeDayDither, float DepthDitherFactorDay, float DepthDitherFactorNight,
+	float MPC_KuroEffectColorGradingDesaturate, float3 MPC_KuroEffectColorGradingTint, float MPC_GlobalDayNightFactor,
+	float MaterialTextureMipBias)
+{
+	return WuwaDepthFX_Impl(
+		true, true, false, true, false, false, true, Noise, NoiseSampler, Base, BaseSampler, Second, SecondSampler, Base,
+		BaseSampler, Dissolve, DissolveSampler, Mask, MaskSampler, BumpNoise, BumpNoiseSampler, DitherNoise, DitherNoiseSampler,
+		UV0, UV1, UV2, UV3, (float3)0, (float3)0, 0.0, 0.0, (float3)0, SvPositionXY, ViewRectMin, ViewSizeAndInvSize, GameTime,
+		ActorPositionWS, PreViewTranslation, TranslatedWorldToCameraView, ClipToView00, ClipToView11, TemporalAAParamsX,
+		KuroViewLightColorA, KuroViewLightColorB, UseSpecificTime, EffectTime, EffectTimeScale, Noise_UVSwitch, Noise_bScreenUV,
+		Noise_RotCos, Noise_RotSin, Noise_UV, Noise_Offset, Noise_Strength, (float4)0, 0.0, 0.0, 0.0, (float4)0, 0.0,
+		Second_UVSwitch, Second_bScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset, Second_bClamp,
+		Second_Contorl, Base_UVSwitch, Base_bScreenUV, Base_RotCos, Base_RotSin, Base_UV, Base_UV_Offset, Base_bClamp,
+		Base_NoiseStrength, Base_bClampAfterNoise, Base_EmissiveSwitch, Base_bUseChannelAsEmissive, Base_Refine,
+		Base_Emissive_Add, Base_bAddSecond, Base_ColorTint, Base_AlphaSwitch, Base_Alpha_Multiply, 0.0, 0.0, 0.0, (float4)0, 0.0,
+		0.0, 0.0, Dissolve_UVSwitch, Dissolve_bScreenUV, Dissolve_RotCos, Dissolve_RotSin, Dissolve_UV, DIssolve_TimeOffset,
+		Dissolve_bClamp, Dissolve_NoiseStrength, Dissolve_UOffset, Dissolve_VOffset, Dissolve_ChannelSwitch, Dissolve_MaskLerp,
+		Dissolve_Invert, Dissolve_Smooth, Dissolve_Dissolve, Dissolve_EdgeColor, Mask_UVSwitch, Mask_bScreenUV, Mask_RotCos,
+		Mask_RotSin, Mask_UV, Mask_UV_Offset, Mask_bClamp, Mask_NoiseStrength, Mask_AlphaSwitch, Mask_Invert, Mask_Alpha_Multiply,
+		LightColorStrength, NiagaraShiftLowGrayColor, NiagaraShiftHighGrayColor, NiagaraShiftColorParam, BumpOffsetTexUV_S_O,
+		BumpNoiseColorMul, Lerp, SelectionColor, E_Dither_DitherValue, E_Dither_UseDither, UseWholeDayDither,
+		DepthDitherFactorDay, DepthDitherFactorNight, MPC_KuroEffectColorGradingDesaturate, MPC_KuroEffectColorGradingTint,
+		MPC_GlobalDayNightFactor, (float4)0, MaterialTextureMipBias);
+}
+
+// DragonNoiseMaskSecond: M_AdvancedEffect_Depth_CM_ForDragon PS f16e96af63 (#317497) additive; NoiseMask
+FWuwaFXOutput WuwaDepthFX_DragonNoiseMaskSecond(
+	Texture2D Noise, SamplerState NoiseSampler, Texture2D NoiseMask, SamplerState NoiseMaskSampler, Texture2D Second,
+	SamplerState SecondSampler, Texture2D Base, SamplerState BaseSampler, Texture2D Dissolve, SamplerState DissolveSampler,
+	Texture2D Mask, SamplerState MaskSampler, Texture2D BumpNoise, SamplerState BumpNoiseSampler, Texture2D DitherNoise,
+	SamplerState DitherNoiseSampler, float2 UV0, float2 UV1, float2 UV2, float2 UV3, float2 SvPositionXY, float2 ViewRectMin,
+	float4 ViewSizeAndInvSize, float GameTime, float TemporalAAParamsX, float3 KuroViewLightColorA, float3 KuroViewLightColorB,
+	float UseSpecificTime, float EffectTime, float EffectTimeScale, float4 Noise_UVSwitch, float Noise_bScreenUV,
+	float Noise_RotCos, float Noise_RotSin, float4 Noise_UV, float Noise_Offset, float Noise_Strength,
+	float4 NoiseMask_UVSwitch, float NoiseMask_bScreenUV, float NoiseMask_RotCos, float NoiseMask_RotSin, float4 NoiseMask_UV,
+	float bInvertNoiseMask, float4 Second_UVSwitch, float Second_bScreenUV, float Second_RotCos, float Second_RotSin,
+	float4 Second_UV, float4 Second_UV_Offset, float Second_bClamp, float4 Second_Contorl, float4 Base_UVSwitch,
+	float Base_bScreenUV, float Base_RotCos, float Base_RotSin, float4 Base_UV, float4 Base_UV_Offset, float Base_bClamp,
+	float Base_NoiseStrength, float Base_bClampAfterNoise, float4 Base_EmissiveSwitch, float Base_bUseChannelAsEmissive,
+	float4 Base_Refine, float Base_Emissive_Add, float Base_bAddSecond, float4 Base_ColorTint, float4 Base_AlphaSwitch,
+	float Base_Alpha_Multiply, float4 Dissolve_UVSwitch, float Dissolve_bScreenUV, float Dissolve_RotCos,
+	float Dissolve_RotSin, float4 Dissolve_UV, float DIssolve_TimeOffset, float Dissolve_bClamp, float Dissolve_NoiseStrength,
+	float Dissolve_UOffset, float Dissolve_VOffset, float4 Dissolve_ChannelSwitch, float Dissolve_MaskLerp,
+	float Dissolve_Invert, float Dissolve_Smooth, float Dissolve_Dissolve, float4 Dissolve_EdgeColor, float4 Mask_UVSwitch,
+	float Mask_bScreenUV, float Mask_RotCos, float Mask_RotSin, float4 Mask_UV, float4 Mask_UV_Offset, float Mask_bClamp,
+	float Mask_NoiseStrength, float4 Mask_AlphaSwitch, float Mask_Invert, float Mask_Alpha_Multiply, float LightColorStrength,
+	float4 NiagaraShiftLowGrayColor, float4 NiagaraShiftHighGrayColor, float NiagaraShiftColorParam,
+	float4 BumpOffsetTexUV_S_O, float4 BumpNoiseColorMul, float Lerp, float4 SelectionColor, float E_Dither_DitherValue,
+	float E_Dither_UseDither, float UseWholeDayDither, float DepthDitherFactorDay, float DepthDitherFactorNight,
+	float MPC_KuroEffectColorGradingDesaturate, float3 MPC_KuroEffectColorGradingTint, float MPC_GlobalDayNightFactor,
+	float MaterialTextureMipBias)
+{
+	return WuwaDepthFX_Impl(
+		false, true, true, true, false, false, true, Noise, NoiseSampler, NoiseMask, NoiseMaskSampler, Second, SecondSampler,
+		Base, BaseSampler, Dissolve, DissolveSampler, Mask, MaskSampler, BumpNoise, BumpNoiseSampler, DitherNoise,
+		DitherNoiseSampler, UV0, UV1, UV2, UV3, (float3)0, (float3)0, 0.0, 0.0, (float3)0, SvPositionXY, ViewRectMin,
+		ViewSizeAndInvSize, GameTime, (float3)0, (float3)0, (float4x4)0, 0.0, 0.0, TemporalAAParamsX, KuroViewLightColorA,
+		KuroViewLightColorB, UseSpecificTime, EffectTime, EffectTimeScale, Noise_UVSwitch, Noise_bScreenUV, Noise_RotCos,
+		Noise_RotSin, Noise_UV, Noise_Offset, Noise_Strength, NoiseMask_UVSwitch, NoiseMask_bScreenUV, NoiseMask_RotCos,
+		NoiseMask_RotSin, NoiseMask_UV, bInvertNoiseMask, Second_UVSwitch, Second_bScreenUV, Second_RotCos, Second_RotSin,
+		Second_UV, Second_UV_Offset, Second_bClamp, Second_Contorl, Base_UVSwitch, Base_bScreenUV, Base_RotCos, Base_RotSin,
+		Base_UV, Base_UV_Offset, Base_bClamp, Base_NoiseStrength, Base_bClampAfterNoise, Base_EmissiveSwitch,
+		Base_bUseChannelAsEmissive, Base_Refine, Base_Emissive_Add, Base_bAddSecond, Base_ColorTint, Base_AlphaSwitch,
+		Base_Alpha_Multiply, 0.0, 0.0, 0.0, (float4)0, 0.0, 0.0, 0.0, Dissolve_UVSwitch, Dissolve_bScreenUV, Dissolve_RotCos,
+		Dissolve_RotSin, Dissolve_UV, DIssolve_TimeOffset, Dissolve_bClamp, Dissolve_NoiseStrength, Dissolve_UOffset,
+		Dissolve_VOffset, Dissolve_ChannelSwitch, Dissolve_MaskLerp, Dissolve_Invert, Dissolve_Smooth, Dissolve_Dissolve,
+		Dissolve_EdgeColor, Mask_UVSwitch, Mask_bScreenUV, Mask_RotCos, Mask_RotSin, Mask_UV, Mask_UV_Offset, Mask_bClamp,
+		Mask_NoiseStrength, Mask_AlphaSwitch, Mask_Invert, Mask_Alpha_Multiply, LightColorStrength, NiagaraShiftLowGrayColor,
+		NiagaraShiftHighGrayColor, NiagaraShiftColorParam, BumpOffsetTexUV_S_O, BumpNoiseColorMul, Lerp, SelectionColor,
+		E_Dither_DitherValue, E_Dither_UseDither, UseWholeDayDither, DepthDitherFactorDay, DepthDitherFactorNight,
+		MPC_KuroEffectColorGradingDesaturate, MPC_KuroEffectColorGradingTint, MPC_GlobalDayNightFactor, (float4)0,
+		MaterialTextureMipBias);
+}
+
+// DragonNoiseSecond: M_AdvancedEffect_Depth_CM_ForDragon PS df82eab412 (#318295) additive
+FWuwaFXOutput WuwaDepthFX_DragonNoiseSecond(
+	Texture2D Noise, SamplerState NoiseSampler, Texture2D Second, SamplerState SecondSampler, Texture2D Base,
+	SamplerState BaseSampler, Texture2D Dissolve, SamplerState DissolveSampler, Texture2D Mask, SamplerState MaskSampler,
+	Texture2D BumpNoise, SamplerState BumpNoiseSampler, Texture2D DitherNoise, SamplerState DitherNoiseSampler, float2 UV0,
+	float2 UV1, float2 UV2, float2 UV3, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime,
+	float TemporalAAParamsX, float3 KuroViewLightColorA, float3 KuroViewLightColorB, float UseSpecificTime, float EffectTime,
+	float EffectTimeScale, float4 Noise_UVSwitch, float Noise_bScreenUV, float Noise_RotCos, float Noise_RotSin,
+	float4 Noise_UV, float Noise_Offset, float Noise_Strength, float4 Second_UVSwitch, float Second_bScreenUV,
+	float Second_RotCos, float Second_RotSin, float4 Second_UV, float4 Second_UV_Offset, float Second_bClamp,
+	float4 Second_Contorl, float4 Base_UVSwitch, float Base_bScreenUV, float Base_RotCos, float Base_RotSin, float4 Base_UV,
+	float4 Base_UV_Offset, float Base_bClamp, float Base_NoiseStrength, float Base_bClampAfterNoise,
+	float4 Base_EmissiveSwitch, float Base_bUseChannelAsEmissive, float4 Base_Refine, float Base_Emissive_Add,
+	float Base_bAddSecond, float4 Base_ColorTint, float4 Base_AlphaSwitch, float Base_Alpha_Multiply, float4 Dissolve_UVSwitch,
+	float Dissolve_bScreenUV, float Dissolve_RotCos, float Dissolve_RotSin, float4 Dissolve_UV, float DIssolve_TimeOffset,
+	float Dissolve_bClamp, float Dissolve_NoiseStrength, float Dissolve_UOffset, float Dissolve_VOffset,
+	float4 Dissolve_ChannelSwitch, float Dissolve_MaskLerp, float Dissolve_Invert, float Dissolve_Smooth,
+	float Dissolve_Dissolve, float4 Dissolve_EdgeColor, float4 Mask_UVSwitch, float Mask_bScreenUV, float Mask_RotCos,
+	float Mask_RotSin, float4 Mask_UV, float4 Mask_UV_Offset, float Mask_bClamp, float Mask_NoiseStrength,
+	float4 Mask_AlphaSwitch, float Mask_Invert, float Mask_Alpha_Multiply, float LightColorStrength,
+	float4 NiagaraShiftLowGrayColor, float4 NiagaraShiftHighGrayColor, float NiagaraShiftColorParam,
+	float4 BumpOffsetTexUV_S_O, float4 BumpNoiseColorMul, float Lerp, float4 SelectionColor, float E_Dither_DitherValue,
+	float E_Dither_UseDither, float UseWholeDayDither, float DepthDitherFactorDay, float DepthDitherFactorNight,
+	float MPC_KuroEffectColorGradingDesaturate, float3 MPC_KuroEffectColorGradingTint, float MPC_GlobalDayNightFactor,
+	float MaterialTextureMipBias)
+{
+	return WuwaDepthFX_Impl(
+		false, true, false, true, false, false, true, Noise, NoiseSampler, Base, BaseSampler, Second, SecondSampler, Base,
+		BaseSampler, Dissolve, DissolveSampler, Mask, MaskSampler, BumpNoise, BumpNoiseSampler, DitherNoise, DitherNoiseSampler,
+		UV0, UV1, UV2, UV3, (float3)0, (float3)0, 0.0, 0.0, (float3)0, SvPositionXY, ViewRectMin, ViewSizeAndInvSize, GameTime,
+		(float3)0, (float3)0, (float4x4)0, 0.0, 0.0, TemporalAAParamsX, KuroViewLightColorA, KuroViewLightColorB, UseSpecificTime,
+		EffectTime, EffectTimeScale, Noise_UVSwitch, Noise_bScreenUV, Noise_RotCos, Noise_RotSin, Noise_UV, Noise_Offset,
+		Noise_Strength, (float4)0, 0.0, 0.0, 0.0, (float4)0, 0.0, Second_UVSwitch, Second_bScreenUV, Second_RotCos, Second_RotSin,
+		Second_UV, Second_UV_Offset, Second_bClamp, Second_Contorl, Base_UVSwitch, Base_bScreenUV, Base_RotCos, Base_RotSin,
+		Base_UV, Base_UV_Offset, Base_bClamp, Base_NoiseStrength, Base_bClampAfterNoise, Base_EmissiveSwitch,
+		Base_bUseChannelAsEmissive, Base_Refine, Base_Emissive_Add, Base_bAddSecond, Base_ColorTint, Base_AlphaSwitch,
+		Base_Alpha_Multiply, 0.0, 0.0, 0.0, (float4)0, 0.0, 0.0, 0.0, Dissolve_UVSwitch, Dissolve_bScreenUV, Dissolve_RotCos,
+		Dissolve_RotSin, Dissolve_UV, DIssolve_TimeOffset, Dissolve_bClamp, Dissolve_NoiseStrength, Dissolve_UOffset,
+		Dissolve_VOffset, Dissolve_ChannelSwitch, Dissolve_MaskLerp, Dissolve_Invert, Dissolve_Smooth, Dissolve_Dissolve,
+		Dissolve_EdgeColor, Mask_UVSwitch, Mask_bScreenUV, Mask_RotCos, Mask_RotSin, Mask_UV, Mask_UV_Offset, Mask_bClamp,
+		Mask_NoiseStrength, Mask_AlphaSwitch, Mask_Invert, Mask_Alpha_Multiply, LightColorStrength, NiagaraShiftLowGrayColor,
+		NiagaraShiftHighGrayColor, NiagaraShiftColorParam, BumpOffsetTexUV_S_O, BumpNoiseColorMul, Lerp, SelectionColor,
+		E_Dither_DitherValue, E_Dither_UseDither, UseWholeDayDither, DepthDitherFactorDay, DepthDitherFactorNight,
+		MPC_KuroEffectColorGradingDesaturate, MPC_KuroEffectColorGradingTint, MPC_GlobalDayNightFactor, (float4)0,
+		MaterialTextureMipBias);
+}
+
+// DragonSecond: M_AdvancedEffect_Depth_CM_ForDragon_Outline PS 689667b14e (#310093) translucent (outline shell)
+FWuwaFXOutput WuwaDepthFX_DragonSecond(
+	Texture2D Second, SamplerState SecondSampler, Texture2D Base, SamplerState BaseSampler, Texture2D Dissolve,
+	SamplerState DissolveSampler, Texture2D Mask, SamplerState MaskSampler, Texture2D BumpNoise, SamplerState BumpNoiseSampler,
+	Texture2D DitherNoise, SamplerState DitherNoiseSampler, float2 UV0, float2 UV1, float2 UV2, float2 UV3,
+	float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float GameTime, float TemporalAAParamsX,
+	float3 KuroViewLightColorA, float3 KuroViewLightColorB, float UseSpecificTime, float EffectTime, float EffectTimeScale,
+	float4 Second_UVSwitch, float Second_bScreenUV, float Second_RotCos, float Second_RotSin, float4 Second_UV,
+	float4 Second_UV_Offset, float Second_bClamp, float4 Second_Contorl, float4 Base_UVSwitch, float Base_bScreenUV,
+	float Base_RotCos, float Base_RotSin, float4 Base_UV, float4 Base_UV_Offset, float Base_bClamp, float4 Base_EmissiveSwitch,
+	float Base_bUseChannelAsEmissive, float4 Base_Refine, float Base_Emissive_Add, float Base_bAddSecond,
+	float4 Base_ColorTint, float4 Base_AlphaSwitch, float Base_Alpha_Multiply, float4 Dissolve_UVSwitch,
+	float Dissolve_bScreenUV, float Dissolve_RotCos, float Dissolve_RotSin, float4 Dissolve_UV, float DIssolve_TimeOffset,
+	float Dissolve_bClamp, float Dissolve_UOffset, float Dissolve_VOffset, float4 Dissolve_ChannelSwitch,
+	float Dissolve_MaskLerp, float Dissolve_Invert, float Dissolve_Smooth, float Dissolve_Dissolve, float4 Dissolve_EdgeColor,
+	float4 Mask_UVSwitch, float Mask_bScreenUV, float Mask_RotCos, float Mask_RotSin, float4 Mask_UV, float4 Mask_UV_Offset,
+	float Mask_bClamp, float4 Mask_AlphaSwitch, float Mask_Invert, float Mask_Alpha_Multiply, float LightColorStrength,
+	float4 NiagaraShiftLowGrayColor, float4 NiagaraShiftHighGrayColor, float NiagaraShiftColorParam,
+	float4 BumpOffsetTexUV_S_O, float4 BumpNoiseColorMul, float Lerp, float4 SelectionColor, float E_Dither_DitherValue,
+	float E_Dither_UseDither, float UseWholeDayDither, float DepthDitherFactorDay, float DepthDitherFactorNight,
+	float MPC_KuroEffectColorGradingDesaturate, float3 MPC_KuroEffectColorGradingTint, float MPC_GlobalDayNightFactor,
+	float MaterialTextureMipBias)
+{
+	return WuwaDepthFX_Impl(
+		false, false, false, true, false, false, true, Base, BaseSampler, Base, BaseSampler, Second, SecondSampler, Base,
+		BaseSampler, Dissolve, DissolveSampler, Mask, MaskSampler, BumpNoise, BumpNoiseSampler, DitherNoise, DitherNoiseSampler,
+		UV0, UV1, UV2, UV3, (float3)0, (float3)0, 0.0, 0.0, (float3)0, SvPositionXY, ViewRectMin, ViewSizeAndInvSize, GameTime,
+		(float3)0, (float3)0, (float4x4)0, 0.0, 0.0, TemporalAAParamsX, KuroViewLightColorA, KuroViewLightColorB, UseSpecificTime,
+		EffectTime, EffectTimeScale, (float4)0, 0.0, 0.0, 0.0, (float4)0, 0.0, 0.0, (float4)0, 0.0, 0.0, 0.0, (float4)0, 0.0,
+		Second_UVSwitch, Second_bScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset, Second_bClamp,
+		Second_Contorl, Base_UVSwitch, Base_bScreenUV, Base_RotCos, Base_RotSin, Base_UV, Base_UV_Offset, Base_bClamp, 0.0, 0.0,
+		Base_EmissiveSwitch, Base_bUseChannelAsEmissive, Base_Refine, Base_Emissive_Add, Base_bAddSecond, Base_ColorTint,
+		Base_AlphaSwitch, Base_Alpha_Multiply, 0.0, 0.0, 0.0, (float4)0, 0.0, 0.0, 0.0, Dissolve_UVSwitch, Dissolve_bScreenUV,
+		Dissolve_RotCos, Dissolve_RotSin, Dissolve_UV, DIssolve_TimeOffset, Dissolve_bClamp, 0.0, Dissolve_UOffset,
+		Dissolve_VOffset, Dissolve_ChannelSwitch, Dissolve_MaskLerp, Dissolve_Invert, Dissolve_Smooth, Dissolve_Dissolve,
+		Dissolve_EdgeColor, Mask_UVSwitch, Mask_bScreenUV, Mask_RotCos, Mask_RotSin, Mask_UV, Mask_UV_Offset, Mask_bClamp, 0.0,
+		Mask_AlphaSwitch, Mask_Invert, Mask_Alpha_Multiply, LightColorStrength, NiagaraShiftLowGrayColor,
+		NiagaraShiftHighGrayColor, NiagaraShiftColorParam, BumpOffsetTexUV_S_O, BumpNoiseColorMul, Lerp, SelectionColor,
+		E_Dither_DitherValue, E_Dither_UseDither, UseWholeDayDither, DepthDitherFactorDay, DepthDitherFactorNight,
+		MPC_KuroEffectColorGradingDesaturate, MPC_KuroEffectColorGradingTint, MPC_GlobalDayNightFactor, (float4)0,
+		MaterialTextureMipBias);
+}
+
+// NoiseRim2S: M_AdvancedEffect_Depth_CM PS 03270072cf (#251136) translucent, two-sided
+FWuwaFXOutput WuwaDepthFX_NoiseRim2S(
+	Texture2D Noise, SamplerState NoiseSampler, Texture2D Base, SamplerState BaseSampler, Texture2D Dissolve,
+	SamplerState DissolveSampler, Texture2D Mask, SamplerState MaskSampler, Texture2D DitherNoise,
+	SamplerState DitherNoiseSampler, float2 UV0, float2 UV1, float2 UV2, float2 UV3, float3 WorldTangent, float3 WorldNormal,
+	float TangentSign, float TwoSidedSign, float3 TranslatedWorldPosition, float2 SvPositionXY, float2 ViewRectMin,
+	float4 ViewSizeAndInvSize, float GameTime, float TemporalAAParamsX, float3 KuroViewLightColorA, float3 KuroViewLightColorB,
+	float UseSpecificTime, float EffectTime, float EffectTimeScale, float4 Noise_UVSwitch, float Noise_bScreenUV,
+	float Noise_RotCos, float Noise_RotSin, float4 Noise_UV, float Noise_Offset, float Noise_Strength, float4 Base_UVSwitch,
+	float Base_bScreenUV, float Base_RotCos, float Base_RotSin, float4 Base_UV, float4 Base_UV_Offset, float Base_bClamp,
+	float Base_NoiseStrength, float Base_bClampAfterNoise, float4 Base_EmissiveSwitch, float Base_bUseChannelAsEmissive,
+	float4 Base_Refine, float Base_Emissive_Add, float Base_bAddSecond, float4 Base_ColorTint, float4 Base_AlphaSwitch,
+	float Base_Alpha_Multiply, float Rim_Range, float Rim_BaseReflect, float Rim_Intensity, float4 Rim_Color,
+	float Rim_EffectAsEmissiveColor, float Rim_EffectAsAlphaInvert, float Rim_EffectAsAlpha, float4 Dissolve_UVSwitch,
+	float Dissolve_bScreenUV, float Dissolve_RotCos, float Dissolve_RotSin, float4 Dissolve_UV, float DIssolve_TimeOffset,
+	float Dissolve_bClamp, float Dissolve_NoiseStrength, float Dissolve_UOffset, float Dissolve_VOffset,
+	float4 Dissolve_ChannelSwitch, float Dissolve_MaskLerp, float Dissolve_Invert, float Dissolve_Smooth,
+	float Dissolve_Dissolve, float4 Dissolve_EdgeColor, float4 Mask_UVSwitch, float Mask_bScreenUV, float Mask_RotCos,
+	float Mask_RotSin, float4 Mask_UV, float4 Mask_UV_Offset, float Mask_bClamp, float Mask_NoiseStrength,
+	float4 Mask_AlphaSwitch, float Mask_Invert, float Mask_Alpha_Multiply, float LightColorStrength,
+	float4 NiagaraShiftLowGrayColor, float4 NiagaraShiftHighGrayColor, float NiagaraShiftColorParam, float4 SelectionColor,
+	float E_Dither_DitherValue, float E_Dither_UseDither, float UseWholeDayDither, float DepthDitherFactorDay,
+	float DepthDitherFactorNight, float MPC_KuroEffectColorGradingDesaturate, float3 MPC_KuroEffectColorGradingTint,
+	float MPC_GlobalDayNightFactor, float4 NormalOverrideParameter, float MaterialTextureMipBias)
+{
+	return WuwaDepthFX_Impl(
+		false, true, false, false, true, true, false, Noise, NoiseSampler, Base, BaseSampler, Base, BaseSampler, Base,
+		BaseSampler, Dissolve, DissolveSampler, Mask, MaskSampler, Base, BaseSampler, DitherNoise, DitherNoiseSampler, UV0, UV1,
+		UV2, UV3, WorldTangent, WorldNormal, TangentSign, TwoSidedSign, TranslatedWorldPosition, SvPositionXY, ViewRectMin,
+		ViewSizeAndInvSize, GameTime, (float3)0, (float3)0, (float4x4)0, 0.0, 0.0, TemporalAAParamsX, KuroViewLightColorA,
+		KuroViewLightColorB, UseSpecificTime, EffectTime, EffectTimeScale, Noise_UVSwitch, Noise_bScreenUV, Noise_RotCos,
+		Noise_RotSin, Noise_UV, Noise_Offset, Noise_Strength, (float4)0, 0.0, 0.0, 0.0, (float4)0, 0.0, (float4)0, 0.0, 0.0, 0.0,
+		(float4)0, (float4)0, 0.0, (float4)0, Base_UVSwitch, Base_bScreenUV, Base_RotCos, Base_RotSin, Base_UV, Base_UV_Offset,
+		Base_bClamp, Base_NoiseStrength, Base_bClampAfterNoise, Base_EmissiveSwitch, Base_bUseChannelAsEmissive, Base_Refine,
+		Base_Emissive_Add, Base_bAddSecond, Base_ColorTint, Base_AlphaSwitch, Base_Alpha_Multiply, Rim_Range, Rim_BaseReflect,
+		Rim_Intensity, Rim_Color, Rim_EffectAsEmissiveColor, Rim_EffectAsAlphaInvert, Rim_EffectAsAlpha, Dissolve_UVSwitch,
+		Dissolve_bScreenUV, Dissolve_RotCos, Dissolve_RotSin, Dissolve_UV, DIssolve_TimeOffset, Dissolve_bClamp,
+		Dissolve_NoiseStrength, Dissolve_UOffset, Dissolve_VOffset, Dissolve_ChannelSwitch, Dissolve_MaskLerp, Dissolve_Invert,
+		Dissolve_Smooth, Dissolve_Dissolve, Dissolve_EdgeColor, Mask_UVSwitch, Mask_bScreenUV, Mask_RotCos, Mask_RotSin, Mask_UV,
+		Mask_UV_Offset, Mask_bClamp, Mask_NoiseStrength, Mask_AlphaSwitch, Mask_Invert, Mask_Alpha_Multiply, LightColorStrength,
+		NiagaraShiftLowGrayColor, NiagaraShiftHighGrayColor, NiagaraShiftColorParam, (float4)0, (float4)0, 0.0, SelectionColor,
+		E_Dither_DitherValue, E_Dither_UseDither, UseWholeDayDither, DepthDitherFactorDay, DepthDitherFactorNight,
+		MPC_KuroEffectColorGradingDesaturate, MPC_KuroEffectColorGradingTint, MPC_GlobalDayNightFactor, NormalOverrideParameter,
+		MaterialTextureMipBias);
+}
+
+// SecondRim: M_AdvancedEffect_Depth_CM PS 39871f24d5 (#323742) translucent
+FWuwaFXOutput WuwaDepthFX_SecondRim(
+	Texture2D Second, SamplerState SecondSampler, Texture2D Base, SamplerState BaseSampler, Texture2D Dissolve,
+	SamplerState DissolveSampler, Texture2D Mask, SamplerState MaskSampler, Texture2D DitherNoise,
+	SamplerState DitherNoiseSampler, float2 UV0, float2 UV1, float2 UV2, float2 UV3, float3 WorldTangent, float3 WorldNormal,
+	float TangentSign, float3 TranslatedWorldPosition, float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize,
+	float GameTime, float TemporalAAParamsX, float3 KuroViewLightColorA, float3 KuroViewLightColorB, float UseSpecificTime,
+	float EffectTime, float EffectTimeScale, float4 Second_UVSwitch, float Second_bScreenUV, float Second_RotCos,
+	float Second_RotSin, float4 Second_UV, float4 Second_UV_Offset, float Second_bClamp, float4 Second_Contorl,
+	float4 Base_UVSwitch, float Base_bScreenUV, float Base_RotCos, float Base_RotSin, float4 Base_UV, float4 Base_UV_Offset,
+	float Base_bClamp, float4 Base_EmissiveSwitch, float Base_bUseChannelAsEmissive, float4 Base_Refine,
+	float Base_Emissive_Add, float Base_bAddSecond, float4 Base_ColorTint, float4 Base_AlphaSwitch, float Base_Alpha_Multiply,
+	float Rim_Range, float Rim_BaseReflect, float Rim_Intensity, float4 Rim_Color, float Rim_EffectAsEmissiveColor,
+	float Rim_EffectAsAlphaInvert, float Rim_EffectAsAlpha, float4 Dissolve_UVSwitch, float Dissolve_bScreenUV,
+	float Dissolve_RotCos, float Dissolve_RotSin, float4 Dissolve_UV, float DIssolve_TimeOffset, float Dissolve_bClamp,
+	float Dissolve_UOffset, float Dissolve_VOffset, float4 Dissolve_ChannelSwitch, float Dissolve_MaskLerp,
+	float Dissolve_Invert, float Dissolve_Smooth, float Dissolve_Dissolve, float4 Dissolve_EdgeColor, float4 Mask_UVSwitch,
+	float Mask_bScreenUV, float Mask_RotCos, float Mask_RotSin, float4 Mask_UV, float4 Mask_UV_Offset, float Mask_bClamp,
+	float4 Mask_AlphaSwitch, float Mask_Invert, float Mask_Alpha_Multiply, float LightColorStrength,
+	float4 NiagaraShiftLowGrayColor, float4 NiagaraShiftHighGrayColor, float NiagaraShiftColorParam, float4 SelectionColor,
+	float E_Dither_DitherValue, float E_Dither_UseDither, float UseWholeDayDither, float DepthDitherFactorDay,
+	float DepthDitherFactorNight, float MPC_KuroEffectColorGradingDesaturate, float3 MPC_KuroEffectColorGradingTint,
+	float MPC_GlobalDayNightFactor, float4 NormalOverrideParameter, float MaterialTextureMipBias)
+{
+	return WuwaDepthFX_Impl(
+		false, false, false, true, true, false, false, Base, BaseSampler, Base, BaseSampler, Second, SecondSampler, Base,
+		BaseSampler, Dissolve, DissolveSampler, Mask, MaskSampler, Base, BaseSampler, DitherNoise, DitherNoiseSampler, UV0, UV1,
+		UV2, UV3, WorldTangent, WorldNormal, TangentSign, 0.0, TranslatedWorldPosition, SvPositionXY, ViewRectMin,
+		ViewSizeAndInvSize, GameTime, (float3)0, (float3)0, (float4x4)0, 0.0, 0.0, TemporalAAParamsX, KuroViewLightColorA,
+		KuroViewLightColorB, UseSpecificTime, EffectTime, EffectTimeScale, (float4)0, 0.0, 0.0, 0.0, (float4)0, 0.0, 0.0,
+		(float4)0, 0.0, 0.0, 0.0, (float4)0, 0.0, Second_UVSwitch, Second_bScreenUV, Second_RotCos, Second_RotSin, Second_UV,
+		Second_UV_Offset, Second_bClamp, Second_Contorl, Base_UVSwitch, Base_bScreenUV, Base_RotCos, Base_RotSin, Base_UV,
+		Base_UV_Offset, Base_bClamp, 0.0, 0.0, Base_EmissiveSwitch, Base_bUseChannelAsEmissive, Base_Refine, Base_Emissive_Add,
+		Base_bAddSecond, Base_ColorTint, Base_AlphaSwitch, Base_Alpha_Multiply, Rim_Range, Rim_BaseReflect, Rim_Intensity,
+		Rim_Color, Rim_EffectAsEmissiveColor, Rim_EffectAsAlphaInvert, Rim_EffectAsAlpha, Dissolve_UVSwitch, Dissolve_bScreenUV,
+		Dissolve_RotCos, Dissolve_RotSin, Dissolve_UV, DIssolve_TimeOffset, Dissolve_bClamp, 0.0, Dissolve_UOffset,
+		Dissolve_VOffset, Dissolve_ChannelSwitch, Dissolve_MaskLerp, Dissolve_Invert, Dissolve_Smooth, Dissolve_Dissolve,
+		Dissolve_EdgeColor, Mask_UVSwitch, Mask_bScreenUV, Mask_RotCos, Mask_RotSin, Mask_UV, Mask_UV_Offset, Mask_bClamp, 0.0,
+		Mask_AlphaSwitch, Mask_Invert, Mask_Alpha_Multiply, LightColorStrength, NiagaraShiftLowGrayColor,
+		NiagaraShiftHighGrayColor, NiagaraShiftColorParam, (float4)0, (float4)0, 0.0, SelectionColor, E_Dither_DitherValue,
+		E_Dither_UseDither, UseWholeDayDither, DepthDitherFactorDay, DepthDitherFactorNight, MPC_KuroEffectColorGradingDesaturate,
+		MPC_KuroEffectColorGradingTint, MPC_GlobalDayNightFactor, NormalOverrideParameter, MaterialTextureMipBias);
+}
+// @@DEPTHFX_ENTRIES_END@@
+
+// =====================================================================================================================
+// M_FlashDiamond_MP (MeshParticle root; MI_EYounuoYuegongMd10011_Suishi = Iuno's crescent prop / weapon The Unmeasured One).
+// PS 5756a3d8af (#185987), VS 68344a27 (#185988). MSM_Unlit, BLEND_Translucent, two-sided, forward (no GBuffer).
+// The M_Weapon_SP flash-diamond graph (WuwaToonBasePass_WeaponSP.ush) on a constant base colour (BaseCol_Tint * Intensity,
+// no MainTex), with: a panned / screen-lerped normal map (Char_NormalMap, "NormalMap UV", Base_UVSwitch.y, Base_bScreenUV),
+// the toon main light direction (WuwaBPMainLightDir; VS light direction in TEXCOORD1.xyz), a scrolled structure-light matcap
+// (+ GameTime * (U_Offset, V_Offset)), the diamond texture refined (Base_Refine, pow guard) and desaturated, the sparkle added
+// on the RAW diamond sample, no attack rim; Opacity = saturate(step(0.333, saturate(lerp(1, E_Dither_DitherValue,
+// E_Dither_UseDither) * 2 - Pattern3x3[(x % 3) * 3 + y % 3])) * Opacity) (Kuro ordered 3x3 dither, pixel coordinates).
+// Line refs M### = evidence/roster/shadermaps/weapons/asm_hex/185987_5756a3d8af*.asm.txt.
+// Textures: t1 Char_NormalMap (.xy)  t2 Structure_Light_Tex  t3 Diamond_MainTex  t4 StructureNormal_Tex (.xy)
+//           t5 VoronoiNormal_Tex (.xy, triplanar on the pre-WPO world position)   [t-slot <-> name by role, U]
+// =====================================================================================================================
+static const float kWuwaFDPattern3x3[9] = { 0.0, 0.777777791, 0.333333343, 0.666666687, 0.555555582, 0.222222224, 0.444444448,
+	0.111111112, 0.888888896 };   // M-icb: 0, 7/9, 3/9, 6/9, 5/9, 2/9, 4/9, 1/9, 8/9 (exact float32 bits 0x3F471C72 ...)
+
+FWuwaFXOutput WuwaFlashDiamondMP_StructureDiamond(
+	Texture2D Char_NormalMap, SamplerState Char_NormalMapSampler,
+	Texture2D Structure_Light_Tex, SamplerState Structure_Light_TexSampler,
+	Texture2D Diamond_MainTex, SamplerState Diamond_MainTexSampler,
+	Texture2D StructureNormal_Tex, SamplerState StructureNormal_TexSampler,
+	Texture2D VoronoiNormal_Tex, SamplerState VoronoiNormal_TexSampler,
+	float2 UV0, float2 UV1, float3 WorldTangent, float3 WorldNormal, float TangentSign, float TwoSidedSign,
+	float3 WorldPosition, float3 TranslatedWorldPosition, float3 WorldPositionNoOffsets, float3 LightDirVS,
+	float2 SvPositionXY, float2 ViewRectMin, float4 ViewSizeAndInvSize, float4x4 TranslatedWorldToView, float GameTime,
+	// material parameters
+	float4 NormalMap_UV, float4 Base_UVSwitch, float Base_bScreenUV, float PBR_Normal_Intensity, float3 BaseColor,
+	float LightOffset_Pitch, float Metallic, float Roughness, float PBRHardSpecWidth, float PBRHardSpeSmooth,
+	float PBRSpecularRangeDessolve_Threshold, float PBRSpecularRangeDessolve_Smooth, float PBRSpecularRangeDessolve_Intensity,
+	float4 PBRSpecularColor, float4 PBRIndirectColor, float PBRRate,
+	float Fresnel_Normal_Intensity, float FresnelRange_SmoothMin, float FresnelRange_SmoothMax, float4 Fresnel_Color,
+	float Structure_Light_UV_X, float Structure_Light_UV_Y, float U_Offset, float V_Offset, float Structure_Height_1,
+	float Structure_Light_Intensity, float Structure_Range_Normal_Intensity, float Structure_Range_Offset, float Structure_Range_Power,
+	float4 Diamond_Param, float UseDiamond_UV_Switch, float4 Base_Refine, float Desaturation, float3 Diamond_RefractDir, float Diamond_Intensity,
+	float StructureNormal_Tilling, float StructureNormal_Height, float StructureNormal_Intensity,
+	float StructureNormal_In_Offset, float StructureNormal_In_Intensity, float StructureNormal_Out_Offset, float StructureNormal_Out_Intensity,
+	float VoronoiNormal_TextureSize, float VoronoiNormal_Intensity,
+	float Voronoi_In_Offset, float Voronoi_In_Intensity, float Voronoi_Out_Offset, float Voronoi_Out_Intensity,
+	float Final_Emission, float4 SelectionColor, float E_Dither_DitherValue, float E_Dither_UseDither, float Opacity,
+	// engine
+	float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3, float CPD13, float CPD1, float3 ObjectWorldPosition,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter)
+{
+	FWuwaFXOutput X;
+
+	// ---- M64-91: TBN, view vector, two-sided shading normal ----------------------------------------------------------
+	float3 Bt = cross(WorldNormal, WorldTangent) * TangentSign;
+	float2 Pix = SvPositionXY - ViewRectMin;
+	float  rsV = rsqrt(dot(-TranslatedWorldPosition, -TranslatedWorldPosition));
+	float3 V = rsV * -TranslatedWorldPosition;
+	float3 N = WuwaWShadingNormal(WorldTangent, Bt, WorldNormal, NormalOverrideParameter) * TwoSidedSign;
+	// Base = (BaseCol_Tint.rgb * BaseCol_Intensity): a CPU preshader constant in the original (cb5[12]); a GPU product would be
+	// folded by fxc into the later mads (F0 = Base - 0.04, PBRRate lerp), so it is a uniform_expression input.
+	float3 Base = BaseColor;
+
+	// ---- M92-105: panned normal map on lerp(UV0, UV1, Base_UVSwitch.y) / screen UV (tangent xy only) -------------------
+	float2 nuv = WuwaFXUV2(Base_UVSwitch.y, UV0, UV1, Base_bScreenUV, Pix, ViewSizeAndInvSize.zw);
+	nuv = NormalMap_UV.xy * nuv + GameTime * NormalMap_UV.zw;
+	float2 bn = Char_NormalMap.SampleBias(Char_NormalMapSampler, nuv, MaterialTextureMipBias).xy * 2.0 - 1.0;
+	float3 Pn = bn.x * WorldTangent + Bt * bn.y;
+	float3 Np = PBR_Normal_Intensity * Pn + WorldNormal;
+
+	// ---- M106-163: main character light direction (shared Kuro block, VS direction = TEXCOORD1.xyz) ---------------------
+	float3 L = WuwaBPMainLightDir(LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+
+	// ---- M164-221: self-lit PBR (as WuwaToonWeaponSPBasePass, constant base colour) -----------------------------------
+	float3 H = -TranslatedWorldPosition * rsV + L;
+	H = H / sqrt(dot(H, H));
+	float NoH = saturate(dot(Np, H));
+	float NoVu = dot(Np, V);
+	float NoV = saturate(NoVu);
+	float NoL = saturate(dot(Np, L));
+	float hNoV = NoVu * 0.5 + 0.5;
+	float Dk = Metallic * asfloat(0xBF75C28Fu) + asfloat(0x3F75C28Fu);          // 0.96 * (1 - metallic)
+	float3 Diff = Dk * Base;
+	float3 F0 = Base + asfloat(0xBD23D70Au);                                       // - 0.04
+	F0 = Metallic * F0 + asfloat(0x3D23D70Au);
+	float4 rr = Roughness * float4(-1.0, asfloat(0xBCE147AEu), asfloat(0xBF126E98u), asfloat(0x3CB43958u))
+		+ float4(1.0, asfloat(0x3D2E147Bu), asfloat(0x3F851EB8u), asfloat(0xBD23D70Au));
+	float a004 = min(exp2(NoV * asfloat(0xC1147AE1u)), rr.x * rr.x) * rr.x + rr.y;
+	float2 AB = a004 * float2(asfloat(0xBF851EB8u), asfloat(0x3F851EB8u)) + rr.zw;
+	float3 Env = F0 * AB.x + saturate(F0.y * 50.0) * AB.y;
+	float a2 = max(Roughness * Roughness, asfloat(0x3B03126Fu));
+	a2 = a2 * a2;
+	float d = (NoH * a2 - NoH) * NoH + asfloat(0x3F800054u);
+	float Dg = (a2 * asfloat(0x3EA2F983u)) / (d * d + asfloat(0x33D6BF95u));
+	float hw = (PBRHardSpeSmooth + 1.0) * PBRHardSpecWidth - PBRHardSpeSmooth;
+	float hs = PBRHardSpeSmooth + PBRHardSpecWidth;
+	float lo = min(hw, hs + asfloat(0xBA83126Fu));
+	float hard = saturate((Dg - lo) * (1.0 / (hs - lo)));
+	hard = (hard * hard) * (hard * -2.0 + 3.0);
+	float rng = saturate((hNoV - PBRSpecularRangeDessolve_Threshold) * (1.0 / (PBRSpecularRangeDessolve_Smooth - PBRSpecularRangeDessolve_Threshold)));
+	rng = (rng * rng) * (rng * -2.0 + 3.0);
+	float3 Spec = hard * (Env * PBRSpecularColor.rgb);
+	Spec = PBRSpecularRangeDessolve_Intensity * (Spec * rng - Spec) + Spec;
+	float hNoL = NoL * 0.5 + 1.0;
+	Spec = Base * Dk + Spec;
+	float3 Pbr = hNoL * (Diff * PBRIndirectColor.rgb + Env);
+	Pbr = Spec * hNoV + Pbr;
+	float3 C = PBRRate * (Pbr - Base) + Base;
+
+	// ---- M222-232: fresnel -------------------------------------------------------------------------------------------------
+	float3 Nf = Fresnel_Normal_Intensity * Pn + WorldNormal;
+	float fr = min(WuwaWSmoothStep(FresnelRange_SmoothMin, FresnelRange_SmoothMax, dot(Nf, V)), 1.0);
+	C = (1.0 - fr) * Fresnel_Color.rgb + C;
+
+	// ---- M233-256: structure light (view-space cross matcap, scroll, bump offset), NoV range ------------------------------
+	float3 Pv = mul(float4(TranslatedWorldPosition, 1.0), TranslatedWorldToView).xyz;
+	// M240 normalises with dp3 r1.xzw = (y*y + z*z) + x*x. fxc canonicalises dot() / an unmarked sum to x, y, z order (1 ulp off
+	// on WARP); precise keeps the original summation order (WARP dp3 = rounded products, left-to-right adds).
+	precise float pl = Pv.y * Pv.y;
+	pl = Pv.z * Pv.z + pl;
+	pl = Pv.x * Pv.x + pl;
+	Pv = Pv / sqrt(pl);
+	float3 Nv = mul(WorldNormal, (float3x3)TranslatedWorldToView);
+	float2 sl = float2(Pv.z * Nv.x - Pv.x * Nv.z, Pv.y * Nv.z - Pv.z * Nv.y) * 0.5 + 0.5;
+	sl = sl * float2(Structure_Light_UV_X, Structure_Light_UV_Y);
+	sl = float2(GameTime * U_Offset + sl.x, GameTime * V_Offset + sl.y);     // one mad per axis, as M251
+	float2 Vts = float2(dot(WorldTangent, V), dot(Bt, V));
+	sl = Vts * (Structure_Height_1 * asfloat(0x3D4CCCCDu) + asfloat(0xBCCCCCCDu)) + sl;
+	float3 St = Structure_Light_Tex.SampleBias(Structure_Light_TexSampler, sl, MaterialTextureMipBias).rgb * Structure_Light_Intensity;
+	float3 Ns = Structure_Range_Normal_Intensity * Pn + WorldNormal;
+	float sr = saturate((dot(Ns, V) + Structure_Range_Offset) * Structure_Range_Power);
+	float3 C2 = sr * (C * St - C) + C;
+
+	// ---- M257-298: diamond (refracted view vector in view space / panned UV0), refine, desaturate, sparkle ----------------
+	float3 rv = refract(V, N, asfloat(0x3F400C4Bu));
+	float2 rvv = mul(rv, (float3x3)TranslatedWorldToView).xy;
+	float2 duv = UV0 * Diamond_Param.xy + GameTime * Diamond_Param.zw;
+	float3 Dt = Diamond_MainTex.SampleBias(Diamond_MainTexSampler, UseDiamond_UV_Switch * (duv - rvv) + rvv, MaterialTextureMipBias).rgb;
+	float3 Dp = float3(WuwaWPowGuard(Dt.x, Base_Refine.x), WuwaWPowGuard(Dt.y, Base_Refine.x), WuwaWPowGuard(Dt.z, Base_Refine.x)) * Base_Refine.y;
+	float3 Dm = Base_Refine.w * (Dt * Base_Refine.z - Dp) + Dp;
+	Dm = Desaturation * (dot(Dm, float3(asfloat(0x3E99999Au), asfloat(0x3F170A3Du), asfloat(0x3DE147AEu))) - Dm) + Dm;
+	float3 Nvv = mul(N, (float3x3)TranslatedWorldToView);
+	float spk = dot(Nvv, Diamond_RefractDir);
+	float spark = (asfloat(0x33000002u) >= spk) ? 0.0 : min((exp2(log2(spk) * 12.0) * ((spk >= asfloat(0x3E087FCCu)) ? 1.0 : 0.0)) * 1000.0, 20.0);
+	Dm = Dt * spark + Dm;
+
+	// ---- M299-325: structure normal mask (tangent-space normal map with bump offset) ---------------------------------------
+	float2 snuv = UV0 * StructureNormal_Tilling;
+	snuv = Vts * (StructureNormal_Height * asfloat(0x3D4CCCCDu) + asfloat(0xBCCCCCCDu)) + snuv;
+	float2 sn = StructureNormal_Tex.SampleBias(StructureNormal_TexSampler, snuv, MaterialTextureMipBias).xy * 2.0 - 1.0;
+	float snz = sqrt(max(1.0 - dot(sn, sn), 0.0));
+	float3 Nsn = sn.x * WorldTangent + Bt * sn.y;
+	Nsn = snz * WorldNormal + Nsn;
+	Nsn = StructureNormal_Intensity * (Nsn - WorldNormal) + WorldNormal;
+	float snd = dot(V, Nsn);
+	float snm = saturate(((-snd + StructureNormal_Out_Offset) + 1.0) * StructureNormal_Out_Intensity)
+		+ saturate((snd + StructureNormal_In_Offset) * StructureNormal_In_Intensity);
+	float3 Dd = Dm * Diamond_Intensity - Base;
+	float3 C3 = snm * (snm * Dd + Base - C2) + C2;
+
+	// ---- M326-373: voronoi normal mask (triplanar on the pre-WPO absolute world position) ----------------------------------
+	float3 wp = WorldPositionNoOffsets / (-abs(VoronoiNormal_TextureSize));
+	float2 tx = VoronoiNormal_Tex.SampleBias(VoronoiNormal_TexSampler, wp.xz, MaterialTextureMipBias).xy * 2.0 - 1.0;
+	float3 py = float3(-tx.x, sqrt(max(1.0 - dot(tx, tx), 0.0)) * WorldNormal.y, -tx.y);
+	float2 ty = VoronoiNormal_Tex.SampleBias(VoronoiNormal_TexSampler, wp.yz, MaterialTextureMipBias).xy * 2.0 - 1.0;
+	float3 px = float3(sqrt(max(1.0 - dot(ty, ty), 0.0)) * WorldNormal.x, -ty.x, -ty.y);
+	float2 wb = min(abs(WorldNormal.xz), 1.0);
+	float3 vn = wb.x * (px - py) + py;
+	float2 tz = VoronoiNormal_Tex.SampleBias(VoronoiNormal_TexSampler, wp.xy, MaterialTextureMipBias).xy * 2.0 - 1.0;
+	float3 pz = float3(-tz.x, -tz.y, sqrt(max(1.0 - dot(tz, tz), 0.0)) * WorldNormal.z);
+	vn = wb.y * (pz - vn) + vn;
+	vn = vn / sqrt(dot(vn, vn));
+	float3 vt = float3(dot(WorldTangent, vn), dot(Bt, vn), dot(WorldNormal, vn));
+	float3 Nvo = Bt * vt.y;
+	Nvo = vt.x * WorldTangent + Nvo;
+	Nvo = vt.z * WorldNormal + Nvo;
+	Nvo = VoronoiNormal_Intensity * (Nvo - WorldNormal) + WorldNormal;
+	float vd = dot(V, Nvo);
+	float vm = saturate(((-vd + Voronoi_Out_Offset) + 1.0) * Voronoi_Out_Intensity) + saturate((vd + Voronoi_In_Offset) * Voronoi_In_Intensity);
+	float3 C4 = vm * (vm * Dd + Base - C3) + C3;
+
+	// ---- M374-376: final emission, selection ---------------------------------------------------------------------------------
+	float3 Ce = C4 * Final_Emission;
+	X.Emissive = SelectionColor.a * (-C4 * Final_Emission + SelectionColor.rgb) + Ce;
+
+	// ---- M377-391: opacity, Kuro ordered 3x3 dither -------------------------------------------------------------------------
+	float op = E_Dither_UseDither * (E_Dither_DitherValue - 1.0) + 1.0;
+	int2 ip = (int2)Pix;                                                       // M379-386: signed (x % 3, y % 3) as emitted
+	uint2 sg = asuint(ip) & 0x80000000u;
+	uint2 rm = ((uint2)max(ip, -ip)) % 3u;
+	int mx = (sg.x != 0u) ? -(int)rm.x : (int)rm.x;
+	int my = (sg.y != 0u) ? -(int)rm.y : (int)rm.y;
+	int k = max(mx * 3 + my, 0);
+	float t = saturate(op * 2.0 - kWuwaFDPattern3x3[k]);
+	X.Opacity = saturate(((t >= asfloat(0x3EAA7EFAu)) ? 1.0 : 0.0) * Opacity);    // 0.333
+	return X;
+}
+
+#endif // WUWA_TOON_BASEPASS_DEPTHFX_USH

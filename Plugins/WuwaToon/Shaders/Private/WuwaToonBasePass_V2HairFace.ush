@@ -1,0 +1,2105 @@
+// WuwaToonBasePass_V2HairFace.ush — remaining M_CharV2_Com ("CharV2") hair and face base-pass variants, ported from the
+// cooked SM5 High DXBC of the roster MIs (evidence/roster/shadermaps/v2/asm/, exact literal bits in asm_hex/).
+// research/roster/Port_CharV2_HairFace.md (hashes, verification, coverage), research/shaders/ToonCommonV2.md.
+//
+// The three first V2 variants (hair f4214b08, HETA 16f3aff3, face bef70fd2) live in the verified
+// WuwaToonBasePass_V2.ush and are not touched; this file re-states their graph as one implementation with compile-time
+// options (one public entry per verified PS hash):
+//   bHue       UseHueShift            (off: every hue factor is 1; no NoV/NoHBlend .. HueShiftChannel inputs)
+//   bMainTexA  UseMainTexA            (off: MaskTex.g = shadow part, MaskTex.a = emissive mask, opacity *= MainTex.a)
+//   bToonSpec  UseToonSpecular        (view-facing toon specular added to GBufferC; band = MainTex.a mid part / MaskTex.r)
+//   bWet       Use_Char_Wet           (wet colour/opacity: CPD 26 amount, CPD 27 + UV3.y + WaterWet_TransitionTex
+//                                      transition, E_Link split-screen mask)
+//   bTwoSided  TwoSided material      (TwoSidedSign flips only the lighting normal, as in the V2 body port)
+//   OpacityMode 0 = hair, 1 = HETA (IsHairHET)
+// Face: WuwaToonFaceV2X_Impl(bRampIDMask, bWet, bAlphaBlendMode, bXingHen). VS: WuwaToonBaseVS_WPO_V2 (E_OLNormalWPO
+// normal offset + the M_Char_Com hologram / E_Motion effects), verified against the V2 base-pass VS.
+// Every value returned is the raw MRT register (apply WuwaToonGBufferStore() to emulate the 8-bit targets).
+#pragma once
+
+#include "WuwaToonBasePassV2Shared.ush"
+
+// ---------------------------------------------------------------------------------------------------------------
+// Shared V2 helpers added for these variants (the verified shared file is not modified).
+// ---------------------------------------------------------------------------------------------------------------
+
+// E_Link split-screen mask (wet hashes, e.g. 4b44b493 L401-428): two rotated screen-space lines at LinePos and
+// LinePos + LineDis (E_Link_AngleLinePosLineDis = (angle0 deg, pos, dis, angle1 deg), aspect-corrected), blended by
+// E_LinkPos; 1 when E_Link_UseSplitScreen < 0.1. Returned as the 0/1 gate (value - 0.333 >= 0.000667).
+// The cos/sin preshaders are recomputed here (CPU float32 in Kuro; GPU here: may differ by an ulp, gate compare only).
+float WuwaV2LinkGate(float2 SvPositionXY, float4 ViewSizeAndInvSize, float2 ViewRectMin,
+	float E_Link_UseSplitScreen, float4 E_Link_AngleLinePosLineDis, float E_LinkPos)
+{
+	float link = 1.0;
+	if (E_Link_UseSplitScreen >= asfloat(0x3DCCCCCDu))                       // 0.1
+	{
+		float2 suv = (SvPositionXY - ViewRectMin) * ViewSizeAndInvSize.zw;
+		float  asp = max(ViewSizeAndInvSize.x / ViewSizeAndInvSize.y, 1.0);
+		float  pos0 = E_Link_AngleLinePosLineDis.y;
+		float  pos1 = E_Link_AngleLinePosLineDis.y + E_Link_AngleLinePosLineDis.z;            // preshader
+		float  a0 = (E_Link_AngleLinePosLineDis.x / 360.0) * asfloat(0x40C90FDBu);             // preshader (2*pi)
+		float  a1 = (E_Link_AngleLinePosLineDis.w / 360.0) * asfloat(0x40C90FDBu);
+		float2 r0 = float2(cos(a0), sin(a0) * -1.0);
+		float2 r1 = float2(cos(a1), sin(a1) * -1.0);
+		float  p0 = asp * pos0;
+		float  d0 = dot(float2(suv.x * asp, suv.y) - float2(p0, 0.5), r0);
+		bool   A  = (asp * pos0 + d0) >= p0;
+		float  p1 = asp * pos1;
+		float  d1 = dot(float2(suv.x * asp, suv.y) - float2(p1, 0.5), r1);
+		bool   B  = (pos1 * asp + d1) >= p1;
+		float  fA = A ? 1.0 : 0.0;
+		float  fB = B ? 1.0 : 0.0;
+		float  x  = max((B ? -1.0 : -0.0) + fA, 0.0);
+		x = x + (A ? -0.0 : -1.0);
+		x = saturate(E_LinkPos * 2.0) * x + (A ? 0.0 : 1.0);
+		x = saturate(E_LinkPos * 2.0 - 1.0) * (fB - x) + x;
+		link = x;
+	}
+	return (min(link, 1.0) + asfloat(0xBEAA7EFAu) >= asfloat(0x3A2ED99Du)) ? 1.0 : 0.0;    // -0.333, 0.000667
+}
+
+// Wet transition t^2 (UV0 * WaterWet_TransitionTilling sample .r * 0.05 + UV3.y + CPD27 * 18/17, sat((x - 1) * 20)).
+float WuwaV2WetTransition(Texture2D WaterWet_TransitionTex, SamplerState WaterWet_TransitionTexSampler, float2 UV0,
+	float WaterWet_TransitionTilling, float UV3Y, float CPD_WetTransition)
+{
+	float tr = WaterWet_TransitionTex.Sample(WaterWet_TransitionTexSampler, UV0 * WaterWet_TransitionTilling).r;
+	tr = tr * asfloat(0x3D4CCCCDu) + UV3Y;                                    // 0.05
+	tr = CPD_WetTransition * asfloat(0x3F878788u) + tr;                       // 1.058824
+	tr = saturate((tr + -1.0) * 20.0);
+	return tr * tr;
+}
+
+// Wet GBufferC colour: dry -> desaturated / lightened wet colour (skin weighted), by CPD26 and the transition.
+float3 WuwaV2WetColor(float3 Dry, float SkinF, float Opacity, float LinkGate, float WetAmount, float Transition,
+	float Wet_Desaturation, float Wet_Lightness, float Wet_OpacityInBaseCol_Blend, float WetSkin_Desaturation,
+	float WetSkin_Lightness)
+{
+	float  lum = dot(Dry, float3(0.3, 0.59, 0.11));
+	float3 dl  = lum - Dry;
+	float3 wetC = (Wet_Desaturation * dl + Dry) * Wet_Lightness;
+	float  m = min(Opacity, LinkGate);
+	wetC = Wet_OpacityInBaseCol_Blend * (wetC * m - wetC) + wetC;
+	float3 wetCol = SkinF * ((WetSkin_Desaturation * dl + Dry) * WetSkin_Lightness - wetC) + wetC;
+	float3 c1 = saturate(WetAmount) * (wetCol - Dry) + Dry;
+	return (wetCol - c1) * Transition + c1;
+}
+
+// Wet opacity: smoothstep(PowerMin, PowerMax, Opacity) minus Wet_Opacity by wet amount / transition.
+float WuwaV2WetOpacity(float Opacity, float WetAmount, float Transition, float Wet_OpacityPowerMin, float Wet_OpacityPowerMax,
+	float Wet_Opacity)
+{
+	float s  = saturate((Opacity - Wet_OpacityPowerMin) * (1.0 / (Wet_OpacityPowerMax - Wet_OpacityPowerMin)));
+	float s3 = s * -2.0 + 3.0;
+	float s2 = s * s;
+	float sm = s2 * s3;
+	float a2 = s3 * s2 - Wet_Opacity;
+	float a1 = saturate(WetAmount) * -Wet_Opacity + sm;
+	return (a2 - a1) * Transition + a1;
+}
+
+// GBuffer encode (copy of WuwaV2Encode, mode-1 HETA opacity saturated: the wet opacity can be negative).
+void WuwaV2EncodeX(inout FWuwaToonGBuffer G, const uint OpacityMode, float3 N, float3 ShadowCol, float Opacity,
+	float SkinF, float FFT, float ToonRimWidth, float SSAOSkinIntensity, float SSAOIntensity,
+	float KuroGBufferMode, uint LightingChannelMask, float Mode0AW)
+{
+	G.A.xy  = WuwaBPOctEncode(N);
+	G.B.rgb = sqrt(saturate(ShadowCol));
+	G.B.a   = WuwaBPShadingModelByte(LightingChannelMask, 12u);
+	if (KuroGBufferMode == 1.0)
+	{
+		if (OpacityMode == 1u)
+		{
+			uint op = (uint)floor(saturate(Opacity) * 255.0 + 0.5);
+			G.C.a = (float)(op | 1u) * WUWA_INV255;
+		}
+		else
+		{
+			G.C.a = WuwaBPRimByteEven(ToonRimWidth);
+		}
+		G.D   = float4(0.0, 0.0, 0.0, 0.0);
+		G.A.w = 1.0;
+	}
+	else
+	{
+		G.C.a = Opacity;
+		float ao = saturate(SkinF * (SSAOSkinIntensity - SSAOIntensity) + SSAOIntensity);
+		G.D   = float4(ToonRimWidth, WUWA_240OVER255, 0.0, WuwaPackU8Lo4(ao, saturate(FFT)));
+		G.A.w = Mode0AW;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Hair V2 with options (MSM_ToonHair; GBufferB id 12). Graph and line refs as WuwaToonHairV2BasePass_Impl
+// (WuwaToonBasePass_V2.ush, H### = #008282 f4214b08); option blocks from 84093246 (no hue), b2f60ebf (toon spec),
+// a6dd454a (no MainTexA), 4b44b493 (wet), 7b517b4d (two-sided).
+// ---------------------------------------------------------------------------------------------------------------
+FWuwaToonGBuffer WuwaToonHairV2X_Impl(const bool bHue, const bool bMainTexA, const bool bToonSpec, const bool bWet,
+	const bool bTwoSided, const uint OpacityMode,
+	Texture2D TypeMask, SamplerState TypeMaskSampler, Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D HairUVMap, SamplerState HairUVMapSampler, Texture2D HairNoise, SamplerState HairNoiseSampler,
+	Texture2D HairRamp, SamplerState HairRampSampler, Texture2D MaskTex, SamplerState MaskTexSampler,
+	Texture2D Ramp, SamplerState RampSampler, Texture2D WaterWet_TransitionTex, SamplerState WaterWet_TransitionTexSampler,
+	float2 UV0, float UV3Y, float2 SvPositionXY, float TwoSidedSign,
+	float3 WorldNormal, float3 WorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask,
+	float4x4 TranslatedWorldToView, float4x4 TranslatedWorldToCameraView, float3 ViewForward,
+	float4 ViewSizeAndInvSize, float2 ViewRectMin,
+	float DamageIntensity, float Damage_Skin_Intensity, float SkinMin, float SkinMax, float UseFaceAni_SkinMask,
+	float3 SkinColor, float3 Damage_Dirty_SkinColorTint, float3 Damage_Dirty_ColorTint, float Damage_Dirty_Intensity,
+	float3 Damage_Skin_ColorTint, float3 BaseColorTint, float DecodeShadowThreshold, float DecodeSpecThreshold,
+	float NoVNoHBlend, float NoVHPower, float HueShiftFlip, float HueTilling, float HueSwitch2D3D, float HueOffset,
+	float HueIntensity, float3 HueShiftColor, float HueShiftChannel,
+	float3 Hl_FlowMin, float3 Hl_EdgeLift, float3 Hl_Position, float3 Hl_UseNoiseOffset, float3 Hl_UseNoise,
+	float3 Hl_ScaleArea, float3 Hl_Scale, float3 Hl_Width, float3 Hl_NoiseUpIntensity, float3 Hl_NoiseDownIntensity,
+	float3 Hl_UseMiddleMute, float3 Hl_HighlightColorIntensity, float3 Hl_HighlightColorIntensity_Dark,
+	float3 Hl_HairRimHiddenChannel, float3 Hl_HairMaskChannel,
+	float Noise1_TilingU, float Noise1_OffsetU, float Noise1_Intensity, float Noise2_TilingU, float Noise2_OffsetU, float Noise2_Intensity,
+	float UseAdd, float HighlightUseEmission, float SpecStrength,
+	float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor,
+	float3 SkinSubsurfaceColor, float3 SubsurfaceColor, float RaytracingReflectionFix,
+	float SolidShadowProcess, float SolidShadowWidth, float ShadowProcess, float ShadowWidth, float ShadowWidthUseID,
+	float4 ShadowWidth0123, float ShadowWidth4, float ShadowOffsetAdjustFactor, float ShadowOffsetPower, float MaskShadowOffsetStrength,
+	float LightOffset_Pitch, float SolidShadow_RampPosition, float RampIndex, float RampInt, float SolidShadowStrength,
+	float AniSwitch_ShadowColorBright, float Desaturation, float OpacityIntensity, float ToonRimWidth,
+	float SSAOSkinIntensity, float SSAOIntensity,
+	float FFTMin, float FFTMax, float FFT_SparkThreshold, float FFT_SparkIntensity, float FFT_SpecularThreshold, float FFT_SpecularIntensity,
+	float Wet_Desaturation, float Wet_Lightness, float Wet_OpacityInBaseCol_Blend, float WetSkin_Desaturation, float WetSkin_Lightness,
+	float WaterWet_TransitionTilling, float Wet_OpacityPowerMin, float Wet_OpacityPowerMax, float Wet_Opacity,
+	float E_Link_UseSplitScreen, float4 E_Link_AngleLinePosLineDis, float E_LinkPos, float CPD_WetAmount, float CPD_WetTransition,
+	float CPD1, float CPD13, float3 CPD_HeadUp,
+	float MPC_GlobalCharSkyLightIntensity, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask)
+{
+	FWuwaToonGBuffer G;
+	const float3 V = CameraVector;
+
+	// ---- front end, shading normal -----------------------------------------------------------------------------------
+	float3 TM   = TypeMask.SampleLevel(TypeMaskSampler, UV0, MaterialTextureMipBias).rba;
+	float4 Main = MainTex.Sample(MainTexSampler, UV0);
+	FWuwaV2Front F = WuwaV2FrontEnd(TM, Main, DamageIntensity, Damage_Skin_Intensity, SkinMin, SkinMax, UseFaceAni_SkinMask,
+		SkinColor, Damage_Dirty_SkinColorTint, Damage_Dirty_ColorTint, Damage_Dirty_Intensity, Damage_Skin_ColorTint, BaseColorTint,
+		DecodeShadowThreshold, DecodeSpecThreshold);
+	float3 Nu; float NuRsq; float3 N;
+	WuwaV2ShadingNormal(WorldNormal, NormalOverrideParameter, Nu, NuRsq, N);
+	float3 Base = F.Base;
+	float4 M = MaskTex.Sample(MaskTexSampler, UV0);
+	// MainTexA off: MaskTex.g is the shadow part, MaskTex.a the emissive mask, MaskTex.r the toon-spec band.
+	float  ShadowPart = bMainTexA ? F.ShadowPart : M.y;
+	float  SpecPart   = bMainTexA ? F.SpecPart : M.w;
+	float  ToonSpecMid = bMainTexA ? (min(max(F.MainA, DecodeShadowThreshold), DecodeSpecThreshold) - DecodeShadowThreshold)
+	                                 / (DecodeSpecThreshold - DecodeShadowThreshold) : M.x;
+
+	// ---- hue-shift colour -----------------------------------------------------------------------------------------------
+	float  NoV = dot(N, V);
+	float3 Hue = float3(1.0, 1.0, 1.0);
+	if (bHue)
+	{
+		float3 Hup = V + float3(0.0, 0.0, 1.0);
+		Hup = Hup / sqrt(dot(Hup, Hup));
+		float  hb  = NoVNoHBlend * (dot(Hup, N) - NoV) + NoV;
+		float  hp  = WuwaV2PowSat(hb, NoVHPower);
+		hp = HueShiftFlip * (hp * -2.0 + 1.0) + hp;
+		float  hu  = UV0.x * HueTilling + hp;
+		float  ang = HueSwitch2D3D * (HueTilling * hp - hu) + hu;
+		ang = (ang + HueOffset) * asfloat(0x40C90FDBu);                 // 2*pi
+		const float3 kGrey = float3(asfloat(0x3F13CD3Au), asfloat(0x3F13CD3Au), asfloat(0x3F13CD3Au));   // 0.57735
+		float  hd  = dot(kGrey, HueShiftColor);
+		float3 hU  = HueShiftColor - hd * kGrey;
+		float3 hT  = hU.zxy * kGrey;
+		float3 hV  = hU.zxy * kGrey - hT.zxy;
+		float  hs, hc;
+		sincos(ang, hs, hc);
+		Hue = hd * kGrey + (hU * hc + hs * hV);
+	}
+
+	// ---- camera-space facing, head-up vs view ----------------------------------------------------------------------------
+	float2 nc = N.y * TranslatedWorldToCameraView[1].xz + N.x * TranslatedWorldToCameraView[0].xz;
+	nc = N.z * TranslatedWorldToCameraView[2].xz + nc;
+	nc = nc / sqrt(dot(nc, nc));
+	float2 vv = V.y * TranslatedWorldToView[1].xz + V.x * TranslatedWorldToView[0].xz;
+	vv = V.z * TranslatedWorldToView[2].xz + vv;
+	float  facing = dot(nc, vv);
+	float  headUp = dot(-ViewForward, CPD_HeadUp);
+	float  satNoV = saturate(NoV);
+
+	// ---- band coordinate per highlight -------------------------------------------------------------------------------------
+	float2 UVM   = HairUVMap.Sample(HairUVMapSampler, UV0).rg;
+	float3 pos   = UVM.y - Hl_FlowMin * headUp;
+	pos = (1.0 - satNoV) * Hl_EdgeLift + pos;
+	float3 above = float3(pos.x >= Hl_Position.x ? 1.0 : 0.0, pos.y >= Hl_Position.y ? 1.0 : 0.0, pos.z >= Hl_Position.z ? 1.0 : 0.0);
+	float3 nsel  = above * Hl_UseNoiseOffset + Hl_UseNoise;
+	float  n1 = HairNoise.Sample(HairNoiseSampler, float2(UVM.x * Noise1_TilingU + Noise1_OffsetU, 0.5)).r;
+	n1 = (n1 * 2.0 - 1.0) * Noise1_Intensity;
+	float  n2 = HairNoise.Sample(HairNoiseSampler, float2(UVM.x * Noise2_TilingU + Noise2_OffsetU, 0.5)).r;
+	n2 = (n2 * 2.0 - 1.0) * Noise2_Intensity - n1;
+	float3 noise = nsel * n2 + n1;
+	float  fA = 1.0 - facing;
+	float  fB = facing - fA;
+	float3 sc = min(max(Hl_ScaleArea * fB + fA, Hl_Scale), 1.0);
+	float3 lo = -Hl_Width * sc + Hl_Position;
+	float3 hi = Hl_Width * sc + Hl_Position;
+	float3 mute = saturate(abs(pos - Hl_Position) / Hl_Width) + -1.0;
+	mute = Hl_UseMiddleMute * mute + 1.0;
+	noise = noise * mute;
+	float3 amp = above * (Hl_NoiseUpIntensity - Hl_NoiseDownIntensity) + Hl_NoiseDownIntensity;
+	float3 t = noise * amp + pos;
+	t = saturate((t - lo) / max(hi - lo, asfloat(0x38D1B717u)));    // 1e-4
+	float3 tri = -abs(t + -0.5) * 2.0 + 1.0;
+
+	// ---- hue mask by channel, ramp colours, band weights ----------------------------------------------------------------
+	float3 hue0 = float3(1.0, 1.0, 1.0), hue1 = hue0, hue2 = hue0, hue3 = hue0;
+	if (bHue)
+	{
+		float4 chSel = float4(HueShiftChannel == 0.0 ? 1.0 : 0.0, HueShiftChannel == 1.0 ? 1.0 : 0.0,
+		                      HueShiftChannel == 2.0 ? 1.0 : 0.0, HueShiftChannel == 3.0 ? 1.0 : 0.0);
+		float  hueMask = dot(float4(1.0, tri), chSel);
+		float3 hueV = (Hue * HueIntensity + -1.0) * hueMask;
+		hue3 = chSel.w * hueV + 1.0;
+		hue2 = chSel.z * hueV + 1.0;
+		hue1 = chSel.y * hueV + 1.0;
+		hue0 = chSel.x * hueV + 1.0;
+	}
+	float3 ramp2 = HairRamp.Sample(HairRampSampler, float2(t.z, 0.625)).rgb;
+	float2 rimRG = HairRamp.Sample(HairRampSampler, float2(satNoV, 0.875)).rg;
+	float3 rimHidden = (rimRG.y - rimRG.x) * Hl_HairRimHiddenChannel + rimRG.x;
+	float3 maskSel = (M.z - M.x) * Hl_HairMaskChannel + M.x;
+	float3 w = rimHidden * maskSel;
+	float3 factor2 = w.z * (hue3 * (ramp2 + ramp2) + -1.0) + 1.0;
+	float3 ramp1 = HairRamp.Sample(HairRampSampler, float2(t.y, 0.375)).rgb;
+	float3 factor1 = w.y * (hue2 * (ramp1 + ramp1) + -1.0) + 1.0;
+	float3 ramp0 = HairRamp.Sample(HairRampSampler, float2(t.x, 0.125)).rgb;
+	float3 factor0 = w.x * (hue1 * (ramp0 + ramp0) + -1.0) + 1.0;
+	float3 base0 = hue0 * Base;
+	float3 m0 = factor0 * base0;
+	float3 hl0 = hue1 * w.x;
+
+	// ---- solid ratio, shadow width by region, Mask.g shadow offset ----------------------------------------------------------
+	float  solid = WuwaV2SolidRatio(ShadowPart, SolidShadowProcess, SolidShadowWidth);
+	float  swid  = WuwaV2ShadowWidthByID(F.RegionID, ShadowWidth, ShadowWidthUseID, ShadowWidth0123, ShadowWidth4);
+	float  SPp   = (0.0 + ShadowProcess) + 0.0;                     // preshader
+	float  bLo = SPp - swid, bHi = SPp + swid;
+	float  off = M.y * ShadowOffsetAdjustFactor;
+	float  offP = exp2(log2(off) * ShadowOffsetPower) * MaskShadowOffsetStrength;
+	float  ShadowOffset = (asfloat(0x33000002u) >= off) ? 0.0 : offP;
+
+	// ---- lighting normal (TwoSided: TwoSidedSign flips it), light direction ---------------------------------------------------
+	float3 NL = bTwoSided ? RaytracingReflectionFix * (-N * TwoSidedSign + WorldNormal) + TwoSidedSign * N
+	                      : RaytracingReflectionFix * (-Nu * NuRsq + WorldNormal) + N;
+	float3 L = WuwaBPMainLightDir(LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+
+	// ---- half-Lambert band, shadow -------------------------------------------------------------------------------------------
+	float HL = dot(NL, L) * 0.5 + ShadowOffset;
+	HL = HL + 0.5;
+	float s = saturate((1.0 / (bHi - bLo)) * (HL - bLo));
+	s = (s * s) * (s * -2.0 + 3.0);
+	float Shadow = solid * s;
+
+	// ---- highlight blend per band ----------------------------------------------------------------------------------------------
+	float3 hlI = Shadow * (Hl_HighlightColorIntensity - Hl_HighlightColorIntensity_Dark) + Hl_HighlightColorIntensity_Dark;
+	float3 col;
+	{
+		float3 a  = hlI.x * hl0;
+		float3 r2 = ramp0 * 2.0 + -1.0;
+		float3 scr = -(-a * r2 + 1.0) * (-Base * hue0 + 1.0) + 1.0;
+		float3 add = a * r2 + base0;
+		float3 c = UseAdd * (add - scr) + scr;
+		float3 ge = float3(ramp0.x >= 0.5 ? 1.0 : 0.0, ramp0.y >= 0.5 ? 1.0 : 0.0, ramp0.z >= 0.5 ? 1.0 : 0.0);
+		col = ge * (-factor0 * base0 + c) + m0;
+	}
+	{
+		float3 m1 = col * factor1;
+		float3 a  = hlI.y * (w.y * hue2);
+		float3 r2 = ramp1 * 2.0 + -1.0;
+		float3 scr = -(-a * r2 + 1.0) * (1.0 - col) + 1.0;
+		float3 add = a * r2 + col;
+		float3 c = UseAdd * (add - scr) + scr;
+		float3 ge = float3(ramp1.x >= 0.5 ? 1.0 : 0.0, ramp1.y >= 0.5 ? 1.0 : 0.0, ramp1.z >= 0.5 ? 1.0 : 0.0);
+		col = ge * (-factor1 * col + c) + m1;
+	}
+	{
+		float3 m2 = col * factor2;
+		float3 a  = hlI.z * (hue3 * w.z);
+		float3 r2 = ramp2 * 2.0 + -1.0;
+		float3 scr = -(-a * r2 + 1.0) * (1.0 - col) + 1.0;
+		float3 add = a * r2 + col;
+		float3 c = UseAdd * (add - scr) + scr;
+		float3 ge = float3(ramp2.x >= 0.5 ? 1.0 : 0.0, ramp2.y >= 0.5 ? 1.0 : 0.0, ramp2.z >= 0.5 ? 1.0 : 0.0);
+		col = ge * (-factor2 * col + c) + m2;
+	}
+
+	// ---- overflow emission, emissive ---------------------------------------------------------------------------------------------
+	float3 Overflow = max(col + -1.0, 0.0) * HighlightUseEmission;
+	float3 E = EmissionColor * (SpecPart * Base) + Overflow;
+	E = MotionEmissiveMask * E_Motion_Emissive + E;
+	E = SelectionColor.a * (SelectionColor.rgb - E) + E;
+
+	// ---- toon specular (b2f60ebf L336-345): x = sat(NL.V); col += x*SpecStrength * (clamp(max(1-x, mid), .., 1) - (1-x)) / max(1-(1-x), 1e-4)
+	if (bToonSpec)
+	{
+		float ts = saturate(dot(NL, V));
+		float tsI = ts * SpecStrength;
+		float o = 1.0 - ts;
+		float num = min(max(o, ToonSpecMid), 1.0) - o;
+		float den = max(1.0 - o, asfloat(0x38D1B717u));
+		col = tsI * (num / den) + col;
+	}
+
+	// ---- opacity (MainTexA off: TypeMask.r * MainTex.a) -------------------------------------------------------------------------
+	float Opacity = bMainTexA ? max(F.TypeMaskR * OpacityIntensity, 0.0) : max((F.TypeMaskR * F.MainA) * OpacityIntensity, 0.0);
+
+	// ---- GBufferC.rgb (wet: 4b44b493 L392-452) ------------------------------------------------------------------------------------
+	float3 Dry = WuwaBPDesaturate(saturate(col * AniSwitch_ShadowColorBright), Desaturation);
+	float  WetT = 0.0;
+	if (bWet)
+	{
+		float gate = WuwaV2LinkGate(SvPositionXY, ViewSizeAndInvSize, ViewRectMin, E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis, E_LinkPos);
+		WetT = WuwaV2WetTransition(WaterWet_TransitionTex, WaterWet_TransitionTexSampler, UV0, WaterWet_TransitionTilling, UV3Y, CPD_WetTransition);
+		G.C.rgb = WuwaV2WetColor(Dry, F.SkinF, Opacity, gate, CPD_WetAmount, WetT, Wet_Desaturation, Wet_Lightness,
+			Wet_OpacityInBaseCol_Blend, WetSkin_Desaturation, WetSkin_Lightness);
+		Opacity = WuwaV2WetOpacity(Opacity, CPD_WetAmount, WetT, Wet_OpacityPowerMin, Wet_OpacityPowerMax, Wet_Opacity);
+	}
+	else
+	{
+		G.C.rgb = Dry;
+	}
+
+	// ---- emissive -> SceneColor ---------------------------------------------------------------------------------------------------
+	G.Emissive = WuwaBPFinalEmissive(E, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+
+	// ---- shadow colour (SSS vs ramp at RampIndex row) -> GBufferB.rgb ------------------------------------------------------------
+	float3 SSS = F.SkinF * (SkinSubsurfaceColor - SubsurfaceColor) + SubsurfaceColor;
+	float  ru  = saturate(HL + (0.5 - SPp));                        // preshader 0.5 - SP'
+	float  rc  = min(ru, SolidShadow_RampPosition);
+	float2 rampUV = float2(solid * (ru - rc) + rc, RampIndex * 0.2 + 0.1);   // preshader (RampIndex*0.2)+0.1
+	float3 RampCol = Ramp.Sample(RampSampler, rampUV).rgb;
+	float  rampW = ((MPC_GlobalCharSkyLightIntensity >= 0.05) ? 1.0 : 0.0) * RampInt;
+	float3 ShadowCol = rampW * (RampCol - SSS) + SSS;
+	ShadowCol = WuwaBPDesaturate(ShadowCol, Desaturation);
+
+	// ---- back-light solid lift -> GBufferA.z --------------------------------------------------------------------------------------
+	G.A.z = WuwaV2ShadowFactorZ(L, V, solid, Shadow, SolidShadowStrength);
+
+	// ---- FFT, encode ------------------------------------------------------------------------------------------------------------------
+	float FFT = WuwaV2FFT(Overflow, F.RegionID, FFTMin, FFTMax, FFT_SparkThreshold, FFT_SparkIntensity,
+		FFT_SpecularThreshold, FFT_SpecularIntensity);
+	WuwaV2EncodeX(G, OpacityMode, N, ShadowCol, Opacity, F.SkinF, FFT, ToonRimWidth, SSAOSkinIntensity, SSAOIntensity,
+		KuroGBufferMode, LightingChannelMask, WUWA_099999);
+	return G;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Round 5 (research/roster/round5/v2.md): hair with UseSparkle / UseMilkWay(+EffectClip) / UseEffectMaterial second layer /
+// UseBreathLight. Copy of WuwaToonHairV2X_Impl (UseHueShift, UseMainTexA, one-sided, opacity mode 0) with the option blocks of
+// PS b51e5160 (#149182, Daniya Hair02; L### = evidence/roster/shadermaps/v2/asm/149182_b51e5160...) and 0a8e7927 (#293817,
+// ShenXin Hair):
+//   bSparkle  (b51e L187-262): hair glitter. Mask = max(smoothstep(Range - Soft, Range + Soft, ch), SparkleBaseLuminance) with
+//             ch = (HairUVMap.a, band triangle 0..2)[SparkleChannel] (no region range); glitter colour = the body UseSparkle colour
+//             (CommonNoiseMap .xy twice, bias -2; Base * HueShiftValue hue-rotated, distance / FOV strength). Emissive and FFT spark
+//             source: glitter * mask + overflow.
+//   bMilkWay  (b51e L478-513): DisturebanceNoise_Tex.r at UV2 * Tilling + GameTime * (Disturebance UV Parameter.xy), * .z;
+//             MilkWay_Tex.rgb at UV2 * MilkWay_Tilling + noise + (T.V, B.V) * HeightRatioInput * (1 - COLOR0.b) * 0.5, * Intensity
+//             * Color, faded by sat((1 - sat(N.V) + RangeOffset) * RangePower), * base; weighted by the top mask sat((UV3.y +
+//             TopMask_Offset) * TopMask_Power) * sat(lum(base)); + rim light noise * (1 - smoothstep(SmoothMin, SmoothMax, N.V)) *
+//             RimLight_Intensity * RimLightColor * top mask. Added to the emissive.
+//   bDownTran (UseMilkWayEffectClip; b51e L699-711, 0a8e L523, L578-589): opacity *= sat((DownTran_Offset - UV3.y + 1) *
+//             DownTran_Power) + sat(V . -LocalToWorld[2])^DownTran_Return (pow guard 2.98e-8).
+//   bSecond   (b51e L514-559): the body UseEffectMaterial second layer without UseNoise, with UseRim, mask R_Noise_A_Mask.a on
+//             lerp(UV0, UV1, EffectMaskTexUV2Switch); this map's pow guards compare with 2.98e-8 (the body maps with 0).
+//   bBreath   (0a8e L133-144): the body UseBreathLight emission.
+// UV1 / UV2 = Kuro TEXCOORD1.xy / .zw, UV3Y = TEXCOORD1.w, VertexColorB = COLOR0.b (both maps' PS read COLOR0).
+// ---------------------------------------------------------------------------------------------------------------
+// E_Link split-screen gate with the line rotations as CPU uniform expressions (LinkRot0/1 = (cos a, -sin a) of
+// E_Link_AngleLinePosLineDis.x / .w degrees; copy of WuwaV2BodyLinkGate, WuwaToonBasePass_V2Body.ush). The GPU cos/sin of
+// WuwaV2LinkGate flipped the gate of 1 pixel in 1.1M against 0a8e7927 (cb4 preshaders float8(cos(...)), L553 / L559).
+float WuwaV2LinkGateRot(float2 SvPositionXY, float4 ViewSizeAndInvSize, float2 ViewRectMin, float E_Link_UseSplitScreen,
+	float4 E_Link_AngleLinePosLineDis, float E_LinkPos, float2 LinkRot0, float2 LinkRot1)
+{
+	float link = 1.0;
+	if (E_Link_UseSplitScreen >= asfloat(0x3DCCCCCDu))                       // 0.1
+	{
+		float2 suv = (SvPositionXY - ViewRectMin) * ViewSizeAndInvSize.zw;
+		float  asp = max(ViewSizeAndInvSize.x / ViewSizeAndInvSize.y, 1.0);
+		float  pos0 = E_Link_AngleLinePosLineDis.y;
+		float  pos1 = min(E_Link_AngleLinePosLineDis.y + E_Link_AngleLinePosLineDis.z, asfloat(0x7F7FFFFFu));   // preshader
+		float  p0 = asp * pos0;
+		float  d0 = dot(float2(suv.x * asp, suv.y) - float2(p0, 0.5), LinkRot0);
+		bool   A  = (asp * pos0 + d0) >= p0;
+		float  p1 = asp * pos1;
+		float  d1 = dot(float2(suv.x * asp, suv.y) - float2(p1, 0.5), LinkRot1);
+		bool   B  = (pos1 * asp + d1) >= p1;
+		float  fA = A ? 1.0 : 0.0;
+		float  fB = B ? 1.0 : 0.0;
+		float  x  = max((B ? -1.0 : -0.0) + fA, 0.0);
+		x = x + (A ? -0.0 : -1.0);
+		x = saturate(E_LinkPos * 2.0) * x + (A ? 0.0 : 1.0);
+		x = saturate(E_LinkPos * 2.0 - 1.0) * (fB - x) + x;
+		link = x;
+	}
+	return (min(link, 1.0) + asfloat(0xBEAA7EFAu) >= asfloat(0x3A2ED99Du)) ? 1.0 : 0.0;    // -0.333, 0.000667
+}
+
+FWuwaToonGBuffer WuwaToonHairV2R5_Impl(const bool bToonSpec, const bool bWet, const bool bSparkle, const bool bMilkWay,
+	const bool bDownTran, const bool bSecond, const bool bBreath,
+	Texture2D TypeMask, SamplerState TypeMaskSampler, Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D HairUVMap, SamplerState HairUVMapSampler, Texture2D HairNoise, SamplerState HairNoiseSampler,
+	Texture2D HairRamp, SamplerState HairRampSampler, Texture2D MaskTex, SamplerState MaskTexSampler,
+	Texture2D Ramp, SamplerState RampSampler, Texture2D WaterWet_TransitionTex, SamplerState WaterWet_TransitionTexSampler,
+	Texture2D CommonNoiseMap, SamplerState CommonNoiseMapSampler, Texture2D DisturebanceNoise_Tex, SamplerState DisturebanceNoise_TexSampler,
+	Texture2D MilkWay_Tex, SamplerState MilkWay_TexSampler, Texture2D Second_RGB, SamplerState Second_RGBSampler,
+	Texture2D R_Noise_A_Mask, SamplerState R_Noise_A_MaskSampler,
+	float2 UV0, float2 UV1, float2 UV2, float UV3Y, float VertexColorB, float2 SvPositionXY,
+	float3 WorldTangent, float TangentSign, float3 WorldNormal, float3 WorldPosition, float3 CameraVector, float3 LightDirVS,
+	float MotionEmissiveMask, float4x4 TranslatedWorldToView, float4x4 TranslatedWorldToCameraView, float3 ViewForward,
+	float4 ViewSizeAndInvSize, float2 ViewRectMin, float GameTime, float3 WorldCameraOrigin, float ClipToView00,
+	float3 LocalToWorldRow2, float3 LocalToWorldRow3,
+	float DamageIntensity, float Damage_Skin_Intensity, float SkinMin, float SkinMax, float UseFaceAni_SkinMask,
+	float3 SkinColor, float3 Damage_Dirty_SkinColorTint, float3 Damage_Dirty_ColorTint, float Damage_Dirty_Intensity,
+	float3 Damage_Skin_ColorTint, float3 BaseColorTint, float DecodeShadowThreshold, float DecodeSpecThreshold,
+	float NoVNoHBlend, float NoVHPower, float HueShiftFlip, float HueTilling, float HueSwitch2D3D, float HueOffset,
+	float HueIntensity, float3 HueShiftColor, float HueShiftChannel,
+	float3 Hl_FlowMin, float3 Hl_EdgeLift, float3 Hl_Position, float3 Hl_UseNoiseOffset, float3 Hl_UseNoise,
+	float3 Hl_ScaleArea, float3 Hl_Scale, float3 Hl_Width, float3 Hl_NoiseUpIntensity, float3 Hl_NoiseDownIntensity,
+	float3 Hl_UseMiddleMute, float3 Hl_HighlightColorIntensity, float3 Hl_HighlightColorIntensity_Dark,
+	float3 Hl_HairRimHiddenChannel, float3 Hl_HairMaskChannel,
+	float Noise1_TilingU, float Noise1_OffsetU, float Noise1_Intensity, float Noise2_TilingU, float Noise2_OffsetU, float Noise2_Intensity,
+	float UseAdd, float HighlightUseEmission, float SpecStrength,
+	float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor,
+	float3 SkinSubsurfaceColor, float3 SubsurfaceColor, float RaytracingReflectionFix,
+	float SolidShadowProcess, float SolidShadowWidth, float ShadowProcess, float ShadowWidth, float ShadowWidthUseID,
+	float4 ShadowWidth0123, float ShadowWidth4, float ShadowOffsetAdjustFactor, float ShadowOffsetPower, float MaskShadowOffsetStrength,
+	float LightOffset_Pitch, float SolidShadow_RampPosition, float RampIndex, float RampInt, float SolidShadowStrength,
+	float AniSwitch_ShadowColorBright, float Desaturation, float OpacityIntensity, float ToonRimWidth,
+	float SSAOSkinIntensity, float SSAOIntensity,
+	float FFTMin, float FFTMax, float FFT_SparkThreshold, float FFT_SparkIntensity, float FFT_SpecularThreshold, float FFT_SpecularIntensity,
+	float Wet_Desaturation, float Wet_Lightness, float Wet_OpacityInBaseCol_Blend, float WetSkin_Desaturation, float WetSkin_Lightness,
+	float WaterWet_TransitionTilling, float Wet_OpacityPowerMin, float Wet_OpacityPowerMax, float Wet_Opacity,
+	float E_Link_UseSplitScreen, float4 E_Link_AngleLinePosLineDis, float E_LinkPos, float CPD_WetAmount, float CPD_WetTransition,
+	float2 LinkRot0, float2 LinkRot1,
+	// UseSparkle (hair)
+	float SparkleChannel, float SparkleRange, float SparkleSoft, float SparkleBaseLuminance, float4 Sparkle_UV_Switch, float SparkleTiling,
+	float SparkleTimeSpeed, float SparkleIntensity, float SparkleIntensityMax, float SparkleColorful, float SparkleStep, float3 HueShiftValue,
+	float SparkleStrengthFOV, float UseSparkleFOVStrength,
+	// UseMilkWay / UseMilkWayEffectClip
+	float3 DisturebanceUVParameter, float DisturebanceNoise_Tilling, float MilkWay_Tilling_X, float MilkWay_Tilling_Y,
+	float HeightRatioInput, float MilkWay_Intensity, float3 MilkWay_Color, float MilkWay_RangeOffset, float MilkWay_RangePower,
+	float TopMask_Offset_MilkWay, float TopMask_Power_MilkWay, float MilkWayRimRange_SmoothMin, float MilkWayRimRange_SmoothMax,
+	float MilkWayRimLight_Intensity, float3 MilkWayRimLightColor, float DownTran_Offset, float DownTran_Power, float DownTran_Return,
+	// UseEffectMaterial second layer (Second_RotCos / Second_RotSin: CPU uniform expressions)
+	float4 SecondTex_UVSwitch, float Second_UseScreenUV, float Second_RotCos, float Second_RotSin, float4 Second_UV, float4 Second_UV_Offset,
+	float4 Second_Refine, float3 Second_ColorTint, float FresnelRim_RimRange, float FresnelRim_Smooth, float FresnelRim_Reverse,
+	float3 FresnelRim_RimColor, float EffectMaskTexUV2Switch, float Effect_Progress,
+	// UseBreathLight
+	float BreatheStrength, float BreatheFrequency, float BreathePropotion, float EmissionStrength, float EmissionBreathThreshold,
+	float CPD1, float CPD13, float3 CPD_HeadUp,
+	float MPC_GlobalCharSkyLightIntensity, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask)
+{
+	FWuwaToonGBuffer G;
+	const float3 V = CameraVector;
+	const float FLTMAX = asfloat(0x7F7FFFFFu);
+	const float3 kGrey = float3(asfloat(0x3F13CD3Au), asfloat(0x3F13CD3Au), asfloat(0x3F13CD3Au));   // 0.57735
+
+	// ---- front end, shading normal (as WuwaToonHairV2X_Impl) -------------------------------------------------------------
+	float3 TM   = TypeMask.SampleLevel(TypeMaskSampler, UV0, MaterialTextureMipBias).rba;
+	float4 Main = MainTex.Sample(MainTexSampler, UV0);
+	FWuwaV2Front F = WuwaV2FrontEnd(TM, Main, DamageIntensity, Damage_Skin_Intensity, SkinMin, SkinMax, UseFaceAni_SkinMask,
+		SkinColor, Damage_Dirty_SkinColorTint, Damage_Dirty_ColorTint, Damage_Dirty_Intensity, Damage_Skin_ColorTint, BaseColorTint,
+		DecodeShadowThreshold, DecodeSpecThreshold);
+	float3 Nu; float NuRsq; float3 N;
+	WuwaV2ShadingNormal(WorldNormal, NormalOverrideParameter, Nu, NuRsq, N);
+	float3 Base = F.Base;
+	float4 M = MaskTex.Sample(MaskTexSampler, UV0);
+	float  ShadowPart = F.ShadowPart;
+	float  SpecPart   = F.SpecPart;
+	float  ToonSpecMid = (min(max(F.MainA, DecodeShadowThreshold), DecodeSpecThreshold) - DecodeShadowThreshold)
+	                     / (DecodeSpecThreshold - DecodeShadowThreshold);
+
+	// ---- hue-shift colour -----------------------------------------------------------------------------------------------
+	float  NoV = dot(N, V);
+	float3 Hup = V + float3(0.0, 0.0, 1.0);
+	Hup = Hup / sqrt(dot(Hup, Hup));
+	float  hb  = NoVNoHBlend * (dot(Hup, N) - NoV) + NoV;
+	float  hp  = WuwaV2PowSat(hb, NoVHPower);
+	hp = HueShiftFlip * (hp * -2.0 + 1.0) + hp;
+	float  hu  = UV0.x * HueTilling + hp;
+	float  ang = HueSwitch2D3D * (HueTilling * hp - hu) + hu;
+	ang = (ang + HueOffset) * asfloat(0x40C90FDBu);                 // 2*pi
+	float3 Hue;
+	{
+		float  hd  = dot(kGrey, HueShiftColor);
+		float3 hU  = HueShiftColor - hd * kGrey;
+		float3 hT  = hU.zxy * kGrey;
+		float3 hV  = hU.zxy * kGrey - hT.zxy;
+		float  hs, hc;
+		sincos(ang, hs, hc);
+		Hue = hd * kGrey + (hU * hc + hs * hV);
+	}
+
+	// ---- camera-space facing, head-up vs view ----------------------------------------------------------------------------
+	float2 nc = N.y * TranslatedWorldToCameraView[1].xz + N.x * TranslatedWorldToCameraView[0].xz;
+	nc = N.z * TranslatedWorldToCameraView[2].xz + nc;
+	nc = nc / sqrt(dot(nc, nc));
+	float2 vv = V.y * TranslatedWorldToView[1].xz + V.x * TranslatedWorldToView[0].xz;
+	vv = V.z * TranslatedWorldToView[2].xz + vv;
+	float  facing = dot(nc, vv);
+	float  headUp = dot(-ViewForward, CPD_HeadUp);
+	float  satNoV = saturate(NoV);
+
+	// ---- band coordinate per highlight -------------------------------------------------------------------------------------
+	float4 UVMap = HairUVMap.Sample(HairUVMapSampler, UV0);
+	float2 UVM   = UVMap.rg;
+	float3 pos   = UVM.y - Hl_FlowMin * headUp;
+	pos = (1.0 - satNoV) * Hl_EdgeLift + pos;
+	float3 above = float3(pos.x >= Hl_Position.x ? 1.0 : 0.0, pos.y >= Hl_Position.y ? 1.0 : 0.0, pos.z >= Hl_Position.z ? 1.0 : 0.0);
+	float3 nsel  = above * Hl_UseNoiseOffset + Hl_UseNoise;
+	float  n1 = HairNoise.Sample(HairNoiseSampler, float2(UVM.x * Noise1_TilingU + Noise1_OffsetU, 0.5)).r;
+	n1 = (n1 * 2.0 - 1.0) * Noise1_Intensity;
+	float  n2 = HairNoise.Sample(HairNoiseSampler, float2(UVM.x * Noise2_TilingU + Noise2_OffsetU, 0.5)).r;
+	n2 = (n2 * 2.0 - 1.0) * Noise2_Intensity - n1;
+	float3 noise = nsel * n2 + n1;
+	float  fA = 1.0 - facing;
+	float  fB = facing - fA;
+	float3 sc3 = min(max(Hl_ScaleArea * fB + fA, Hl_Scale), 1.0);
+	float3 lo = -Hl_Width * sc3 + Hl_Position;
+	float3 hi = Hl_Width * sc3 + Hl_Position;
+	float3 mute = saturate(abs(pos - Hl_Position) / Hl_Width) + -1.0;
+	mute = Hl_UseMiddleMute * mute + 1.0;
+	noise = noise * mute;
+	float3 amp = above * (Hl_NoiseUpIntensity - Hl_NoiseDownIntensity) + Hl_NoiseDownIntensity;
+	float3 t = noise * amp + pos;
+	t = saturate((t - lo) / max(hi - lo, asfloat(0x38D1B717u)));    // 1e-4
+	float3 tri = -abs(t + -0.5) * 2.0 + 1.0;
+
+	// ---- UseSparkle (b51e L187-262) ---------------------------------------------------------------------------------------
+	float3 Sk = float3(0.0, 0.0, 0.0);
+	if (bSparkle)
+	{
+		float4 chSel = float4(SparkleChannel == 0.0 ? 1.0 : 0.0, SparkleChannel == 1.0 ? 1.0 : 0.0,
+		                      SparkleChannel == 2.0 ? 1.0 : 0.0, SparkleChannel == 3.0 ? 1.0 : 0.0);
+		float  ch = dot(float4(UVMap.a, tri), chSel);
+		float  rLo = min(SparkleRange - SparkleSoft, FLTMAX), rHi = min(SparkleRange + SparkleSoft, FLTMAX);   // preshaders
+		float  sr = saturate((1.0 / (rHi - rLo)) * (ch - rLo));
+		sr = (sr * sr) * (sr * -2.0 + 3.0);
+		float  sMask = max(sr, SparkleBaseLuminance);
+		float3 su3 = float3(UV0.x, UV1.x, UV2.x), sv3 = float3(UV0.y, UV1.y, UV2.y);
+		float2 suv = float2(dot(Sparkle_UV_Switch.xzw, su3), dot(Sparkle_UV_Switch.xzw, sv3));
+		float2 sn1 = CommonNoiseMap.SampleBias(CommonNoiseMapSampler, suv * SparkleTiling, -2.0).xy;
+		float2 po = V.xy * asfloat(0x3E4CCCCDu);                                                    // 0.2
+		float2 uv2 = suv * SparkleTiling + float2(po.x, GameTime * SparkleTimeSpeed + po.y);
+		uv2 = uv2 + asfloat(0x3ECCCCCDu);                                                           // 0.4
+		float2 sn2 = CommonNoiseMap.SampleBias(CommonNoiseMapSampler, uv2, -2.0).xy;
+		float2 nn = sn1 * sn2;
+		float3 anc = LocalToWorldRow2 * 80.0 + LocalToWorldRow3;
+		float3 dc = WorldCameraOrigin - anc;
+		float  dist = min(sqrt(dot(dc, dc)) * asfloat(0x3A83126Fu), 1.0);                         // 0.001
+		float  sI = dist * (SparkleIntensityMax - SparkleIntensity) + SparkleIntensity;
+		nn = sI * nn;
+		nn = sn1 * nn;
+		float  sang = (nn.y * SparkleColorful) * asfloat(0x40C90FDBu);                             // 2pi
+		float3 c = Base * HueShiftValue;
+		float  stp = (nn.x >= SparkleStep) ? 1.0 : 0.0;
+		float  hd = dot(kGrey, stp * c);
+		float3 hU = c * stp - hd * asfloat(0x3F13CD3Au);
+		float3 hT = hU.zxy * kGrey;
+		float3 hV = hU.zxy * kGrey - hT.zxy;
+		float  hs, hc;
+		sincos(sang, hs, hc);
+		float3 scol = hd * kGrey + (hU * hc + hs * hV);
+		scol = sI * scol;
+		float3 s32 = scol * asfloat(0x4200EB85u);                                                   // 32.23
+		float  fv = atan(ClipToView00) * asfloat(0x3FA30EB2u);                                      // 4/pi
+		float  fv4 = fv * fv;
+		fv4 = fv4 * fv4;
+		float  fs = saturate(fv * fv4) * SparkleStrengthFOV;
+		scol = UseSparkleFOVStrength * (scol * fs - s32) + s32;
+		Sk = sMask * scol;
+	}
+
+	// ---- hue mask by channel, ramp colours, band weights ----------------------------------------------------------------
+	float4 hcSel = float4(HueShiftChannel == 0.0 ? 1.0 : 0.0, HueShiftChannel == 1.0 ? 1.0 : 0.0,
+	                      HueShiftChannel == 2.0 ? 1.0 : 0.0, HueShiftChannel == 3.0 ? 1.0 : 0.0);
+	float  hueMask = dot(float4(1.0, tri), hcSel);
+	float3 hueV = (Hue * HueIntensity + -1.0) * hueMask;
+	float3 hue3 = hcSel.w * hueV + 1.0;
+	float3 hue2 = hcSel.z * hueV + 1.0;
+	float3 hue1 = hcSel.y * hueV + 1.0;
+	float3 hue0 = hcSel.x * hueV + 1.0;
+	float3 ramp2 = HairRamp.Sample(HairRampSampler, float2(t.z, 0.625)).rgb;
+	float2 rimRG = HairRamp.Sample(HairRampSampler, float2(satNoV, 0.875)).rg;
+	float3 rimHidden = (rimRG.y - rimRG.x) * Hl_HairRimHiddenChannel + rimRG.x;
+	float3 maskSel = (M.z - M.x) * Hl_HairMaskChannel + M.x;
+	float3 w = rimHidden * maskSel;
+	float3 factor2 = w.z * (hue3 * (ramp2 + ramp2) + -1.0) + 1.0;
+	float3 ramp1 = HairRamp.Sample(HairRampSampler, float2(t.y, 0.375)).rgb;
+	float3 factor1 = w.y * (hue2 * (ramp1 + ramp1) + -1.0) + 1.0;
+	float3 ramp0 = HairRamp.Sample(HairRampSampler, float2(t.x, 0.125)).rgb;
+	float3 factor0 = w.x * (hue1 * (ramp0 + ramp0) + -1.0) + 1.0;
+	float3 base0 = hue0 * Base;
+	float3 m0 = factor0 * base0;
+	float3 hl0 = hue1 * w.x;
+
+	// ---- solid ratio, shadow width by region, Mask.g shadow offset ----------------------------------------------------------
+	float  solid = WuwaV2SolidRatio(ShadowPart, SolidShadowProcess, SolidShadowWidth);
+	float  swid  = WuwaV2ShadowWidthByID(F.RegionID, ShadowWidth, ShadowWidthUseID, ShadowWidth0123, ShadowWidth4);
+	float  SPp   = (0.0 + ShadowProcess) + 0.0;                     // preshader
+	float  bLo = SPp - swid, bHi = SPp + swid;
+	float  off = M.y * ShadowOffsetAdjustFactor;
+	float  offP = exp2(log2(off) * ShadowOffsetPower) * MaskShadowOffsetStrength;
+	float  ShadowOffset = (asfloat(0x33000002u) >= off) ? 0.0 : offP;
+
+	// ---- lighting normal, light direction --------------------------------------------------------------------------------------
+	float3 NL = RaytracingReflectionFix * (-Nu * NuRsq + WorldNormal) + N;
+	float3 L = WuwaBPMainLightDir(LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+
+	// ---- half-Lambert band, shadow -------------------------------------------------------------------------------------------
+	float HL = dot(NL, L) * 0.5 + ShadowOffset;
+	HL = HL + 0.5;
+	float s = saturate((1.0 / (bHi - bLo)) * (HL - bLo));
+	s = (s * s) * (s * -2.0 + 3.0);
+	float Shadow = solid * s;
+
+	// ---- highlight blend per band ----------------------------------------------------------------------------------------------
+	float3 hlI = Shadow * (Hl_HighlightColorIntensity - Hl_HighlightColorIntensity_Dark) + Hl_HighlightColorIntensity_Dark;
+	float3 col;
+	{
+		float3 a  = hlI.x * hl0;
+		float3 r2 = ramp0 * 2.0 + -1.0;
+		float3 scr = -(-a * r2 + 1.0) * (-Base * hue0 + 1.0) + 1.0;
+		float3 add = a * r2 + base0;
+		float3 c = UseAdd * (add - scr) + scr;
+		float3 ge = float3(ramp0.x >= 0.5 ? 1.0 : 0.0, ramp0.y >= 0.5 ? 1.0 : 0.0, ramp0.z >= 0.5 ? 1.0 : 0.0);
+		col = ge * (-factor0 * base0 + c) + m0;
+	}
+	{
+		float3 m1 = col * factor1;
+		float3 a  = hlI.y * (w.y * hue2);
+		float3 r2 = ramp1 * 2.0 + -1.0;
+		float3 scr = -(-a * r2 + 1.0) * (1.0 - col) + 1.0;
+		float3 add = a * r2 + col;
+		float3 c = UseAdd * (add - scr) + scr;
+		float3 ge = float3(ramp1.x >= 0.5 ? 1.0 : 0.0, ramp1.y >= 0.5 ? 1.0 : 0.0, ramp1.z >= 0.5 ? 1.0 : 0.0);
+		col = ge * (-factor1 * col + c) + m1;
+	}
+	{
+		float3 m2 = col * factor2;
+		float3 a  = hlI.z * (hue3 * w.z);
+		float3 r2 = ramp2 * 2.0 + -1.0;
+		float3 scr = -(-a * r2 + 1.0) * (1.0 - col) + 1.0;
+		float3 add = a * r2 + col;
+		float3 c = UseAdd * (add - scr) + scr;
+		float3 ge = float3(ramp2.x >= 0.5 ? 1.0 : 0.0, ramp2.y >= 0.5 ? 1.0 : 0.0, ramp2.z >= 0.5 ? 1.0 : 0.0);
+		col = ge * (-factor2 * col + c) + m2;
+	}
+
+	// ---- overflow, emissive (sparkle / breath / MilkWay / second layer) --------------------------------------------------------
+	float3 Overflow = max(col + -1.0, 0.0) * HighlightUseEmission;
+	float3 SkOv = bSparkle ? Sk + Overflow : Overflow;             // FFT spark source (b51e L476, L652)
+	float3 specBase = SpecPart * Base;
+	float3 E;
+	if (bBreath)   // 0a8e L133-144, L484-485
+	{
+		float  br = (BreatheStrength * cos(GameTime * BreatheFrequency) + BreatheStrength * BreathePropotion) * EmissionStrength;
+		float3 eb = (specBase * EmissionColor) * br;
+		float  keep = (EmissionBreathThreshold >= SpecPart) ? 1.0 : 0.0;
+		E = keep * (EmissionColor * specBase - eb) + eb;
+		E = E + SkOv;
+	}
+	else
+		E = EmissionColor * specBase + SkOv;
+	if (bMilkWay)  // b51e L478-513
+	{
+		float2 duv = GameTime * DisturebanceUVParameter.xy + UV2 * DisturebanceNoise_Tilling;
+		float  dn = DisturebanceNoise_Tex.Sample(DisturebanceNoise_TexSampler, duv).r * DisturebanceUVParameter.z;
+		float2 mwuv = UV2 * float2(MilkWay_Tilling_X, MilkWay_Tilling_Y) + dn;
+		float  hr = (VertexColorB * -HeightRatioInput + HeightRatioInput) * 0.5;
+		float3 Bt = (WorldNormal.yzx * WorldTangent.zxy - WorldTangent.yzx * WorldNormal.zxy) * TangentSign;
+		mwuv = float2(dot(WorldTangent, V), dot(Bt, V)) * hr + mwuv;
+		float3 mw = MilkWay_Tex.Sample(MilkWay_TexSampler, mwuv).rgb * MilkWay_Intensity;
+		mw = mw * MilkWay_Color;
+		float  rr = saturate(((1.0 - satNoV) + MilkWay_RangeOffset) * MilkWay_RangePower);
+		mw = rr * -mw + mw;
+		mw = Base * mw;
+		float  top = saturate((UV3Y + TopMask_Offset_MilkWay) * TopMask_Power_MilkWay);
+		float  tl = top * saturate(dot(Base, float3(0.3, 0.59, 0.11)));
+		float  rs = saturate((NoV - MilkWayRimRange_SmoothMin) * (1.0 / (MilkWayRimRange_SmoothMax - MilkWayRimRange_SmoothMin)));
+		rs = (rs * rs) * (rs * -2.0 + 3.0);
+		rs = (1.0 - min(rs, 1.0)) * MilkWayRimLight_Intensity;
+		float3 rl = (dn * rs) * MilkWayRimLightColor;
+		rl = top * rl;
+		E = (tl * mw + rl) + E;
+	}
+	if (bSecond)   // b51e L514-559 (body second layer: no UseNoise, UseRim, mask .a; pow guards 2.98e-8)
+	{
+		float3 su = float3(UV0.x, UV1.x, UV2.x), sv = float3(UV0.y, UV1.y, UV2.y);
+		float2 suv = float2(dot(SecondTex_UVSwitch.xzw, su), dot(SecondTex_UVSwitch.xzw, sv));
+		suv = Second_UseScreenUV * ((SvPositionXY - ViewRectMin) * ViewSizeAndInvSize.zw - suv) + suv;
+		suv = suv + -0.5;
+		suv = float2(dot(suv, float2(Second_RotCos, Second_RotSin * -1.0)), dot(suv, float2(Second_RotSin, Second_RotCos))) + 0.5;
+		float  q = GameTime * asfloat(0x3ADA740Eu);                                               // fmod(time, 600)
+		float  fq = frac(abs(q));
+		float  tm = ((q >= -q) ? fq : -fq) * asfloat(0x44160000u);
+		suv = suv * Second_UV.xy + tm * Second_UV.zw;
+		suv = suv + Second_UV_Offset.xy;
+		float3 scs = Second_RGB.SampleBias(Second_RGBSampler, suv, MaterialTextureMipBias).rgb;
+		float3 sp = exp2(log2(scs) * Second_Refine.x);
+		sp = float3(asfloat(0x33000002u) >= scs.x ? 0.0 : sp.x, asfloat(0x33000002u) >= scs.y ? 0.0 : sp.y,
+		            asfloat(0x33000002u) >= scs.z ? 0.0 : sp.z);
+		sp = sp * Second_Refine.y;
+		float3 sec = Second_Refine.w * (scs * Second_Refine.z - sp) + sp;
+		float  rr = exp2(log2(max(abs(1.0 - max(NoV, 0.0)), asfloat(0x38D1B717u))) * FresnelRim_RimRange);   // 1e-4
+		rr = rr * min(1.0 - FresnelRim_Smooth, FLTMAX) + FresnelRim_Smooth;                       // preshader (1 - Smooth)
+		rr = FresnelRim_Reverse * (rr * -2.0 + 1.0) + rr;
+		sec = sec * Second_ColorTint + rr * FresnelRim_RimColor;
+		float2 muv = EffectMaskTexUV2Switch * (UV1 - UV0) + UV0;
+		float  mk = R_Noise_A_Mask.SampleBias(R_Noise_A_MaskSampler, muv, MaterialTextureMipBias).a;
+		float  mp = exp2(log2(mk) * min(1.0 - Effect_Progress, FLTMAX));                          // preshader (1 - Effect_Progress)
+		mp = (asfloat(0x33000002u) >= mk) ? 0.0 : mp;
+		sec = sec * mp;
+		E = E + (MotionEmissiveMask * E_Motion_Emissive + sec);
+	}
+	else
+		E = MotionEmissiveMask * E_Motion_Emissive + E;
+	E = SelectionColor.a * (SelectionColor.rgb - E) + E;
+
+	// ---- toon specular ---------------------------------------------------------------------------------------------------------
+	if (bToonSpec)
+	{
+		float ts = saturate(dot(NL, V));
+		float tsI = ts * SpecStrength;
+		float o = 1.0 - ts;
+		float num = min(max(o, ToonSpecMid), 1.0) - o;
+		float den = max(1.0 - o, asfloat(0x38D1B717u));
+		col = tsI * (num / den) + col;
+	}
+
+	// ---- opacity (UseMilkWayEffectClip: DownTran factor) -----------------------------------------------------------------------
+	float Opacity = max(F.TypeMaskR * OpacityIntensity, 0.0);
+	if (bDownTran)
+	{
+		float dt = saturate(((DownTran_Offset - UV3Y) + 1.0) * DownTran_Power);
+		float dv = saturate(dot(V, -LocalToWorldRow2));
+		float dp = (asfloat(0x33000002u) >= dv) ? 0.0 : exp2(log2(dv) * DownTran_Return);
+		Opacity = Opacity * (dt + dp);
+	}
+
+	// ---- GBufferC.rgb ------------------------------------------------------------------------------------------------------------
+	float3 Dry = WuwaBPDesaturate(saturate(col * AniSwitch_ShadowColorBright), Desaturation);
+	if (bWet)
+	{
+		float gate = WuwaV2LinkGateRot(SvPositionXY, ViewSizeAndInvSize, ViewRectMin, E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis,
+			E_LinkPos, LinkRot0, LinkRot1);
+		float WetT = WuwaV2WetTransition(WaterWet_TransitionTex, WaterWet_TransitionTexSampler, UV0, WaterWet_TransitionTilling, UV3Y, CPD_WetTransition);
+		G.C.rgb = WuwaV2WetColor(Dry, F.SkinF, Opacity, gate, CPD_WetAmount, WetT, Wet_Desaturation, Wet_Lightness,
+			Wet_OpacityInBaseCol_Blend, WetSkin_Desaturation, WetSkin_Lightness);
+		Opacity = WuwaV2WetOpacity(Opacity, CPD_WetAmount, WetT, Wet_OpacityPowerMin, Wet_OpacityPowerMax, Wet_Opacity);
+	}
+	else
+	{
+		G.C.rgb = Dry;
+	}
+
+	G.Emissive = WuwaBPFinalEmissive(E, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+
+	// ---- shadow colour, GBufferA.z, FFT, encode ---------------------------------------------------------------------------------
+	float3 SSS = F.SkinF * (SkinSubsurfaceColor - SubsurfaceColor) + SubsurfaceColor;
+	float  ru  = saturate(HL + (0.5 - SPp));                        // preshader 0.5 - SP'
+	float  rc  = min(ru, SolidShadow_RampPosition);
+	float2 rampUV = float2(solid * (ru - rc) + rc, RampIndex * 0.2 + 0.1);   // preshader (RampIndex*0.2)+0.1
+	float3 RampCol = Ramp.Sample(RampSampler, rampUV).rgb;
+	float  rampW = ((MPC_GlobalCharSkyLightIntensity >= 0.05) ? 1.0 : 0.0) * RampInt;
+	float3 ShadowCol = rampW * (RampCol - SSS) + SSS;
+	ShadowCol = WuwaBPDesaturate(ShadowCol, Desaturation);
+	G.A.z = WuwaV2ShadowFactorZ(L, V, solid, Shadow, SolidShadowStrength);
+	float FFT = WuwaV2FFT(SkOv, F.RegionID, FFTMin, FFTMax, FFT_SparkThreshold, FFT_SparkIntensity,
+		FFT_SpecularThreshold, FFT_SpecularIntensity);
+	WuwaV2EncodeX(G, 0u, N, ShadowCol, Opacity, F.SkinF, FFT, ToonRimWidth, SSAOSkinIntensity, SSAOIntensity,
+		KuroGBufferMode, LightingChannelMask, WUWA_099999);
+	return G;
+}
+
+// ---- parameter blocks (public entries list only the inputs their PS reads; Kuro names as in WuwaToonBasePass_V2.ush:
+//      Hl<k>_<P> -> "<k>_<P>" ("<k>_EdgeLift " has a trailing space), Noise<k>_<P> -> "<k>_<P>", ShadowWidth<k> -> "<k>_ShadowWidth",
+//      NoVNoHBlend -> "NoV/NoHBlend", NoVHPower -> "NoV/H Power", HueSwitch2D3D -> "2D/3DSwitch";
+//      CPD_WetAmount = CustomPrimitiveData 26, CPD_WetTransition = CustomPrimitiveData 27, UV3Y = TexCoord3.y) ----------------------
+#define WUWA_HV2X_P_BASE \
+	Texture2D TypeMask, SamplerState TypeMaskSampler, Texture2D MainTex, SamplerState MainTexSampler, \
+	Texture2D HairUVMap, SamplerState HairUVMapSampler, Texture2D HairNoise, SamplerState HairNoiseSampler, \
+	Texture2D HairRamp, SamplerState HairRampSampler, Texture2D MaskTex, SamplerState MaskTexSampler, \
+	Texture2D Ramp, SamplerState RampSampler, \
+	float2 UV0, float3 WorldNormal, float3 WorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask, \
+	float4x4 TranslatedWorldToView, float4x4 TranslatedWorldToCameraView, float3 ViewForward, \
+	float DamageIntensity, float Damage_Skin_Intensity, float SkinMin, float SkinMax, float UseFaceAni_SkinMask, \
+	float3 SkinColor, float3 Damage_Dirty_SkinColorTint, float3 Damage_Dirty_ColorTint, float Damage_Dirty_Intensity, \
+	float3 Damage_Skin_ColorTint, float3 BaseColorTint, \
+	float Hl0_FlowMin, float Hl1_FlowMin, float Hl2_FlowMin, \
+	float Hl0_EdgeLift, float Hl1_EdgeLift, float Hl2_EdgeLift, \
+	float Hl0_Position, float Hl1_Position, float Hl2_Position, \
+	float Hl0_UseNoiseOffset, float Hl1_UseNoiseOffset, float Hl2_UseNoiseOffset, \
+	float Hl0_UseNoise, float Hl1_UseNoise, float Hl2_UseNoise, \
+	float Hl0_ScaleArea, float Hl1_ScaleArea, float Hl2_ScaleArea, \
+	float Hl0_Scale, float Hl1_Scale, float Hl2_Scale, float Hl0_Width, float Hl1_Width, float Hl2_Width, \
+	float Hl0_NoiseUpIntensity, float Hl1_NoiseUpIntensity, float Hl2_NoiseUpIntensity, \
+	float Hl0_NoiseDownIntensity, float Hl1_NoiseDownIntensity, float Hl2_NoiseDownIntensity, \
+	float Hl0_UseMiddleMute, float Hl1_UseMiddleMute, float Hl2_UseMiddleMute, \
+	float Hl0_HighlightColorIntensity, float Hl1_HighlightColorIntensity, float Hl2_HighlightColorIntensity, \
+	float Hl0_HighlightColorIntensity_Dark, float Hl1_HighlightColorIntensity_Dark, float Hl2_HighlightColorIntensity_Dark, \
+	float Hl0_HairRimHiddenChannel, float Hl1_HairRimHiddenChannel, float Hl2_HairRimHiddenChannel, \
+	float Hl0_HairMaskChannel, float Hl1_HairMaskChannel, float Hl2_HairMaskChannel, \
+	float Noise1_TilingU, float Noise1_OffsetU, float Noise1_Intensity, float Noise2_TilingU, float Noise2_OffsetU, \
+	float Noise2_Intensity, float UseAdd, float HighlightUseEmission, \
+	float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor, \
+	float3 SkinSubsurfaceColor, float3 SubsurfaceColor, float RaytracingReflectionFix, \
+	float SolidShadowProcess, float SolidShadowWidth, float ShadowProcess, float ShadowWidth, float ShadowWidthUseID, \
+	float ShadowWidth0, float ShadowWidth1, float ShadowWidth2, float ShadowWidth3, float ShadowWidth4, \
+	float ShadowOffsetAdjustFactor, float ShadowOffsetPower, float MaskShadowOffsetStrength, \
+	float LightOffset_Pitch, float SolidShadow_RampPosition, float RampIndex, float RampInt, float SolidShadowStrength, \
+	float AniSwitch_ShadowColorBright, float Desaturation, float OpacityIntensity, float ToonRimWidth, \
+	float SSAOSkinIntensity, float SSAOIntensity, \
+	float FFTMin, float FFTMax, float FFT_SparkThreshold, float FFT_SparkIntensity, float FFT_SpecularThreshold, \
+	float FFT_SpecularIntensity, \
+	float CPD1, float CPD13, float3 CPD_HeadUp, \
+	float MPC_GlobalCharSkyLightIntensity, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection, \
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3, \
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode, \
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds, \
+	uint LightingChannelMask
+#define WUWA_HV2X_P_MTA  , float DecodeShadowThreshold, float DecodeSpecThreshold
+#define WUWA_HV2X_P_HUE  , float NoVNoHBlend, float NoVHPower, float HueShiftFlip, float HueTilling, float HueSwitch2D3D, \
+	float HueOffset, float HueIntensity, float3 HueShiftColor, float HueShiftChannel
+#define WUWA_HV2X_P_TS   , float SpecStrength
+#define WUWA_HV2X_P_2S   , float TwoSidedSign
+#define WUWA_HV2X_P_WET  , Texture2D WaterWet_TransitionTex, SamplerState WaterWet_TransitionTexSampler, float UV3Y, \
+	float2 SvPositionXY, float4 ViewSizeAndInvSize, float2 ViewRectMin, \
+	float Wet_Desaturation, float Wet_Lightness, float Wet_OpacityInBaseCol_Blend, float WetSkin_Desaturation, \
+	float WetSkin_Lightness, float WaterWet_TransitionTilling, float Wet_OpacityPowerMin, float Wet_OpacityPowerMax, \
+	float Wet_Opacity, float E_Link_UseSplitScreen, float4 E_Link_AngleLinePosLineDis, float E_LinkPos, \
+	float CPD_WetAmount, float CPD_WetTransition
+
+// Argument list of WuwaToonHairV2X_Impl. Disabled options receive neutral dummies (their code is compiled out).
+#define WUWA_HV2X_ARGS(MTA, HUE, TS, WET, TWOSIDED) \
+	TypeMask, TypeMaskSampler, MainTex, MainTexSampler, HairUVMap, HairUVMapSampler, HairNoise, HairNoiseSampler, \
+	HairRamp, HairRampSampler, MaskTex, MaskTexSampler, Ramp, RampSampler, WET##_TEX, \
+	UV0, WET##_UV3, WET##_SVPOS, TWOSIDED##_SIGN, \
+	WorldNormal, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, \
+	TranslatedWorldToView, TranslatedWorldToCameraView, ViewForward, WET##_VIEW, \
+	DamageIntensity, Damage_Skin_Intensity, SkinMin, SkinMax, UseFaceAni_SkinMask, \
+	SkinColor, Damage_Dirty_SkinColorTint, Damage_Dirty_ColorTint, Damage_Dirty_Intensity, \
+	Damage_Skin_ColorTint, BaseColorTint, MTA##_DECODE, HUE##_PARAMS, \
+	float3(Hl0_FlowMin, Hl1_FlowMin, Hl2_FlowMin), float3(Hl0_EdgeLift, Hl1_EdgeLift, Hl2_EdgeLift), \
+	float3(Hl0_Position, Hl1_Position, Hl2_Position), \
+	float3(Hl0_UseNoiseOffset, Hl1_UseNoiseOffset, Hl2_UseNoiseOffset), \
+	float3(Hl0_UseNoise, Hl1_UseNoise, Hl2_UseNoise), float3(Hl0_ScaleArea, Hl1_ScaleArea, Hl2_ScaleArea), \
+	float3(Hl0_Scale, Hl1_Scale, Hl2_Scale), float3(Hl0_Width, Hl1_Width, Hl2_Width), \
+	float3(Hl0_NoiseUpIntensity, Hl1_NoiseUpIntensity, Hl2_NoiseUpIntensity), \
+	float3(Hl0_NoiseDownIntensity, Hl1_NoiseDownIntensity, Hl2_NoiseDownIntensity), \
+	float3(Hl0_UseMiddleMute, Hl1_UseMiddleMute, Hl2_UseMiddleMute), \
+	float3(Hl0_HighlightColorIntensity, Hl1_HighlightColorIntensity, Hl2_HighlightColorIntensity), \
+	float3(Hl0_HighlightColorIntensity_Dark, Hl1_HighlightColorIntensity_Dark, Hl2_HighlightColorIntensity_Dark), \
+	float3(Hl0_HairRimHiddenChannel, Hl1_HairRimHiddenChannel, Hl2_HairRimHiddenChannel), \
+	float3(Hl0_HairMaskChannel, Hl1_HairMaskChannel, Hl2_HairMaskChannel), \
+	Noise1_TilingU, Noise1_OffsetU, Noise1_Intensity, Noise2_TilingU, Noise2_OffsetU, Noise2_Intensity, \
+	UseAdd, HighlightUseEmission, TS##_SPEC, EmissionColor, E_Motion_Emissive, SelectionColor, \
+	SkinSubsurfaceColor, SubsurfaceColor, RaytracingReflectionFix, \
+	SolidShadowProcess, SolidShadowWidth, ShadowProcess, ShadowWidth, ShadowWidthUseID, \
+	float4(ShadowWidth0, ShadowWidth1, ShadowWidth2, ShadowWidth3), ShadowWidth4, \
+	ShadowOffsetAdjustFactor, ShadowOffsetPower, MaskShadowOffsetStrength, \
+	LightOffset_Pitch, SolidShadow_RampPosition, RampIndex, RampInt, SolidShadowStrength, \
+	AniSwitch_ShadowColorBright, Desaturation, OpacityIntensity, ToonRimWidth, SSAOSkinIntensity, SSAOIntensity, \
+	FFTMin, FFTMax, FFT_SparkThreshold, FFT_SparkIntensity, FFT_SpecularThreshold, FFT_SpecularIntensity, \
+	WET##_PARAMS, \
+	CPD1, CPD13, CPD_HeadUp, \
+	MPC_GlobalCharSkyLightIntensity, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, \
+	ToonLight0, ToonLight1, ToonLight2, ToonLight3, \
+	MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, \
+	KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask
+
+#define MTA_ON_DECODE     DecodeShadowThreshold, DecodeSpecThreshold
+#define MTA_OFF_DECODE    0.5, 0.75   // unused (code compiled out); non-degenerate to avoid constant division by zero
+#define HUE_ON_PARAMS     NoVNoHBlend, NoVHPower, HueShiftFlip, HueTilling, HueSwitch2D3D, HueOffset, HueIntensity, HueShiftColor, HueShiftChannel
+#define HUE_OFF_PARAMS    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), 0.0
+#define TS_ON_SPEC        SpecStrength
+#define TS_OFF_SPEC       0.0
+#define SIDE2_ON_SIGN     TwoSidedSign
+#define SIDE2_OFF_SIGN    1.0
+#define WET_ON_TEX        WaterWet_TransitionTex, WaterWet_TransitionTexSampler
+#define WET_OFF_TEX       MainTex, MainTexSampler
+#define WET_ON_UV3        UV3Y
+#define WET_OFF_UV3       0.0
+#define WET_ON_SVPOS      SvPositionXY
+#define WET_OFF_SVPOS     float2(0.0, 0.0)
+#define WET_ON_VIEW       ViewSizeAndInvSize, ViewRectMin
+#define WET_OFF_VIEW      float4(1.0, 1.0, 1.0, 1.0), float2(0.0, 0.0)
+#define WET_ON_PARAMS     Wet_Desaturation, Wet_Lightness, Wet_OpacityInBaseCol_Blend, WetSkin_Desaturation, WetSkin_Lightness, \
+	WaterWet_TransitionTilling, Wet_OpacityPowerMin, Wet_OpacityPowerMax, Wet_Opacity, \
+	E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis, E_LinkPos, CPD_WetAmount, CPD_WetTransition
+#define WET_OFF_PARAMS    0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0
+
+// One entry per verified PS hash (research/roster/Port_CharV2_HairFace.md). Name suffixes: NoHue, TS (toon specular),
+// NoMTA (UseMainTexA off), Wet, 2S (two-sided), HETA.
+// Entry pattern (fxc's preprocessor cannot take the comma-carrying parameter blocks as macro arguments, so each entry is
+// written out):  FWuwaToonGBuffer NAME(WUWA_HV2X_P_BASE <blocks>) { return WuwaToonHairV2X_Impl(<options>, WUWA_HV2X_ARGS(..)); }
+#define WUWA_HV2X_CALL(bHUE, bMTA, bTS, bWET, b2S, OPM, MTA, HUE, TS, WET, SIDE2) 	{ return WuwaToonHairV2X_Impl(bHUE, bMTA, bTS, bWET, b2S, OPM, WUWA_HV2X_ARGS(MTA, HUE, TS, WET, SIDE2)); }
+
+// Re-statements of the verified f4214b08 / 16f3aff3 graph (regression anchors for the option code; not registered).
+FWuwaToonGBuffer WuwaToonHairV2X_Base(WUWA_HV2X_P_BASE WUWA_HV2X_P_MTA WUWA_HV2X_P_HUE)
+	WUWA_HV2X_CALL(true, true, false, false, false, 0u, MTA_ON, HUE_ON, TS_OFF, WET_OFF, SIDE2_OFF)
+// 4b44b493 (Jingran/QianXia/Suoming): + Use_Char_Wet
+FWuwaToonGBuffer WuwaToonHairV2WetBasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_MTA WUWA_HV2X_P_HUE WUWA_HV2X_P_WET)
+	WUWA_HV2X_CALL(true, true, false, true, false, 0u, MTA_ON, HUE_ON, TS_OFF, WET_ON, SIDE2_OFF)
+// 80ce26e1: HETA + Use_Char_Wet
+FWuwaToonGBuffer WuwaToonHairV2WetHETABasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_MTA WUWA_HV2X_P_HUE WUWA_HV2X_P_WET)
+	WUWA_HV2X_CALL(true, true, false, true, false, 1u, MTA_ON, HUE_ON, TS_OFF, WET_ON, SIDE2_OFF)
+// 84093246 (Lucy/Rebecca): UseHueShift off
+FWuwaToonGBuffer WuwaToonHairV2NoHueBasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_MTA)
+	WUWA_HV2X_CALL(false, true, false, false, false, 0u, MTA_ON, HUE_OFF, TS_OFF, WET_OFF, SIDE2_OFF)
+// 278e2e95: HETA, UseHueShift off
+FWuwaToonGBuffer WuwaToonHairV2NoHueHETABasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_MTA)
+	WUWA_HV2X_CALL(false, true, false, false, false, 1u, MTA_ON, HUE_OFF, TS_OFF, WET_OFF, SIDE2_OFF)
+// 5a987a6d (Xin): + UseToonSpecular + Use_Char_Wet; 44fac3da (ShenXin, UseCommonWPO only changes the VS) same PS graph
+FWuwaToonGBuffer WuwaToonHairV2TSWetBasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_MTA WUWA_HV2X_P_HUE WUWA_HV2X_P_TS WUWA_HV2X_P_WET)
+	WUWA_HV2X_CALL(true, true, true, true, false, 0u, MTA_ON, HUE_ON, TS_ON, WET_ON, SIDE2_OFF)
+// b5875a32 / 20ee1b06: HETA + UseToonSpecular + Use_Char_Wet
+FWuwaToonGBuffer WuwaToonHairV2TSWetHETABasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_MTA WUWA_HV2X_P_HUE WUWA_HV2X_P_TS WUWA_HV2X_P_WET)
+	WUWA_HV2X_CALL(true, true, true, true, false, 1u, MTA_ON, HUE_ON, TS_ON, WET_ON, SIDE2_OFF)
+// 1f3a4608 (Qingxiao): no hue + toon specular + wet; 4f40d03a = its HETA
+FWuwaToonGBuffer WuwaToonHairV2NoHueTSWetBasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_MTA WUWA_HV2X_P_TS WUWA_HV2X_P_WET)
+	WUWA_HV2X_CALL(false, true, true, true, false, 0u, MTA_ON, HUE_OFF, TS_ON, WET_ON, SIDE2_OFF)
+FWuwaToonGBuffer WuwaToonHairV2NoHueTSWetHETABasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_MTA WUWA_HV2X_P_TS WUWA_HV2X_P_WET)
+	WUWA_HV2X_CALL(false, true, true, true, false, 1u, MTA_ON, HUE_OFF, TS_ON, WET_ON, SIDE2_OFF)
+// 7b517b4d (Linnaea Md10011): TwoSided
+FWuwaToonGBuffer WuwaToonHairV2TwoSidedBasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_MTA WUWA_HV2X_P_HUE WUWA_HV2X_P_2S)
+	WUWA_HV2X_CALL(true, true, false, false, true, 0u, MTA_ON, HUE_ON, TS_OFF, WET_OFF, SIDE2_ON)
+// b2f60ebf (Luhesi): no hue + toon specular; ac52460f = its HETA
+FWuwaToonGBuffer WuwaToonHairV2NoHueTSBasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_MTA WUWA_HV2X_P_TS)
+	WUWA_HV2X_CALL(false, true, true, false, false, 0u, MTA_ON, HUE_OFF, TS_ON, WET_OFF, SIDE2_OFF)
+FWuwaToonGBuffer WuwaToonHairV2NoHueTSHETABasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_MTA WUWA_HV2X_P_TS)
+	WUWA_HV2X_CALL(false, true, true, false, false, 1u, MTA_ON, HUE_OFF, TS_ON, WET_OFF, SIDE2_OFF)
+// a6dd454a (Xigelika bangs): UseMainTexA off + toon specular; b32fdab3 = its HETA
+FWuwaToonGBuffer WuwaToonHairV2NoMTATSBasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_HUE WUWA_HV2X_P_TS)
+	WUWA_HV2X_CALL(true, false, true, false, false, 0u, MTA_OFF, HUE_ON, TS_ON, WET_OFF, SIDE2_OFF)
+FWuwaToonGBuffer WuwaToonHairV2NoMTATSHETABasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_HUE WUWA_HV2X_P_TS)
+	WUWA_HV2X_CALL(true, false, true, false, false, 1u, MTA_OFF, HUE_ON, TS_ON, WET_OFF, SIDE2_OFF)
+// 0b2420a5 (Xigelika hair): no hue + UseMainTexA off + toon specular
+FWuwaToonGBuffer WuwaToonHairV2NoHueNoMTATSBasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_TS)
+	WUWA_HV2X_CALL(false, false, true, false, false, 0u, MTA_OFF, HUE_OFF, TS_ON, WET_OFF, SIDE2_OFF)
+// 3e5d6f66 (Linnaea Md20011 bangs/hair): no hue + wet + TwoSided
+FWuwaToonGBuffer WuwaToonHairV2NoHueWet2SBasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_MTA WUWA_HV2X_P_WET WUWA_HV2X_P_2S)
+	WUWA_HV2X_CALL(false, true, false, true, true, 0u, MTA_ON, HUE_OFF, TS_OFF, WET_ON, SIDE2_ON)
+// 52edeb4b (Linnaea Md20011 Bangs_HETA): HETA + no hue + wet (not two-sided)
+FWuwaToonGBuffer WuwaToonHairV2NoHueWetHETABasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_MTA WUWA_HV2X_P_WET)
+	WUWA_HV2X_CALL(false, true, false, true, false, 1u, MTA_ON, HUE_OFF, TS_OFF, WET_ON, SIDE2_OFF)
+
+// ---- Round 5 entries (WuwaToonHairV2R5_Impl; research/roster/round5/v2.md) ------------------------------------------------------
+// HLSL -> Kuro names as above, plus DisturebanceUVParameter -> "Disturebance UV Parameter", SparkleStep -> "step",
+// SparkleStrengthFOV -> "SparkleStrength(FOV)"; Second_RotCos / Second_RotSin = CPU uniform expressions cos / sin(Second_Rotation * 2pi).
+#define WUWA_HV2R5_P_SPARKLEMW \
+	, Texture2D CommonNoiseMap, SamplerState CommonNoiseMapSampler, Texture2D DisturebanceNoise_Tex, SamplerState DisturebanceNoise_TexSampler, \
+	Texture2D MilkWay_Tex, SamplerState MilkWay_TexSampler, float2 UV1, float2 UV2, float VertexColorB, float3 WorldTangent, \
+	float TangentSign, float GameTime, float3 WorldCameraOrigin, float ClipToView00, float3 LocalToWorldRow2, float3 LocalToWorldRow3, \
+	float SparkleChannel, float SparkleRange, float SparkleSoft, float SparkleBaseLuminance, float4 Sparkle_UV_Switch, float SparkleTiling, \
+	float SparkleTimeSpeed, float SparkleIntensity, float SparkleIntensityMax, float SparkleColorful, float SparkleStep, float3 HueShiftValue, \
+	float SparkleStrengthFOV, float UseSparkleFOVStrength, \
+	float3 DisturebanceUVParameter, float DisturebanceNoise_Tilling, float MilkWay_Tilling_X, float MilkWay_Tilling_Y, \
+	float HeightRatioInput, float MilkWay_Intensity, float3 MilkWay_Color, float MilkWay_RangeOffset, float MilkWay_RangePower, \
+	float TopMask_Offset_MilkWay, float TopMask_Power_MilkWay, float MilkWayRimRange_SmoothMin, float MilkWayRimRange_SmoothMax, \
+	float MilkWayRimLight_Intensity, float3 MilkWayRimLightColor, float DownTran_Offset, float DownTran_Power, float DownTran_Return
+#define WUWA_HV2R5_ARGS_A \
+	TypeMask, TypeMaskSampler, MainTex, MainTexSampler, HairUVMap, HairUVMapSampler, HairNoise, HairNoiseSampler, \
+	HairRamp, HairRampSampler, MaskTex, MaskTexSampler, Ramp, RampSampler
+#define WUWA_HV2R5_ARGS_B \
+	WorldTangent, TangentSign, WorldNormal, WorldPosition, CameraVector, LightDirVS, \
+	MotionEmissiveMask, TranslatedWorldToView, TranslatedWorldToCameraView, ViewForward
+#define WUWA_HV2R5_ARGS_C \
+	GameTime, WorldCameraOrigin, ClipToView00, LocalToWorldRow2, LocalToWorldRow3, \
+	DamageIntensity, Damage_Skin_Intensity, SkinMin, SkinMax, UseFaceAni_SkinMask, \
+	SkinColor, Damage_Dirty_SkinColorTint, Damage_Dirty_ColorTint, Damage_Dirty_Intensity, Damage_Skin_ColorTint, BaseColorTint, \
+	DecodeShadowThreshold, DecodeSpecThreshold, \
+	NoVNoHBlend, NoVHPower, HueShiftFlip, HueTilling, HueSwitch2D3D, HueOffset, HueIntensity, HueShiftColor, HueShiftChannel, \
+	float3(Hl0_FlowMin, Hl1_FlowMin, Hl2_FlowMin), float3(Hl0_EdgeLift, Hl1_EdgeLift, Hl2_EdgeLift), \
+	float3(Hl0_Position, Hl1_Position, Hl2_Position), \
+	float3(Hl0_UseNoiseOffset, Hl1_UseNoiseOffset, Hl2_UseNoiseOffset), \
+	float3(Hl0_UseNoise, Hl1_UseNoise, Hl2_UseNoise), float3(Hl0_ScaleArea, Hl1_ScaleArea, Hl2_ScaleArea), \
+	float3(Hl0_Scale, Hl1_Scale, Hl2_Scale), float3(Hl0_Width, Hl1_Width, Hl2_Width), \
+	float3(Hl0_NoiseUpIntensity, Hl1_NoiseUpIntensity, Hl2_NoiseUpIntensity), \
+	float3(Hl0_NoiseDownIntensity, Hl1_NoiseDownIntensity, Hl2_NoiseDownIntensity), \
+	float3(Hl0_UseMiddleMute, Hl1_UseMiddleMute, Hl2_UseMiddleMute), \
+	float3(Hl0_HighlightColorIntensity, Hl1_HighlightColorIntensity, Hl2_HighlightColorIntensity), \
+	float3(Hl0_HighlightColorIntensity_Dark, Hl1_HighlightColorIntensity_Dark, Hl2_HighlightColorIntensity_Dark), \
+	float3(Hl0_HairRimHiddenChannel, Hl1_HairRimHiddenChannel, Hl2_HairRimHiddenChannel), \
+	float3(Hl0_HairMaskChannel, Hl1_HairMaskChannel, Hl2_HairMaskChannel), \
+	Noise1_TilingU, Noise1_OffsetU, Noise1_Intensity, Noise2_TilingU, Noise2_OffsetU, Noise2_Intensity
+#define WUWA_HV2R5_ARGS_D \
+	EmissionColor, E_Motion_Emissive, SelectionColor, SkinSubsurfaceColor, SubsurfaceColor, RaytracingReflectionFix, \
+	SolidShadowProcess, SolidShadowWidth, ShadowProcess, ShadowWidth, ShadowWidthUseID, \
+	float4(ShadowWidth0, ShadowWidth1, ShadowWidth2, ShadowWidth3), ShadowWidth4, \
+	ShadowOffsetAdjustFactor, ShadowOffsetPower, MaskShadowOffsetStrength, \
+	LightOffset_Pitch, SolidShadow_RampPosition, RampIndex, RampInt, SolidShadowStrength, \
+	AniSwitch_ShadowColorBright, Desaturation, OpacityIntensity, ToonRimWidth, SSAOSkinIntensity, SSAOIntensity, \
+	FFTMin, FFTMax, FFT_SparkThreshold, FFT_SparkIntensity, FFT_SpecularThreshold, FFT_SpecularIntensity
+#define WUWA_HV2R5_ARGS_E \
+	SparkleChannel, SparkleRange, SparkleSoft, SparkleBaseLuminance, Sparkle_UV_Switch, SparkleTiling, SparkleTimeSpeed, \
+	SparkleIntensity, SparkleIntensityMax, SparkleColorful, SparkleStep, HueShiftValue, SparkleStrengthFOV, UseSparkleFOVStrength, \
+	DisturebanceUVParameter, DisturebanceNoise_Tilling, MilkWay_Tilling_X, MilkWay_Tilling_Y, HeightRatioInput, MilkWay_Intensity, \
+	MilkWay_Color, MilkWay_RangeOffset, MilkWay_RangePower, TopMask_Offset_MilkWay, TopMask_Power_MilkWay, MilkWayRimRange_SmoothMin, \
+	MilkWayRimRange_SmoothMax, MilkWayRimLight_Intensity, MilkWayRimLightColor, DownTran_Offset, DownTran_Power, DownTran_Return
+#define WUWA_HV2R5_ARGS_F \
+	CPD1, CPD13, CPD_HeadUp, MPC_GlobalCharSkyLightIntensity, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, \
+	ToonLight0, ToonLight1, ToonLight2, ToonLight3, MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, \
+	KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask
+
+// b51e5160 (Daniya Hair02): UseSparkle + UseMilkWay(+EffectClip) + UseEffectMaterial second layer (UseRim, mask .a)
+FWuwaToonGBuffer WuwaToonHairV2SparkleMilkWaySecondRimBasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_MTA WUWA_HV2X_P_HUE WUWA_HV2R5_P_SPARKLEMW,
+	float UV3Y, float2 SvPositionXY, float4 ViewSizeAndInvSize, float2 ViewRectMin,
+	Texture2D Second_RGB, SamplerState Second_RGBSampler, Texture2D R_Noise_A_Mask, SamplerState R_Noise_A_MaskSampler,
+	float4 SecondTex_UVSwitch, float Second_UseScreenUV, float Second_RotCos, float Second_RotSin, float4 Second_UV, float4 Second_UV_Offset,
+	float4 Second_Refine, float3 Second_ColorTint, float FresnelRim_RimRange, float FresnelRim_Smooth, float FresnelRim_Reverse,
+	float3 FresnelRim_RimColor, float EffectMaskTexUV2Switch, float Effect_Progress)
+{
+	return WuwaToonHairV2R5_Impl(false, false, true, true, true, true, false, WUWA_HV2R5_ARGS_A, MainTex, MainTexSampler,
+		CommonNoiseMap, CommonNoiseMapSampler, DisturebanceNoise_Tex, DisturebanceNoise_TexSampler, MilkWay_Tex, MilkWay_TexSampler,
+		Second_RGB, Second_RGBSampler, R_Noise_A_Mask, R_Noise_A_MaskSampler,
+		UV0, UV1, UV2, UV3Y, VertexColorB, SvPositionXY, WUWA_HV2R5_ARGS_B, ViewSizeAndInvSize, ViewRectMin, WUWA_HV2R5_ARGS_C,
+		UseAdd, HighlightUseEmission, 0.0, WUWA_HV2R5_ARGS_D,
+		0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, float2(1.0, 0.0), float2(1.0, 0.0),
+		WUWA_HV2R5_ARGS_E,
+		SecondTex_UVSwitch, Second_UseScreenUV, Second_RotCos, Second_RotSin, Second_UV, Second_UV_Offset, Second_Refine, Second_ColorTint,
+		FresnelRim_RimRange, FresnelRim_Smooth, FresnelRim_Reverse, FresnelRim_RimColor, EffectMaskTexUV2Switch, Effect_Progress,
+		0.0, 0.0, 0.0, 0.0, 0.0,
+		WUWA_HV2R5_ARGS_F);
+}
+
+// 0a8e7927 (ShenXin Hair; UseCommonWPO VS afd9397d): UseToonSpecular + Use_Char_Wet + UseBreathLight + UseSparkle + UseMilkWay(+EffectClip)
+FWuwaToonGBuffer WuwaToonHairV2TSWetBreathSparkleMilkWayBasePass(WUWA_HV2X_P_BASE WUWA_HV2X_P_MTA WUWA_HV2X_P_HUE WUWA_HV2X_P_TS
+	WUWA_HV2X_P_WET WUWA_HV2R5_P_SPARKLEMW,
+	float BreatheStrength, float BreatheFrequency, float BreathePropotion, float EmissionStrength, float EmissionBreathThreshold,
+	float2 LinkRot0, float2 LinkRot1)
+{
+	return WuwaToonHairV2R5_Impl(true, true, true, true, true, false, true, WUWA_HV2R5_ARGS_A, WaterWet_TransitionTex, WaterWet_TransitionTexSampler,
+		CommonNoiseMap, CommonNoiseMapSampler, DisturebanceNoise_Tex, DisturebanceNoise_TexSampler, MilkWay_Tex, MilkWay_TexSampler,
+		MainTex, MainTexSampler, MainTex, MainTexSampler,
+		UV0, UV1, UV2, UV3Y, VertexColorB, SvPositionXY, WUWA_HV2R5_ARGS_B, ViewSizeAndInvSize, ViewRectMin, WUWA_HV2R5_ARGS_C,
+		UseAdd, HighlightUseEmission, SpecStrength, WUWA_HV2R5_ARGS_D,
+		Wet_Desaturation, Wet_Lightness, Wet_OpacityInBaseCol_Blend, WetSkin_Desaturation, WetSkin_Lightness,
+		WaterWet_TransitionTilling, Wet_OpacityPowerMin, Wet_OpacityPowerMax, Wet_Opacity,
+		E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis, E_LinkPos, CPD_WetAmount, CPD_WetTransition, LinkRot0, LinkRot1,
+		WUWA_HV2R5_ARGS_E,
+		float4(0.0, 0.0, 0.0, 0.0), 0.0, 1.0, 0.0, float4(0.0, 0.0, 0.0, 0.0), float4(0.0, 0.0, 0.0, 0.0), float4(0.0, 0.0, 0.0, 0.0),
+		float3(0.0, 0.0, 0.0), 0.0, 0.0, 0.0, float3(0.0, 0.0, 0.0), 0.0, 0.0,
+		BreatheStrength, BreatheFrequency, BreathePropotion, EmissionStrength, EmissionBreathThreshold,
+		WUWA_HV2R5_ARGS_F);
+}
+
+#undef MTA_ON_DECODE
+#undef MTA_OFF_DECODE
+#undef HUE_ON_PARAMS
+#undef HUE_OFF_PARAMS
+#undef TS_ON_SPEC
+#undef TS_OFF_SPEC
+#undef SIDE2_ON_SIGN
+#undef SIDE2_OFF_SIGN
+
+// ---------------------------------------------------------------------------------------------------------------
+// Face V2 with options (MSM_ToonFace; GBufferB id 12). Graph and line refs as WuwaToonFaceV2BasePass
+// (WuwaToonBasePass_V2.ush, F### = #304305 bef70fd2); options from 6c849ec5 (UseRampIDMask off) and b06c400f (wet).
+//   bRampIDMask  UseRampIDMask (off: ramp row = RampIndex*0.2 + 0.1, ramp weight = RampInt for every region)
+//   bWet         Use_Char_Wet (same wet block as the hair, on the face lit colour / opacity)
+//   bAlphaBlendMode  UseAlphaBlendMode (44b7d09d L92-95: emissive = EmissionColor * spec part, not * base colour)
+//   bXingHen     UseXingHen (a40cf3bc L119-238): the M_Char_XinHen star mark drawn on the face through the D / Noise /
+//                Noise02 textures at (UV0 - 0.5) * UVScale + 0.5 - UVposition, added to the emissive and blended into the
+//                lit base; side chosen by UV3.x (TEXCOORD1.z) and XingHenPosition; it also raises the mode-0 opacity.
+// ---------------------------------------------------------------------------------------------------------------
+FWuwaToonGBuffer WuwaToonFaceV2X_Impl(const bool bRampIDMask, const bool bWet, const bool bAlphaBlendMode, const bool bXingHen,
+	Texture2D D, SamplerState DSampler, Texture2D Noise, SamplerState NoiseSampler, Texture2D Noise02, SamplerState Noise02Sampler,
+	float UV3X, float GameTime, float4 SDFColor, float4 SDFColor02, float ShakeNoiseInt, float SDFStart, float XingHenControl,
+	float SoundWaveTiling01, float SoundWaveSpeed01, float SoundWaveInt01, float SoundWaveTiling02, float SoundWaveSpeed02,
+	float SoundWaveInt02, float XHMax, float XingHenPosition, float UVScaleX, float UVScaleY, float UVpositionX, float UVpositionY,
+	Texture2D TypeMask, SamplerState TypeMaskSampler, Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D MaskTexAtlas, SamplerState MaskTexAtlasSampler, Texture2D MaskTexSDF, SamplerState MaskTexSDFSampler,
+	Texture2D Ramp, SamplerState RampSampler, Texture2D WaterWet_TransitionTex, SamplerState WaterWet_TransitionTexSampler,
+	float2 UV0, float UV3Y, float2 SvPositionXY,
+	float3 WorldNormal, float3 WorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask,
+	float4 ViewSizeAndInvSize, float2 ViewRectMin,
+	float DamageIntensity, float Damage_Skin_Intensity, float SkinMin, float SkinMax, float UseFaceAni_SkinMask,
+	float3 SkinColor, float3 Damage_Dirty_SkinColorTint, float3 Damage_Dirty_ColorTint, float Damage_Dirty_Intensity,
+	float3 Damage_Skin_ColorTint, float3 BaseColorTint, float DecodeShadowThreshold, float DecodeSpecThreshold,
+	float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor,
+	float AniSwitch_FaceShadow, float AniSwitch_ShadowColorDark, float AniSwitch_ShadowColorBright,
+	float AniSwitch_ShadowWidth, float AniSwitch_ShadowWidthOffset, float AniSwitch_ShadowColorWeight,
+	float LightOffset_Pitch, float SDFPitchPosition, float ShadowProcess, float SolidShadow_RampPosition, float SolidShadowProcess,
+	float4 RampID0123, float RampID4, float4 RampInt0123, float RampInt4, float RampIndex, float RampInt,
+	float Desaturation, float3 SkinSubsurfaceColor, float3 SubsurfaceColor, float SolidShadowStrength,
+	float ShadowWidth, float ShadowWidthUseID, float4 ShadowWidth0123, float ShadowWidth4,
+	float OpacityIntensity, float ToonRimWidth, float SSAOSkinIntensity, float SSAOIntensity,
+	float FFTMin, float FFTMax, float FFT_SparkThreshold, float FFT_SparkIntensity, float FFT_SpecularThreshold,
+	float FFT_SpecularIntensity,
+	float Wet_Desaturation, float Wet_Lightness, float Wet_OpacityInBaseCol_Blend, float WetSkin_Desaturation, float WetSkin_Lightness,
+	float WaterWet_TransitionTilling, float Wet_OpacityPowerMin, float Wet_OpacityPowerMax, float Wet_Opacity,
+	float E_Link_UseSplitScreen, float4 E_Link_AngleLinePosLineDis, float E_LinkPos, float CPD_WetAmount, float CPD_WetTransition,
+	float CPD1, float3 CPD_HeadForward, float3 CPD_HeadSide, float CPD11, float CPD12, float CPD13, float3 CPD_HeadPos,
+	float MPC_GlobalCharSkyLightIntensity, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask)
+{
+	FWuwaToonGBuffer G;
+	const float3 V = CameraVector;
+
+	// ---- F35-113: front end, normal ---------------------------------------------------------------------------------
+	float3 TM   = TypeMask.SampleLevel(TypeMaskSampler, UV0, MaterialTextureMipBias).rba;
+	float4 Main = MainTex.Sample(MainTexSampler, UV0);
+	FWuwaV2Front F = WuwaV2FrontEnd(TM, Main, DamageIntensity, Damage_Skin_Intensity, SkinMin, SkinMax, UseFaceAni_SkinMask,
+		SkinColor, Damage_Dirty_SkinColorTint, Damage_Dirty_ColorTint, Damage_Dirty_Intensity, Damage_Skin_ColorTint, BaseColorTint,
+		DecodeShadowThreshold, DecodeSpecThreshold);
+	float3 Nu; float NuRsq; float3 N;
+	WuwaV2ShadingNormal(WorldNormal, NormalOverrideParameter, Nu, NuRsq, N);
+	float3 Base = F.Base;
+
+	// ---- XingHen star mark (a40cf3bc L119-211; same family as WuwaToonStarBasePass, V2 constants) ----------------------
+	float3 XHCol = float3(0.0, 0.0, 0.0);
+	float  XHOp = 0.0, XHG = 0.0;
+	if (bXingHen)
+	{
+		float  shakeAbs = abs(ShakeNoiseInt);                                                   // preshader
+		float  k = ((shakeAbs >= asfloat(0x3A83126Fu)) ? asfloat(0x3E4CCCCDu) : 0.0) + SDFColor02.a;   // 0.001, 0.2
+		float3 Col = k * SDFColor02.rgb;
+		float2 uvX = (UV0 + -0.5) * float2(UVScaleX, UVScaleY) + 0.5;
+		uvX = uvX - float2(UVpositionX, UVpositionY);
+		float4 Dt = D.Sample(DSampler, uvX);
+		float  inner = 1.0 - Dt.r;
+		float  s3 = saturate(shakeAbs * 3.0);                                                     // preshader |Shake|*3
+		s3 = (s3 * s3) * (s3 * -2.0 + 3.0);
+		float  mask = s3 * -inner + inner;
+		float  xhc = min(XingHenControl, asfloat(0x3F59999Au));                                  // preshader min(.., 0.85)
+		float2 P1  = xhc * (float2(asfloat(0x3F99999Au), 3.5) - float2(SDFStart, SoundWaveTiling01)) + float2(SDFStart, SoundWaveTiling01);
+		float  sp1 = xhc * (asfloat(0xBE4CCCCDu) - SoundWaveSpeed01) + SoundWaveSpeed01;         // -0.2
+		float  in1 = xhc * (15.0 - SoundWaveInt01) + SoundWaveInt01;
+		float  tl2 = xhc * (asfloat(0x40333333u) - SoundWaveTiling02) + SoundWaveTiling02;       // 2.8
+		float  sp2 = xhc * (asfloat(0xBECCCCCDu) - SoundWaveSpeed02) + SoundWaveSpeed02;         // -0.4
+		float  in2 = xhc * (15.0 - SoundWaveInt02) + SoundWaveInt02;
+		float  t = GameTime * asfloat(0x3CAAAAABu);                                              // 1/48
+		t = (t >= -t) ? frac(abs(t)) : -frac(abs(t));
+		float  t48 = t * 48.0;
+		float  n1 = Noise.Sample(NoiseSampler, float2(uvX.x, uvX.y * P1.y + t48 * sp1)).r;
+		n1 = n1 * asfloat(0xBD6A0EC7u) + asfloat(0x3C1C0A8Du);                                   // -0.0571429, 0.00952381
+		n1 = n1 * max(in1 * 0.5, 1.0);
+		float  n2 = Noise02.Sample(Noise02Sampler, float2(uvX.x, uvX.y * tl2 + t48 * sp2)).r;
+		n2 = n2 * asfloat(0xBD6A0EC7u) + asfloat(0x3C1C0A8Du);
+		float  side = (asfloat(0x3F0353F8u) >= uvX.x) ? 1.0 : 0.0;                               // 0.513
+		float  wave = side * (n2 * max(in2 * 0.5, 1.0) - n1) + n1;
+		float  thr = P1.x * 0.5 - wave;
+		mask = mask + ((thr >= Dt.g) ? 1.0 : 0.0);
+		float  e = saturate(shakeAbs) * asfloat(0xC1EC3D71u) + 30.0;                             // -29.53
+		float  p = (asfloat(0x33000002u) >= Dt.b) ? 0.0 : min(exp2(log2(Dt.b) * e), 1.0);
+		float  x = frac(p * 3.0 + t * 144.0);
+		float  sm1 = (x * x) * (x * -2.0 + 3.0);
+		float  w = saturate((x + -1.0) * (1.0 / (XHMax + -1.0)));
+		w = (w * w) * (w * -2.0 + 3.0);
+		// preshader Shake*0.3 kept precise: fxc otherwise folds (x * Shake) * 0.3 (1-ulp error; min(.., FLT_MAX) is removed)
+		precise float shake03 = ShakeNoiseInt * asfloat(0x3E99999Au);
+		mask = (p * (w * sm1)) * shake03 + mask;
+		XHCol = mask * (-SDFColor02.rgb * k + SDFColor.rgb * SDFColor.a) + Col;
+		float  inX = ((uvX.x >= asfloat(0x3C23D70Au)) ? 1.0 : 0.0) * ((asfloat(0x3F7D70A4u) >= uvX.x) ? 1.0 : 0.0);   // [0.01, 0.99]
+		float  inY = ((uvX.y >= asfloat(0x3C23D70Au)) ? 1.0 : 0.0) * ((asfloat(0x3F7D70A4u) >= uvX.y) ? 1.0 : 0.0);
+		XHOp = saturate((inY * inX >= 1.0) ? Dt.a * mask : 0.0);
+		float  c1 = saturate(XingHenPosition * 2.0), c2 = saturate(XingHenPosition * 2.0 - 1.0);   // preshaders
+		bool   hiSide = UV3X >= 0.5;
+		float  a = hiSide ? 1.0 : 1.0 - c1;
+		XHG = c2 * ((hiSide ? 0.0 : 1.0) - a) + a;
+	}
+
+	// ---- F113-117: emissive -------------------------------------------------------------------------------------------
+	float3 Ebase = bAlphaBlendMode ? F.SpecPart * EmissionColor : EmissionColor * (F.SpecPart * Base);
+	float3 E = bXingHen ? MotionEmissiveMask * E_Motion_Emissive + (Ebase + (XHCol * XHOp) * XHG)
+	                    : Ebase + MotionEmissiveMask * E_Motion_Emissive;
+	E = SelectionColor.a * (SelectionColor.rgb - E) + E;
+
+	// ---- F118-137: AniSwitch atlas shadow band, dark/bright tint ---------------------------------------------------------
+	float3 dark  = Base * AniSwitch_ShadowColorDark;
+	float2 cell  = float2(floor(AniSwitch_FaceShadow - 1.0), floor((AniSwitch_FaceShadow - 1.0) / 2.0));   // preshader
+	float2 aniUV = frac((UV0 + cell) * float2(0.5, 0.25));
+	float  aniOn = (AniSwitch_FaceShadow >= asfloat(0x3DCCCCCDu)) ? 1.0 : 0.0;                   // 0.1
+	float2 mUV   = aniOn * (aniUV - UV0) + UV0;
+	float  aniG  = aniOn * (MaskTexAtlas.Sample(MaskTexAtlasSampler, mUV).g + -1.0) + 1.0;
+	float  awh   = AniSwitch_ShadowWidth * 0.5;                                                  // preshaders
+	float  awHi  = saturate(AniSwitch_ShadowWidthOffset + awh), awLo = saturate(AniSwitch_ShadowWidthOffset - awh);
+	float  as    = saturate((1.0 / (awHi - awLo)) * (aniG - awLo));
+	float  as2   = as * as, as3 = as * -2.0 + 3.0;
+	float3 Base2 = (as2 * as3) * (Base * AniSwitch_ShadowColorBright - dark) + dark;
+	if (bXingHen)
+		Base2 = XHG * (XHOp * (XHCol - Base2)) + Base2;                                              // a40cf3bc L236-238
+
+	// ---- F138-205: light direction; point-light vector targets the head position CPD23..25 -------------------------------
+	float3 L = WuwaBPMainLightDir(LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, CPD_HeadPos, CPD13, CPD1, LightDirVS);
+
+	// ---- F206-244: head frame, flip, SDF UV, SDF sample -------------------------------------------------------------------
+	FWuwaFaceSDFSetup S = WuwaFaceSDFSetup(L, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, UV0, SDFPitchPosition);
+	float3 SDF = MaskTexSDF.Sample(MaskTexSDFSampler, S.SdfUV).rba;
+
+	// ---- F230-256: ramp U from SDF.b^1.5 vs threshold, AniSwitch weight on the solid ratio --------------------------------
+	float  SPp = (0.0 + ShadowProcess) + 0.0;                                                     // preshader
+	float  pB  = exp2(log2(SDF.y) * 1.5);
+	pB = (asfloat(0x33000002u) >= SDF.y) ? 1.0 : (1.0 - pB);
+	float  rpre = min(0.5 - SPp, asfloat(0x7F7FFFFFu));       // opaque preshader (see WuwaToonFaceV2BasePass)
+	float  ru  = -((pB - S.T) + 1.0) * 0.5 + rpre;
+	ru = saturate(ru + 1.0);
+	float  rc  = min(ru, SolidShadow_RampPosition);
+	float  solid = min(F.ShadowPart, SolidShadowProcess) / max(SolidShadowProcess, asfloat(0x3A83126Fu));
+	float  aniW  = AniSwitch_ShadowColorWeight * (as3 * as2 + -1.0) + 1.0;
+	float  solid2 = solid * aniW;
+	float  rampU = solid2 * (ru - rc) + rc;
+
+	// ---- F257-273: ramp row / weight (by region with UseRampIDMask; damage skin forces region 0) ---------------------------
+	float  rampV, rampW;
+	if (bRampIDMask)
+	{
+		float  nds = 1.0 - F.DamageSkin;
+		float4 rsel = float4(F.RegionID == 0.0 ? 1.0 : 0.0, F.RegionID == 1.0 ? 1.0 : 0.0, F.RegionID == 2.0 ? 1.0 : 0.0, F.RegionID == 3.0 ? 1.0 : 0.0);
+		float  r4 = (F.RegionID == 4.0) ? 1.0 : 0.0;
+		float4 rw = float4(max(1.0 - nds, rsel.x), min(float3(nds, nds, nds), rsel.yzw));
+		float  rw4 = min(nds, r4);
+		float4 kv = RampID0123 * asfloat(0x3E4CCCCDu) + asfloat(0x3DCCCCCDu);   // *0.2 + 0.1
+		rampV = (RampID4 * asfloat(0x3E4CCCCDu) + asfloat(0x3DCCCCCDu)) * rw4 + dot(kv, rw);
+		rampW = rw4 * RampInt4 + dot(rw, RampInt0123);
+		rampW = rampW * ((MPC_GlobalCharSkyLightIntensity >= 0.05) ? 1.0 : 0.0);
+	}
+	else
+	{
+		rampV = RampIndex * 0.2 + 0.1;                                                              // preshader
+		rampW = ((MPC_GlobalCharSkyLightIntensity >= 0.05) ? 1.0 : 0.0) * RampInt;
+	}
+	float3 RampCol = Ramp.Sample(RampSampler, float2(rampU, rampV)).rgb;
+
+	// ---- F274-280: lit colour (skin-weighted half blend toward the ramp) -> GBufferC.rgb (wet: b06c400f L290-347) ---------
+	float3 lit = rampW * (RampCol - Base2) + (Base2 + Base2);
+	lit = lit * 0.5 - Base2;
+	lit = saturate(F.SkinF * lit + Base2);
+	float3 Dry = WuwaBPDesaturate(lit, Desaturation);
+	float Opacity = bXingHen ? max(F.TypeMaskR * OpacityIntensity, XHOp * XHG) : max(F.TypeMaskR * OpacityIntensity, 0.0);
+	if (bWet)
+	{
+		float gate = WuwaV2LinkGate(SvPositionXY, ViewSizeAndInvSize, ViewRectMin, E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis, E_LinkPos);
+		float WetT = WuwaV2WetTransition(WaterWet_TransitionTex, WaterWet_TransitionTexSampler, UV0, WaterWet_TransitionTilling, UV3Y, CPD_WetTransition);
+		G.C.rgb = WuwaV2WetColor(Dry, F.SkinF, Opacity, gate, CPD_WetAmount, WetT, Wet_Desaturation, Wet_Lightness,
+			Wet_OpacityInBaseCol_Blend, WetSkin_Desaturation, WetSkin_Lightness);
+		Opacity = WuwaV2WetOpacity(Opacity, CPD_WetAmount, WetT, Wet_OpacityPowerMin, Wet_OpacityPowerMax, Wet_Opacity);
+	}
+	else
+	{
+		G.C.rgb = Dry;
+	}
+
+	// ---- emissive -> SceneColor -------------------------------------------------------------------------------------------
+	G.Emissive = WuwaBPFinalEmissive(E, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+
+	// ---- shadow colour (SSS vs ramp) -> GBufferB.rgb --------------------------------------------------------------------------
+	float3 SSS = F.SkinF * (SkinSubsurfaceColor - SubsurfaceColor) + SubsurfaceColor;
+	float3 ShadowCol = WuwaBPDesaturate(rampW * (RampCol - SSS) + SSS, Desaturation);
+
+	// ---- SDF shadow band with per-region width -> GBufferA.z ------------------------------------------------------------------
+	float  swid = WuwaV2ShadowWidthByID(F.RegionID, ShadowWidth, ShadowWidthUseID, ShadowWidth0123, ShadowWidth4);
+	float  bLo = SPp - swid, bHi = SPp + swid;
+	float  q = -(SDF.z + SDF.x) * 0.5 - S.T;
+	q = -(q + 2.0) * 0.5 + 1.0;
+	float  s = saturate((1.0 / (bHi - bLo)) * (q - bLo));
+	s = (s * s) * (s * -2.0 + 3.0);
+	G.A.z = WuwaV2ShadowFactorZ(L, V, solid2, s * solid2, SolidShadowStrength);
+
+	// ---- FFT (spark constant + specular by region), encode ----------------------------------------------------------------
+	float FFT = (asfloat(0x3A83126Fu) < FFT_SparkIntensity) ? FFT_SparkIntensity * -FFT_SparkThreshold : 0.0;
+	if (asfloat(0x3A83126Fu) < FFT_SpecularIntensity)
+	{
+		float inR = ((F.RegionID + 0.5 >= FFTMin) ? 1.0 : 0.0) * ((FFTMax >= F.RegionID - 0.5) ? 1.0 : 0.0);
+		FFT = (max(-FFT_SpecularThreshold, 0.0) * FFT_SpecularIntensity) * inR + FFT;
+	}
+	WuwaV2EncodeX(G, 0u, N, ShadowCol, Opacity, F.SkinF, FFT, ToonRimWidth, SSAOSkinIntensity, SSAOIntensity,
+		KuroGBufferMode, LightingChannelMask, 0.0);
+	return G;
+}
+
+// Face parameter blocks (HLSL name -> Kuro name: RampID<k> -> "<k>_RampID", RampInt<k> -> "<k>_RampInt",
+// ShadowWidth<k> -> "<k>_ShadowWidth").
+#define WUWA_FV2X_P_BASE \
+	Texture2D TypeMask, SamplerState TypeMaskSampler, Texture2D MainTex, SamplerState MainTexSampler, \
+	Texture2D MaskTexAtlas, SamplerState MaskTexAtlasSampler, Texture2D MaskTexSDF, SamplerState MaskTexSDFSampler, \
+	Texture2D Ramp, SamplerState RampSampler, \
+	float2 UV0, float3 WorldNormal, float3 WorldPosition, float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask, \
+	float DamageIntensity, float Damage_Skin_Intensity, float SkinMin, float SkinMax, float UseFaceAni_SkinMask, \
+	float3 SkinColor, float3 Damage_Dirty_SkinColorTint, float3 Damage_Dirty_ColorTint, float Damage_Dirty_Intensity, \
+	float3 Damage_Skin_ColorTint, float3 BaseColorTint, float DecodeShadowThreshold, float DecodeSpecThreshold, \
+	float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor, \
+	float AniSwitch_FaceShadow, float AniSwitch_ShadowColorDark, float AniSwitch_ShadowColorBright, \
+	float AniSwitch_ShadowWidth, float AniSwitch_ShadowWidthOffset, float AniSwitch_ShadowColorWeight, \
+	float LightOffset_Pitch, float SDFPitchPosition, float ShadowProcess, float SolidShadow_RampPosition, float SolidShadowProcess, \
+	float Desaturation, float3 SkinSubsurfaceColor, float3 SubsurfaceColor, float SolidShadowStrength, \
+	float ShadowWidth, float ShadowWidthUseID, float ShadowWidth0, float ShadowWidth1, float ShadowWidth2, float ShadowWidth3, \
+	float ShadowWidth4, float OpacityIntensity, float ToonRimWidth, float SSAOSkinIntensity, float SSAOIntensity, \
+	float FFTMin, float FFTMax, float FFT_SparkThreshold, float FFT_SparkIntensity, float FFT_SpecularThreshold, \
+	float FFT_SpecularIntensity, \
+	float CPD1, float3 CPD_HeadForward, float3 CPD_HeadSide, float CPD11, float CPD12, float CPD13, float3 CPD_HeadPos, \
+	float MPC_GlobalCharSkyLightIntensity, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection, \
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3, \
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode, \
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds, \
+	uint LightingChannelMask
+#define WUWA_FV2X_P_RIDM , float RampID0, float RampID1, float RampID2, float RampID3, float RampID4, \
+	float RampInt0, float RampInt1, float RampInt2, float RampInt3, float RampInt4
+#define WUWA_FV2X_P_RIDX , float RampIndex, float RampInt
+
+#define WUWA_FV2X_P_XH , Texture2D D, SamplerState DSampler, Texture2D Noise, SamplerState NoiseSampler, \
+	Texture2D Noise02, SamplerState Noise02Sampler, float UV3X, float GameTime, float4 SDFColor, float4 SDFColor02, \
+	float ShakeNoiseInt, float SDFStart, float XingHenControl, float SoundWaveTiling01, float SoundWaveSpeed01, \
+	float SoundWaveInt01, float SoundWaveTiling02, float SoundWaveSpeed02, float SoundWaveInt02, float XHMax, \
+	float XingHenPosition, float UVScaleX, float UVScaleY, float UVpositionX, float UVpositionY
+#define XH_ON_ARGS   D, DSampler, Noise, NoiseSampler, Noise02, Noise02Sampler, UV3X, GameTime, SDFColor, SDFColor02, \
+	ShakeNoiseInt, SDFStart, XingHenControl, SoundWaveTiling01, SoundWaveSpeed01, SoundWaveInt01, SoundWaveTiling02, \
+	SoundWaveSpeed02, SoundWaveInt02, XHMax, XingHenPosition, UVScaleX, UVScaleY, UVpositionX, UVpositionY
+#define XH_OFF_ARGS  MainTex, MainTexSampler, MainTex, MainTexSampler, MainTex, MainTexSampler, 0.0, 0.0, \
+	float4(0.0, 0.0, 0.0, 0.0), float4(0.0, 0.0, 0.0, 0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0
+
+#define WUWA_FV2X_ARGS(RID, WET, XH) \
+	XH##_ARGS, TypeMask, TypeMaskSampler, MainTex, MainTexSampler, MaskTexAtlas, MaskTexAtlasSampler, MaskTexSDF, MaskTexSDFSampler, \
+	Ramp, RampSampler, WET##_TEX, UV0, WET##_UV3, WET##_SVPOS, \
+	WorldNormal, WorldPosition, CameraVector, LightDirVS, MotionEmissiveMask, WET##_VIEW, \
+	DamageIntensity, Damage_Skin_Intensity, SkinMin, SkinMax, UseFaceAni_SkinMask, \
+	SkinColor, Damage_Dirty_SkinColorTint, Damage_Dirty_ColorTint, Damage_Dirty_Intensity, \
+	Damage_Skin_ColorTint, BaseColorTint, DecodeShadowThreshold, DecodeSpecThreshold, \
+	EmissionColor, E_Motion_Emissive, SelectionColor, \
+	AniSwitch_FaceShadow, AniSwitch_ShadowColorDark, AniSwitch_ShadowColorBright, \
+	AniSwitch_ShadowWidth, AniSwitch_ShadowWidthOffset, AniSwitch_ShadowColorWeight, \
+	LightOffset_Pitch, SDFPitchPosition, ShadowProcess, SolidShadow_RampPosition, SolidShadowProcess, \
+	RID##_RAMP, \
+	Desaturation, SkinSubsurfaceColor, SubsurfaceColor, SolidShadowStrength, \
+	ShadowWidth, ShadowWidthUseID, float4(ShadowWidth0, ShadowWidth1, ShadowWidth2, ShadowWidth3), ShadowWidth4, \
+	OpacityIntensity, ToonRimWidth, SSAOSkinIntensity, SSAOIntensity, \
+	FFTMin, FFTMax, FFT_SparkThreshold, FFT_SparkIntensity, FFT_SpecularThreshold, FFT_SpecularIntensity, \
+	WET##_PARAMS, \
+	CPD1, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, CPD13, CPD_HeadPos, \
+	MPC_GlobalCharSkyLightIntensity, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection, \
+	ToonLight0, ToonLight1, ToonLight2, ToonLight3, \
+	MaterialTextureMipBias, NormalOverrideParameter, KuroGBufferMode, \
+	KuroEmissiveScale, KuroSkipEmissiveScale, OutOfBoundsMask, ObjectWorldPosition, ObjectBounds, LightingChannelMask
+#define RIDM_ON_RAMP   float4(RampID0, RampID1, RampID2, RampID3), RampID4, float4(RampInt0, RampInt1, RampInt2, RampInt3), RampInt4, 0.0, 0.0
+#define RIDM_OFF_RAMP  float4(0.0, 0.0, 0.0, 0.0), 0.0, float4(0.0, 0.0, 0.0, 0.0), 0.0, RampIndex, RampInt
+#define WUWA_FV2X_CALL(bRID, bWET, bABM, bXH, RID, WET, XH) \
+	{ return WuwaToonFaceV2X_Impl(bRID, bWET, bABM, bXH, WUWA_FV2X_ARGS(RID, WET, XH)); }
+
+// Re-statement of the verified bef70fd2 graph (regression anchor for the option code; not registered).
+FWuwaToonGBuffer WuwaToonFaceV2X_Base(WUWA_FV2X_P_BASE WUWA_FV2X_P_RIDM)
+	WUWA_FV2X_CALL(true, false, false, false, RIDM_ON, WET_OFF, XH_OFF)
+// 6c849ec5 (Mone Md20011 face): UseRampIDMask off
+FWuwaToonGBuffer WuwaToonFaceV2NoRampIDBasePass(WUWA_FV2X_P_BASE WUWA_FV2X_P_RIDX)
+	WUWA_FV2X_CALL(false, false, false, false, RIDM_OFF, WET_OFF, XH_OFF)
+// b06c400f (QianXia Md20011 / ShenXin / Xin faces): + Use_Char_Wet
+FWuwaToonGBuffer WuwaToonFaceV2WetBasePass(WUWA_FV2X_P_BASE WUWA_FV2X_P_RIDM WUWA_HV2X_P_WET)
+	WUWA_FV2X_CALL(true, true, false, false, RIDM_ON, WET_ON, XH_OFF)
+// 44b7d09d (Qingxiao face): + Use_Char_Wet + UseAlphaBlendMode
+FWuwaToonGBuffer WuwaToonFaceV2WetABMBasePass(WUWA_FV2X_P_BASE WUWA_FV2X_P_RIDM WUWA_HV2X_P_WET)
+	WUWA_FV2X_CALL(true, true, true, false, RIDM_ON, WET_ON, XH_OFF)
+// a40cf3bc (Suisui / Xuanling faces): + UseXingHen
+FWuwaToonGBuffer WuwaToonFaceV2XingHenBasePass(WUWA_FV2X_P_BASE WUWA_FV2X_P_RIDM WUWA_FV2X_P_XH)
+	WUWA_FV2X_CALL(true, false, false, true, RIDM_ON, WET_OFF, XH_ON)
+// 54719b41 (Jingran face): + UseXingHen + Use_Char_Wet
+FWuwaToonGBuffer WuwaToonFaceV2XingHenWetBasePass(WUWA_FV2X_P_BASE WUWA_FV2X_P_RIDM WUWA_FV2X_P_XH WUWA_HV2X_P_WET)
+	WUWA_FV2X_CALL(true, true, false, true, RIDM_ON, WET_ON, XH_ON)
+
+// ---------------------------------------------------------------------------------------------------------------
+// V2 base-pass VS: E_OLNormalWPO (V### = evidence/roster/shadermaps/v2/asm/005673_36679c04...asm.txt, hair VS; every
+// non-UseCommonWPO V2 hair / face / body VS has this graph with other CB4 slots; face VS c9e8451f only packs the
+// interpolators differently). The light direction (V313-394) is WuwaToonBaseVS_LightDir unchanged; the hologram /
+// E_Motion block (V231-308) is WuwaToonBaseVS_WPO unchanged; V2 adds an outline-style normal offset (V212-230) that is
+// summed with those effects before the translated position and the Kuro primitive offset (V296-309):
+//   n  = octahedral decode of TexCoord1 (smoothed tangent-space normal): z = 1 - |u| - |v|, t = sat(-z),
+//        (u, v) += (u >= 0 ? -t : t, v >= 0 ? -t : t)
+//   OL = normalize(TangentX_ws * u + TangentY_ws * v + TangentZ_ws * z) * E_OLNormalWPO
+//   WPO = OL + effects   (E_OLNormalWPO = 0 on every dumped V2 MI: the term then only matters as 0 * normalize(..),
+//                         which is 0 for any non-degenerate basis)
+// VertexTangentWS / VertexBitangentWS / VertexNormalWS: UE Parameters.TangentToWorld rows in the VS (Kuro: TangentX
+// re-orthogonalised, TangentY = cross, TangentZ, each times LocalToWorld * InvNonUniformScale; not renormalised).
+// Same contract and Kuro primitive-offset association as WuwaToonBaseVS_WPO (WuwaToonBasePassShared.ush).
+// ---------------------------------------------------------------------------------------------------------------
+float3 WuwaToonBaseVS_OLNormalOffset(float2 UV1, float3 VertexTangentWS, float3 VertexBitangentWS, float3 VertexNormalWS,
+	float E_OLNormalWPO)
+{
+	precise float  z = 1.0 - (abs(UV1.y) + abs(UV1.x));                       // V212-213
+	precise float  t = saturate(z * -1.0);                                      // V214
+	precise float  nt = t * -1.0;                                               // V215
+	precise float2 ge = float2(UV1.x >= 0.0 ? 1.0 : 0.0, UV1.y >= 0.0 ? 1.0 : 0.0);
+	nt = -t + nt;                                                               // V218: -2t
+	precise float2 f = nt * ge;
+	f = t + f;                                                                  // V220
+	precise float2 uv = UV1 + f;                                                // V221
+	precise float3 a = VertexTangentWS * uv.x;                                  // V222
+	precise float3 b = VertexBitangentWS * uv.y;                                // V223
+	precise float3 n = b + a;                                                   // V224
+	precise float3 c = VertexNormalWS * z;                                      // V225
+	n = n + c;                                                                  // V226
+	precise float  len = sqrt(dot(n, n));                                       // V227-229
+	n = n / len;
+	return n * E_OLNormalWPO;                                                   // V230
+}
+
+float3 WuwaToonBaseVS_WPO_V2(float2 UV0, float2 UV1, float3 VertexTangentWS, float3 VertexBitangentWS, float3 VertexNormalWS,
+	float3 TranslatedWorldPosition, float3 TranslatedWorldCameraOrigin, float GameTime, float4x4 ViewToTranslatedWorld,
+	float E_OLNormalWPO, float USE_Hologram, float E_Hologram_JitterStrength, float3 E_Hologram_WPOVector,
+	float E_MotionRange, float E_Motion_NoiseSpeed, float4 E_Motion_Offset, float E_Motion_NoisePos,
+	float KuroEnablePrimitiveOffset, float4 KuroPrimitiveOffset, out float MotionEmissiveMask)
+{
+	precise float3 OL = WuwaToonBaseVS_OLNormalOffset(UV1, VertexTangentWS, VertexBitangentWS, VertexNormalWS, E_OLNormalWPO);
+
+	// V231-295: hologram / E_Motion, transcribed as in WuwaToonBaseVS_WPO.
+	precise float3 holo = 0.0;
+	bool holoDisabled = (0.0001 >= USE_Hologram);
+	precise float holoDisabledF = holoDisabled ? 1.0 : 0.0;
+	if (!holoDisabled)
+	{
+		precise float3 dir = (ViewToTranslatedWorld[0].xyz * E_Hologram_WPOVector.x + ViewToTranslatedWorld[1].xyz * E_Hologram_WPOVector.y)
+			+ ViewToTranslatedWorld[2].xyz * E_Hologram_WPOVector.z;
+		dir = dir * E_Hologram_JitterStrength;
+		precise float n = dot(UV0, float2(52.9898, 38.233)) + (GameTime * 1.2) * 0.0001;
+		n = frac(sin(n * asfloat(0x40C90FDBu)) * 4353.1558);       // 6.28318548
+		n = n * n; n = n * n; n = n * n; n = n * n;
+		precise float3 pos = n * dir;
+		precise float3 neg = pos * float3(-1.0, -1.0, -1.0);
+		precise float3 dirN = dir / sqrt(dot(dir, dir));
+		precise float  dn = dot(dirN, VertexNormalWS);
+		precise float  side = (dn >= 0.0) ? 1.0 : 0.0;
+		precise float3 sgnd = side * (pos - neg) + neg;
+		holo = sgnd * ((abs(dn) >= E_MotionRange) ? 1.0 : 0.0);
+	}
+	precise float  t = GameTime * E_Motion_NoiseSpeed;
+	precise float3 v = TranslatedWorldCameraOrigin - TranslatedWorldPosition;
+	v = v / sqrt(dot(v, v));
+	precise float3 offN = E_Motion_Offset.xyz / sqrt(dot(E_Motion_Offset.xyz, E_Motion_Offset.xyz));   // preshader cb4[4]
+	precise float  viewAtt = saturate((abs(dot(offN, v)) - 0.8) * -2.5);
+	bool   enabled = (0.0001 < E_Motion_Offset.w);
+	precise float2 k = E_Motion_NoisePos + float2(52.9898, 38.233);
+	precise float  m = t + dot(UV0, k);
+	m = frac(sin(m) * 4353.1558);
+	m = m * m; m = m * m; m = m * m; m = m * m;
+	m = viewAtt * m;
+	precise float  facing = dot(E_Motion_Offset.xyz * rsqrt(dot(E_Motion_Offset.xyz, E_Motion_Offset.xyz)), VertexNormalWS);
+	bool   inRange = (E_MotionRange < facing);
+	bool   on = inRange && enabled;
+	precise float3 motion = on ? (m * E_Motion_Offset.xyz) : float3(0.0, 0.0, 0.0);
+	precise float3 d = holoDisabledF * (motion - holo);
+	precise float3 effects = holo + d;
+	MotionEmissiveMask = on ? m : 0.0;
+
+	// V300-308: OL + effects, then (+ TWP) (+ Kuro primitive offset); same association handling as WuwaToonBaseVS_WPO.
+	effects = OL + effects;
+	bool   kuroOn = (KuroEnablePrimitiveOffset != 0.0) && (0.0 < KuroPrimitiveOffset.w);
+	precise float3 posK = effects + TranslatedWorldPosition;
+	posK = KuroPrimitiveOffset.xyz + posK;
+	precise float3 wK = posK - TranslatedWorldPosition;
+	precise float3 cK = TranslatedWorldPosition + wK;
+	precise float3 rK = posK - cK;
+	wK = wK + rK;
+	return kuroOn ? wK : effects;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// Round 5 (research/roster/round5/v2.md): UseFurry VS shell offset (V2 body VS 25a8a15d #174311, Xin Tail; V### =
+// evidence/roster/shadermaps/v2/asm/174311_25a8a15d...asm.txt). The VS is WuwaToonBaseVS_WPO_V2 (= the verified 5909e2fb graph,
+// face-style packing) plus a vertex-normal push summed after the E_OLNormalWPO + hologram / E_Motion offset (V324-347):
+//   fade = lerp(1, COLOR0.r, FurBlendUseVertexRFade); g = lerp(1, COLOR0.g, UseVertexColor); a = lerp(1, COLOR0.a, UseVertexColor)
+//   gate = (0.25 >= a) * fade; sel = (0.5 >= UV2.y); rs = sat(|N . normalize(Cam - WorldPos)| * FurRangeStep + FurRangeStepOffset)
+//   amt = lerp(sel * FurOffset, sel * g * Length, fade * ((1 - rs) - 1) + 1); push = (N * amt) * gate
+// UV2 = Kuro TexCoord[2] (vertex factory UV index min(NumTexCoords - 1, 2)); N = VertexNormalWS (TangentZ in world).
+// ---------------------------------------------------------------------------------------------------------------------------
+float3 WuwaToonBaseVS_FurShellOffset(float4 VertexColor, float2 UV2, float3 VertexNormalWS, float3 TranslatedWorldPosition,
+	float3 TranslatedWorldCameraOrigin, float FurBlendUseVertexRFade, float UseVertexColor, float FurOffset, float Length,
+	float FurRangeStep, float FurRangeStepOffset)
+{
+	precise float3 c = float3(VertexColor.r, VertexColor.g, VertexColor.a) + float3(-1.0, -1.0, -1.0);              // V324
+	c = c * float3(FurBlendUseVertexRFade, UseVertexColor, UseVertexColor);                                           // V325
+	c = c + float3(1.0, 1.0, 1.0);                                                                                    // V326
+	precise float gate = ((0.25 >= c.z) ? 1.0 : 0.0) * c.x;                                                           // V327-329
+	precise float sel = (0.5 >= UV2.y) ? 1.0 : 0.0;                                                                   // V330-331
+	precise float off0 = sel * FurOffset;                                                                             // V332
+	precise float len = c.y * Length;                                                                                 // V333
+	len = sel * len;                                                                                                  // V334
+	precise float3 v = TranslatedWorldCameraOrigin - TranslatedWorldPosition;                                         // V292-296
+	v = v / sqrt(dot(v, v));
+	precise float rs = abs(dot(VertexNormalWS, v)) * FurRangeStep;                                                    // V335-336
+	rs = saturate(rs + FurRangeStepOffset);                                                                           // V337
+	precise float f = (1.0 - rs) + -1.0;                                                                              // V338-339
+	f = f * c.x;                                                                                                      // V340
+	f = f + 1.0;                                                                                                      // V341
+	precise float amt = len - off0;                                                                                   // V342
+	amt = amt * f;                                                                                                    // V343
+	amt = amt + off0;                                                                                                 // V344
+	precise float3 o = VertexNormalWS * amt;                                                                          // V345
+	return gate * o;                                                                                                  // V346
+}
+
+// WuwaToonBaseVS_WPO_V2 + the UseFurry shell offset (V2 VS 25a8a15d, V324-349): ((OL + effects) + fur) + TWP + Kuro offset.
+float3 WuwaToonBaseVS_WPO_V2Fur(float2 UV0, float2 UV1, float2 UV2, float4 VertexColor, float3 VertexTangentWS, float3 VertexBitangentWS,
+	float3 VertexNormalWS, float3 TranslatedWorldPosition, float3 TranslatedWorldCameraOrigin, float GameTime, float4x4 ViewToTranslatedWorld,
+	float E_OLNormalWPO, float USE_Hologram, float E_Hologram_JitterStrength, float3 E_Hologram_WPOVector,
+	float E_MotionRange, float E_Motion_NoiseSpeed, float4 E_Motion_Offset, float E_Motion_NoisePos,
+	float FurBlendUseVertexRFade, float UseVertexColor, float FurOffset, float Length, float FurRangeStep, float FurRangeStepOffset,
+	float KuroEnablePrimitiveOffset, float4 KuroPrimitiveOffset, out float MotionEmissiveMask)
+{
+	precise float3 OL = WuwaToonBaseVS_OLNormalOffset(UV1, VertexTangentWS, VertexBitangentWS, VertexNormalWS, E_OLNormalWPO);
+	precise float3 holo = 0.0;
+	bool holoDisabled = (0.0001 >= USE_Hologram);
+	precise float holoDisabledF = holoDisabled ? 1.0 : 0.0;
+	if (!holoDisabled)
+	{
+		precise float3 dir = (ViewToTranslatedWorld[0].xyz * E_Hologram_WPOVector.x + ViewToTranslatedWorld[1].xyz * E_Hologram_WPOVector.y)
+			+ ViewToTranslatedWorld[2].xyz * E_Hologram_WPOVector.z;
+		dir = dir * E_Hologram_JitterStrength;
+		precise float n = dot(UV0, float2(52.9898, 38.233)) + (GameTime * 1.2) * 0.0001;
+		n = frac(sin(n * asfloat(0x40C90FDBu)) * 4353.1558);       // 6.28318548
+		n = n * n; n = n * n; n = n * n; n = n * n;
+		precise float3 pos = n * dir;
+		precise float3 neg = pos * float3(-1.0, -1.0, -1.0);
+		precise float3 dirN = dir / sqrt(dot(dir, dir));
+		precise float  dn = dot(dirN, VertexNormalWS);
+		precise float  side = (dn >= 0.0) ? 1.0 : 0.0;
+		precise float3 sgnd = side * (pos - neg) + neg;
+		holo = sgnd * ((abs(dn) >= E_MotionRange) ? 1.0 : 0.0);
+	}
+	precise float  t = GameTime * E_Motion_NoiseSpeed;
+	precise float3 v = TranslatedWorldCameraOrigin - TranslatedWorldPosition;
+	v = v / sqrt(dot(v, v));
+	precise float3 offN = E_Motion_Offset.xyz / sqrt(dot(E_Motion_Offset.xyz, E_Motion_Offset.xyz));   // preshader cb4[4]
+	precise float  viewAtt = saturate((abs(dot(offN, v)) - 0.8) * -2.5);
+	bool   enabled = (0.0001 < E_Motion_Offset.w);
+	precise float2 k = E_Motion_NoisePos + float2(52.9898, 38.233);
+	precise float  m = t + dot(UV0, k);
+	m = frac(sin(m) * 4353.1558);
+	m = m * m; m = m * m; m = m * m; m = m * m;
+	m = viewAtt * m;
+	precise float  facing = dot(E_Motion_Offset.xyz * rsqrt(dot(E_Motion_Offset.xyz, E_Motion_Offset.xyz)), VertexNormalWS);
+	bool   inRange = (E_MotionRange < facing);
+	bool   on = inRange && enabled;
+	precise float3 motion = on ? (m * E_Motion_Offset.xyz) : float3(0.0, 0.0, 0.0);
+	precise float3 d = holoDisabledF * (motion - holo);
+	precise float3 effects = holo + d;
+	MotionEmissiveMask = on ? m : 0.0;
+
+	effects = OL + effects;                                                                                           // V323
+	effects = effects + WuwaToonBaseVS_FurShellOffset(VertexColor, UV2, VertexNormalWS, TranslatedWorldPosition,
+		TranslatedWorldCameraOrigin, FurBlendUseVertexRFade, UseVertexColor, FurOffset, Length, FurRangeStep, FurRangeStepOffset);   // V347
+	bool   kuroOn = (KuroEnablePrimitiveOffset != 0.0) && (0.0 < KuroPrimitiveOffset.w);
+	precise float3 posK = effects + TranslatedWorldPosition;
+	posK = KuroPrimitiveOffset.xyz + posK;
+	precise float3 wK = posK - TranslatedWorldPosition;
+	precise float3 cK = TranslatedWorldPosition + wK;
+	precise float3 rK = posK - cK;
+	wK = wK + rK;
+	return kuroOn ? wK : effects;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// UseCommonWPO (V2 VS 3e53a1de #022770 V361-433; same block in afd9397d / 3c7e6718): wind / cloth sway World Position Offset.
+//   m   = min(smoothstep(sat((UV2.y - WPOMask_Offset) / (WPOMask_Width + 0.01))), 1)          (UV2 = TexCoord[2])
+//   t   = GameTime * SpeedControl * -0.819047
+//   s   = m * SinWaveAmount * sin(2pi * SinWaveSize * (t + 2 UV2.y + RandomMask(UV2, LOD -1).r * RandomAmount))
+//   e   = (m + s) + m * ExpendAmount
+//   p   = (TangentY * 0 + TangentX * (s + UV2.x - 0.5) * SineTangentWaveAmount + N * 0) * e, or e (all three components) when
+//         SineTangentWaveAmount < 0.001; p += (N * (m + s) - p) * NormalOffsetMix_Amount
+//   p.x += m * SinClothWaveInt * sin(2pi * (t + WorldToLocal(WorldPosition).x / mean(LocalObjectBounds size)))
+//   p  *= region gate: floor(min(TypeMask(UV0, LOD 0).a, 0.99) * 5) in [CommonWPOMin, CommonWPOMax]; bodies with RegionIDTex
+//         (3c7e6718, bRegionIDTex) use the packed RegionIDTex ID (low / high nibble selected by TypeMask.a >= 0.5) instead
+// The offset is added before the E_OLNormalWPO / hologram / E_Motion effects: ((CommonWPO + effects) + TWP) + Kuro offset.
+float3 WuwaToonBaseVS_CommonWPO(const bool bRegionIDTex, float2 UV0, float2 UV2, float3 VertexTangentWS, float3 VertexBitangentWS, float3 VertexNormalWS,
+	float3 AbsoluteWorldPosition, float GameTime, float4x4 WorldToLocal, float3 LocalObjectBoundsMin, float3 LocalObjectBoundsMax,
+	Texture2D RandomMask, SamplerState RandomMaskSampler, Texture2D TypeMask, SamplerState TypeMaskSampler,
+	Texture2D RegionIDTex, SamplerState RegionIDTexSampler,
+	float WPOMask_Width, float WPOMask_Offset, float SpeedControl, float RandomAmount, float SinWaveSize, float SinWaveAmount,
+	float ExpendAmount, float SineTangentWaveAmount, float NormalOffsetMix_Amount, float SinClothWaveInt, float CommonWPOMin,
+	float CommonWPOMax)
+{
+	precise float hi = WPOMask_Offset + (WPOMask_Width + asfloat(0x3C23D70Au));               // preshaders (W + 0.01), Off + that
+	precise float inv = 1.0 / (hi - WPOMask_Offset);
+	precise float m = saturate(inv * (UV2.y - WPOMask_Offset));
+	precise float sm = m * -2.0;
+	sm = sm + 3.0;
+	m = m * m;
+	m = m * sm;
+	m = min(m, 1.0);
+	precise float t = GameTime * SpeedControl;
+	t = t * asfloat(0xBF51AD10u);                                                              // -0.819047
+	precise float ph = UV2.y * 2.0;
+	ph = t + ph;
+	precise float rnd = RandomMask.SampleLevel(RandomMaskSampler, UV2, -1.0).r;
+	rnd = rnd * RandomAmount;
+	ph = ph + rnd;
+	ph = ph * SinWaveSize;
+	ph = ph * asfloat(0x40C90FDBu);                                                            // 2pi
+	precise float s = sin(ph);
+	s = s * SinWaveAmount;
+	s = m * s;
+	precise float a = m + s;
+	precise float e = m * ExpendAmount;
+	e = a + e;
+	precise float u = UV2.x + -0.5;
+	precise float tw = s + u;
+	tw = tw * SineTangentWaveAmount;
+	precise float3 v = VertexTangentWS * tw;
+	// The original's bitangent register is zeroed before this point by a full-mask `mul [precise] r0.xyzw, r0.xyzw,
+	// l(4353.155762, 0, 0, 0)` in the E_Motion noise (3e53a1de V340-341, the same in afd9397d / 3c7e6718): the term is
+	// TangentY * 0 (keeps only its zero sign / NaN), so the tangent wave runs along TangentX alone.
+	precise float3 byz = VertexBitangentWS * 0.0;
+	precise float3 p = byz + v;
+	precise float3 z = VertexNormalWS * 0.0;
+	p = p + z;
+	p = p * e;
+	precise float g = (SineTangentWaveAmount >= asfloat(0x3A83126Fu)) ? 1.0 : 0.0;           // 0.001
+	p = -e + p;
+	p = p * g;
+	p = p + e;
+	precise float3 n = VertexNormalWS * a;
+	n = -p + n;
+	n = n * NormalOffsetMix_Amount;
+	p = p + n;
+	precise float lx = AbsoluteWorldPosition.x * WorldToLocal[0].x;
+	precise float ly = AbsoluteWorldPosition.y * WorldToLocal[1].x;
+	lx = lx + ly;
+	precise float lz = AbsoluteWorldPosition.z * WorldToLocal[2].x;
+	lx = lx + lz;
+	lx = lx + WorldToLocal[3].x;
+	precise float3 bs = -LocalObjectBoundsMin + LocalObjectBoundsMax;
+	precise float bm = bs.y + bs.x;
+	bm = bs.z + bm;
+	bm = bm / 3.0;
+	lx = lx / bm;
+	precise float w = t + lx;
+	w = w * asfloat(0x40C90FDBu);
+	w = sin(w);
+	w = w * SinClothWaveInt;
+	precise float3 c = float3(m * w, 0.0, 0.0);
+	p = p + c;
+	precise float id;
+	if (bRegionIDTex)
+	{
+		precise float rr = RegionIDTex.SampleLevel(RegionIDTexSampler, UV0, 0.0).r;
+		precise float sa = TypeMask.SampleLevel(TypeMaskSampler, UV0, 0.0).a;
+		rr = rr * asfloat(0x437F8000u);                                                        // 255.5
+		int   ri = (int)rr;
+		int   lo = ri & 15, hi = ri >> 4;
+		bool  hasHi = (0 < hi);
+		precise float flo = (float)lo;
+		precise float fhi = hasHi ? (float)hi : 0.0;
+		precise float sel = (sa >= 0.5) ? 1.0 : 0.0;
+		precise float d = -flo + fhi;
+		d = d * sel;
+		d = d + flo;
+		id = hasHi ? d : flo;
+	}
+	else
+	{
+		id = TypeMask.SampleLevel(TypeMaskSampler, UV0, 0.0).a;
+		id = min(id, asfloat(0x3F7D70A4u));                                                    // 0.99
+		id = id * 5.0;
+		id = floor(id);
+	}
+	precise float idP = id + 0.5, idM = id + -0.5;
+	precise float r0 = (idP >= CommonWPOMin) ? 1.0 : 0.0;
+	precise float r1 = (CommonWPOMax >= idM) ? 1.0 : 0.0;
+	r0 = r0 * r1;
+	return p * r0;
+}
+
+// V2 VS WPO with UseCommonWPO (3e53a1de V361-439): CommonWPO + (E_OLNormalWPO + hologram / E_Motion), then the Kuro primitive
+// offset association of WuwaToonBaseVS_WPO_V2.
+float3 WuwaToonBaseVS_WPO_V2CommonWPO(const bool bRegionIDTex, float2 UV0, float2 UV1, float2 UV2, float3 VertexTangentWS, float3 VertexBitangentWS,
+	float3 VertexNormalWS, float3 TranslatedWorldPosition, float3 TranslatedWorldCameraOrigin, float3 PreViewTranslation, float GameTime,
+	float4x4 ViewToTranslatedWorld, float4x4 WorldToLocal, float3 LocalObjectBoundsMin, float3 LocalObjectBoundsMax,
+	Texture2D RandomMask, SamplerState RandomMaskSampler, Texture2D TypeMask, SamplerState TypeMaskSampler,
+	Texture2D RegionIDTex, SamplerState RegionIDTexSampler,
+	float WPOMask_Width, float WPOMask_Offset, float SpeedControl, float RandomAmount, float SinWaveSize, float SinWaveAmount,
+	float ExpendAmount, float SineTangentWaveAmount, float NormalOffsetMix_Amount, float SinClothWaveInt, float CommonWPOMin,
+	float CommonWPOMax,
+	float E_OLNormalWPO, float USE_Hologram, float E_Hologram_JitterStrength, float3 E_Hologram_WPOVector,
+	float E_MotionRange, float E_Motion_NoiseSpeed, float4 E_Motion_Offset, float E_Motion_NoisePos,
+	float KuroEnablePrimitiveOffset, float4 KuroPrimitiveOffset, out float MotionEmissiveMask)
+{
+	precise float3 effects = WuwaToonBaseVS_WPO_V2(UV0, UV1, VertexTangentWS, VertexBitangentWS, VertexNormalWS, TranslatedWorldPosition,
+		TranslatedWorldCameraOrigin, GameTime, ViewToTranslatedWorld, E_OLNormalWPO, USE_Hologram, E_Hologram_JitterStrength,
+		E_Hologram_WPOVector, E_MotionRange, E_Motion_NoiseSpeed, E_Motion_Offset, E_Motion_NoisePos, 0.0, KuroPrimitiveOffset,
+		MotionEmissiveMask);
+	precise float3 Wabs = TranslatedWorldPosition - PreViewTranslation;
+	precise float3 cw = WuwaToonBaseVS_CommonWPO(bRegionIDTex, UV0, UV2, VertexTangentWS, VertexBitangentWS, VertexNormalWS, Wabs, GameTime,
+		WorldToLocal, LocalObjectBoundsMin, LocalObjectBoundsMax, RandomMask, RandomMaskSampler, TypeMask, TypeMaskSampler,
+		RegionIDTex, RegionIDTexSampler, WPOMask_Width, WPOMask_Offset, SpeedControl, RandomAmount, SinWaveSize, SinWaveAmount, ExpendAmount, SineTangentWaveAmount,
+		NormalOffsetMix_Amount, SinClothWaveInt, CommonWPOMin, CommonWPOMax);
+	effects = cw + effects;
+	bool   kuroOn = (KuroEnablePrimitiveOffset != 0.0) && (0.0 < KuroPrimitiveOffset.w);
+	precise float3 posK = effects + TranslatedWorldPosition;
+	posK = KuroPrimitiveOffset.xyz + posK;
+	precise float3 wK = posK - TranslatedWorldPosition;
+	precise float3 cK = TranslatedWorldPosition + wK;
+	precise float3 rK = posK - cK;
+	wK = wK + rK;
+	precise float3 o = effects;
+	if (kuroOn)
+		o = wK;
+	return o;
+}
+
+// Spec entry points (no compile-time option in the signature): hair maps (region from TypeMask.a; VS 3e53a1de / afd9397d) and
+// body maps (region from RegionIDTex + TypeMask.a; VS 3c7e6718). Verified by tools/shaderdiff/basepass_v2_hairface/vsdiff --v2cw.
+float3 WuwaToonBaseVS_WPO_V2CommonWPO_Hair(float2 UV0, float2 UV1, float2 UV2, float3 VertexTangentWS, float3 VertexBitangentWS,
+	float3 VertexNormalWS, float3 TranslatedWorldPosition, float3 TranslatedWorldCameraOrigin, float3 PreViewTranslation, float GameTime,
+	float4x4 ViewToTranslatedWorld, float4x4 WorldToLocal, float3 LocalObjectBoundsMin, float3 LocalObjectBoundsMax,
+	Texture2D RandomMask, SamplerState RandomMaskSampler, Texture2D TypeMask, SamplerState TypeMaskSampler,
+	float WPOMask_Width, float WPOMask_Offset, float SpeedControl, float RandomAmount, float SinWaveSize, float SinWaveAmount,
+	float ExpendAmount, float SineTangentWaveAmount, float NormalOffsetMix_Amount, float SinClothWaveInt, float CommonWPOMin,
+	float CommonWPOMax, float E_OLNormalWPO, float USE_Hologram, float E_Hologram_JitterStrength, float3 E_Hologram_WPOVector,
+	float E_MotionRange, float E_Motion_NoiseSpeed, float4 E_Motion_Offset, float E_Motion_NoisePos,
+	float KuroEnablePrimitiveOffset, float4 KuroPrimitiveOffset, out float MotionEmissiveMask)
+{
+	return WuwaToonBaseVS_WPO_V2CommonWPO(false, UV0, UV1, UV2, VertexTangentWS, VertexBitangentWS, VertexNormalWS, TranslatedWorldPosition,
+		TranslatedWorldCameraOrigin, PreViewTranslation, GameTime, ViewToTranslatedWorld, WorldToLocal, LocalObjectBoundsMin,
+		LocalObjectBoundsMax, RandomMask, RandomMaskSampler, TypeMask, TypeMaskSampler, TypeMask, TypeMaskSampler, WPOMask_Width,
+		WPOMask_Offset, SpeedControl, RandomAmount, SinWaveSize, SinWaveAmount, ExpendAmount, SineTangentWaveAmount, NormalOffsetMix_Amount,
+		SinClothWaveInt, CommonWPOMin, CommonWPOMax, E_OLNormalWPO, USE_Hologram, E_Hologram_JitterStrength, E_Hologram_WPOVector,
+		E_MotionRange, E_Motion_NoiseSpeed, E_Motion_Offset, E_Motion_NoisePos, KuroEnablePrimitiveOffset, KuroPrimitiveOffset,
+		MotionEmissiveMask);
+}
+
+float3 WuwaToonBaseVS_WPO_V2CommonWPO_Body(float2 UV0, float2 UV1, float2 UV2, float3 VertexTangentWS, float3 VertexBitangentWS,
+	float3 VertexNormalWS, float3 TranslatedWorldPosition, float3 TranslatedWorldCameraOrigin, float3 PreViewTranslation, float GameTime,
+	float4x4 ViewToTranslatedWorld, float4x4 WorldToLocal, float3 LocalObjectBoundsMin, float3 LocalObjectBoundsMax,
+	Texture2D RandomMask, SamplerState RandomMaskSampler, Texture2D TypeMask, SamplerState TypeMaskSampler,
+	Texture2D RegionIDTex, SamplerState RegionIDTexSampler,
+	float WPOMask_Width, float WPOMask_Offset, float SpeedControl, float RandomAmount, float SinWaveSize, float SinWaveAmount,
+	float ExpendAmount, float SineTangentWaveAmount, float NormalOffsetMix_Amount, float SinClothWaveInt, float CommonWPOMin,
+	float CommonWPOMax, float E_OLNormalWPO, float USE_Hologram, float E_Hologram_JitterStrength, float3 E_Hologram_WPOVector,
+	float E_MotionRange, float E_Motion_NoiseSpeed, float4 E_Motion_Offset, float E_Motion_NoisePos,
+	float KuroEnablePrimitiveOffset, float4 KuroPrimitiveOffset, out float MotionEmissiveMask)
+{
+	return WuwaToonBaseVS_WPO_V2CommonWPO(true, UV0, UV1, UV2, VertexTangentWS, VertexBitangentWS, VertexNormalWS, TranslatedWorldPosition,
+		TranslatedWorldCameraOrigin, PreViewTranslation, GameTime, ViewToTranslatedWorld, WorldToLocal, LocalObjectBoundsMin,
+		LocalObjectBoundsMax, RandomMask, RandomMaskSampler, TypeMask, TypeMaskSampler, RegionIDTex, RegionIDTexSampler, WPOMask_Width,
+		WPOMask_Offset, SpeedControl, RandomAmount, SinWaveSize, SinWaveAmount, ExpendAmount, SineTangentWaveAmount, NormalOffsetMix_Amount,
+		SinClothWaveInt, CommonWPOMin, CommonWPOMax, E_OLNormalWPO, USE_Hologram, E_Hologram_JitterStrength, E_Hologram_WPOVector,
+		E_MotionRange, E_Motion_NoiseSpeed, E_Motion_Offset, E_Motion_NoisePos, KuroEnablePrimitiveOffset, KuroPrimitiveOffset,
+		MotionEmissiveMask);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// ROUND 6 (research/roster/round6/v2.md): PBR face 52814e28 (#208972; MI_R2T1LinnaeaMd20011Face, MI_R2T1SuomingMd10011Face).
+// MSM_ToonFace with UsePBR / UseMatCap / UseRegionID / UseBlendParameter / UseSparkle / Use_Char_Wet: the V2 body PBR composition
+// (WuwaToonBodyV2BasePass_Impl SpecMode 1 = UseDoubleSpecular, no fresnel, UseBlendParameter, wet PBR per region, UseSparkle) re-hosted
+// on the face SDF lighting. Line refs F6 L### = evidence/roster/shadermaps/v2/asm/208972_52814e28...asm.txt.
+//   * front end as the body (RegionIDTex low / high nibble IDs blended by the LOD-MipBias TypeMask.a, L88-120), no normal map;
+//   * metallic / roughness per region with the wet offsets (CPD26, wet front T1 incl. CPD27 * noise, L141-216);
+//   * solid ratio = face form min(sp, SSP) / max(SSP, 0.001) times the AniSwitch weight (L215-236), shadow S = SDF band (L340-362);
+//   * double specular on the mirrored light with the SDF shadow (L396-431), matcap (L432-466), PBR composite (L467-492),
+//     glitter (L498-576), lit = lerp(base, PBR, pbrMask) (L581-587), then the face AniSwitch dark / bright tint OF THE PBR-LIT colour
+//     (L588-590), face ramp U / region ramp row and the skin half blend (L591-623), wet colour with the CPU-rotated E_Link gate
+//     (L627-681), wet opacity (mode 0 only, L808-818), face encode (GBufferA.w 0 in mode 0).
+// Interpolator packing is hair-style (TEXCOORD0 = (UV0, LightDir.xy), TEXCOORD2 = (LightDir.z, motion mask)); VS 8704193b = the
+// verified face VS c9e8451f graph (round 5 vs_equiv_r5.json) -> WuwaToonBaseVS_WPO_V2.
+// ---------------------------------------------------------------------------------------------------------------
+FWuwaToonGBuffer WuwaToonFaceV2PBRDSSparkleWetBasePass(
+	Texture2D TypeMask, SamplerState TypeMaskSampler, SamplerState TypeMaskLod0Sampler,
+	Texture2D RegionIDTex, SamplerState RegionIDTexSampler, Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D WaterWet_TransitionTex, SamplerState WaterWet_TransitionTexSampler,
+	Texture2D MaskTexAtlas, SamplerState MaskTexAtlasSampler, Texture2D MaskTexSDF, SamplerState MaskTexSDFSampler,
+	Texture2D Normal_Roughness_Metallic, SamplerState Normal_Roughness_MetallicSampler,
+	Texture2D MatCapTex, SamplerState MatCapTexSampler, Texture2D CommonNoiseMap, SamplerState CommonNoiseMapSampler,
+	Texture2D Ramp, SamplerState RampSampler,
+	float2 UV0, float2 UV1, float2 UV2, float UV3Y, float2 SvPositionXY,
+	float3 WorldNormal, float3 WorldPosition, float3 TranslatedWorldPosition, float3 CameraVector, float3 LightDirVS,
+	float MotionEmissiveMask, float4x4 TranslatedWorldToView, float4 ViewSizeAndInvSize, float2 ViewRectMin, float GameTime,
+	float ClipToView00, float3 WorldCameraOrigin, float3 LocalToWorldRow2, float3 LocalToWorldRow3,
+	// front end
+	float DamageIntensity, float Damage_Skin_Intensity, float SkinMin, float SkinMax, float UseFaceAni_SkinMask,
+	float3 SkinColor, float3 Damage_Dirty_SkinColorTint, float3 Damage_Dirty_ColorTint, float Damage_Dirty_Intensity,
+	float3 Damage_Skin_ColorTint, float3 BaseColorTint, float DecodeShadowThreshold, float DecodeSpecThreshold,
+	float RaytracingReflectionFix, float ExtraMatcapMin, float ExtraMatcapMax,
+	// PBR by region
+	float Metallic0, float Metallic1, float Metallic2, float Metallic3, float Metallic4, float UseIDMetallicParam, float MetallicIntensityDebug,
+	float Roughness0, float Roughness1, float Roughness2, float Roughness3, float Roughness4, float UseIDRoughnessParam, float RoughnessIntensityDebug,
+	float Spec_Int0, float Spec_Int1, float Spec_Int2, float Spec_Int3, float Spec_Int4,
+	float Spec_Width0, float Spec_Width1, float Spec_Width2, float Spec_Width3, float Spec_Width4,
+	float Spec_Smooth0, float Spec_Smooth1, float Spec_Smooth2, float Spec_Smooth3, float Spec_Smooth4,
+	float EdgeEnvBRDFIntensity, float UseTexNormal, float MatcapMaxMip, float MetalMatCapBack, float NonMetallicMatCapInt,
+	float MetalMatCapInt, float PBRRateIntensity, float3 MatcapColor, float3 PBRIndirectColor, float3 PBRSpecularColor,
+	// Use_Char_Wet (CPD 26 / 27, UV3.y = TEXCOORD1.w, LinkRot0/1 = CPU (cos a, -sin a) uniform expressions)
+	float CPD_WetAmount, float CPD_WetTransition, float WaterWet_TransitionTilling,
+	float WetMetallicOffset0, float WetMetallicOffset1, float WetMetallicOffset2, float WetMetallicOffset3, float WetMetallicOffset4,
+	float WetRoughnessOffset0, float WetRoughnessOffset1, float WetRoughnessOffset2, float WetRoughnessOffset3, float WetRoughnessOffset4,
+	float Wet_Desaturation, float Wet_Lightness, float Wet_OpacityInBaseCol_Blend, float WetSkin_Desaturation, float WetSkin_Lightness,
+	float Wet_OpacityPowerMin, float Wet_OpacityPowerMax, float Wet_Opacity,
+	float E_Link_UseSplitScreen, float4 E_Link_AngleLinePosLineDis, float E_LinkPos, float2 LinkRot0, float2 LinkRot1,
+	// UseSparkle
+	float4 Sparkle_UV_Switch, float SparkleTiling, float SparkleTimeSpeed, float SparkleMin, float SparkleMax, float SparkleRange,
+	float SparkleSoft, float SparkleRangeMode, float SparkleBaseLuminance, float SparkleIntensity, float SparkleIntensityMax,
+	float SparkleColorful, float SparkleStep, float3 HueShiftValue, float SparkleStrengthFOV, float UseSparkleFOVStrength,
+	// face (SDF / AniSwitch / ramp)
+	float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor,
+	float AniSwitch_FaceShadow, float AniSwitch_ShadowColorDark, float AniSwitch_ShadowColorBright,
+	float AniSwitch_ShadowWidth, float AniSwitch_ShadowWidthOffset, float AniSwitch_ShadowColorWeight,
+	float LightOffset_Pitch, float SDFPitchPosition, float ShadowProcess, float SolidShadow_RampPosition, float SolidShadowProcess,
+	float RampID0, float RampID1, float RampID2, float RampID3, float RampID4,
+	float RampInt0, float RampInt1, float RampInt2, float RampInt3, float RampInt4,
+	float Desaturation, float3 SkinSubsurfaceColor, float3 SubsurfaceColor, float SolidShadowStrength,
+	float ShadowWidth, float ShadowWidthUseID, float ShadowWidth0, float ShadowWidth1, float ShadowWidth2, float ShadowWidth3,
+	float ShadowWidth4, float OpacityIntensity, float ToonRimWidth, float SSAOSkinIntensity, float SSAOIntensity,
+	float FFTMin, float FFTMax, float FFT_SparkThreshold, float FFT_SparkIntensity, float FFT_SpecularThreshold,
+	float FFT_SpecularIntensity,
+	float CPD1, float3 CPD_HeadForward, float3 CPD_HeadSide, float CPD11, float CPD12, float CPD13, float3 CPD_HeadPos,
+	float MPC_GlobalCharSkyLightIntensity, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float KuroGBufferMode,
+	float3 KuroEmissiveScale, float KuroSkipEmissiveScale, float OutOfBoundsMask, float3 ObjectWorldPosition, float3 ObjectBounds,
+	uint LightingChannelMask)
+{
+	FWuwaToonGBuffer G;
+	const float3 V = CameraVector;
+	const float3 Nv = WorldNormal;
+
+	// ---- L77-87: TypeMask (r opacity, b damage, a ID blend), damage skin, shading normal (no normal map) --------------------
+	float3 TM = TypeMask.SampleLevel(TypeMaskSampler, UV0, MaterialTextureMipBias).rba;
+	float  d = DamageIntensity * (TM.y - 0.5);
+	float  dirtyIn = d + 0.5;
+	float  DamageSkin = saturate(((d + asfloat(0xBB031200u)) * Damage_Skin_Intensity) * asfloat(0x40008399u));   // -0.002, 2.008032
+	float3 Nu; float NuRsq; float3 N;
+	WuwaV2ShadingNormal(Nv, NormalOverrideParameter, Nu, NuRsq, N);
+
+	// ---- L88-113: RegionIDTex (low nibble ID, high nibble chosen by TypeMask.a >= 0.5), region ranges ------------------------
+	int    rid = (int)(RegionIDTex.SampleLevel(RegionIDTexSampler, UV0, MaterialTextureMipBias).r * asfloat(0x437F8000u));   // 255.5
+	int    idLo = rid & 15, idHi = rid >> 4;
+	bool   hasHi = (0 < idHi);
+	float  fLo = (float)idLo;
+	float  fHi = hasHi ? (float)idHi : 0.0;
+	float  id = (TM.z >= 0.5 ? 1.0 : 0.0) * (fHi - fLo) + fLo;
+	id = hasHi ? id : fLo;
+	float  idP = id + 0.5, idM = id + -0.5;
+	float  inSkin  = ((idP >= SkinMin) ? 1.0 : 0.0) * ((SkinMax >= idM) ? 1.0 : 0.0);
+	float  inSpark = ((idP >= SparkleMin) ? 1.0 : 0.0) * ((SparkleMax >= idM) ? 1.0 : 0.0);
+	float  inExtra = ((idP >= ExtraMatcapMin) ? 1.0 : 0.0) * ((ExtraMatcapMax >= idM) ? 1.0 : 0.0);
+	float  Skin  = max(DamageSkin, inSkin);
+	float  SkinF = UseFaceAni_SkinMask * (1.0 - Skin) + Skin;
+
+	// ---- L117-140: base colour, MainTex.a decode ------------------------------------------------------------------------------
+	float3 SkinTint = SkinF * (SkinColor + -1.0) + 1.0;
+	float3 dirty = Skin * (Damage_Dirty_SkinColorTint - Damage_Dirty_ColorTint) + Damage_Dirty_ColorTint;
+	dirty = saturate(-(1.0 - saturate(dirtyIn + dirtyIn)) * Damage_Dirty_Intensity + 1.0) * (1.0 - dirty) + dirty;
+	float4 Main = MainTex.Sample(MainTexSampler, UV0);
+	float3 albedo = DamageSkin * (Damage_Skin_ColorTint - Main.rgb) + Main.rgb;
+	float3 dab = (dirty * albedo) * BaseColorTint;
+	float3 Base = SkinTint * dab;
+	float  ShadowPart = min(max(Main.a, 0.0), DecodeShadowThreshold) / DecodeShadowThreshold;
+	float  SpecPart = (min(max(Main.a, DecodeSpecThreshold), 1.0) - DecodeSpecThreshold) / (1.0 - DecodeSpecThreshold);
+	float3 specBase = SpecPart * Base;
+
+	// ---- L141-214: metallic / roughness per region, wet (CPD26 then the wet front T1), UseBlendParameter ----------------------
+	float2 tmGA = TypeMask.SampleLevel(TypeMaskLod0Sampler, UV0, 0.0).ga;
+	const float FLTMAX = asfloat(0x7F7FFFFFu);
+	float  WetA = saturate(CPD_WetAmount);
+	float  WetTex = WaterWet_TransitionTex.Sample(WaterWet_TransitionTexSampler, UV0 * WaterWet_TransitionTilling).r;
+	float  WetPre = CPD_WetTransition * asfloat(0x3F878788u) + -1.0;                                      // 1.058824
+	float  WetT1 = saturate(((CPD_WetTransition * (WetTex * asfloat(0x3D4CCCCDu)) + UV3Y) + WetPre) * 20.0);   // 0.05
+	WetT1 = WetT1 * WetT1;
+	float4 mv = float4(Metallic0, Metallic1, Metallic2, Metallic3), rv = float4(Roughness0, Roughness1, Roughness2, Roughness3);
+	float  M4 = Metallic4, R4 = Roughness4;
+	float4 mW = min(float4(Metallic0 + WetMetallicOffset0, Metallic1 + WetMetallicOffset1, Metallic2 + WetMetallicOffset2,
+		Metallic3 + WetMetallicOffset3), FLTMAX);                                                         // preshaders
+	float4 rW = min(float4(Roughness0 - WetRoughnessOffset0, Roughness1 - WetRoughnessOffset1, Roughness2 - WetRoughnessOffset2,
+		Roughness3 - WetRoughnessOffset3), FLTMAX);
+	float  mW4 = min(Metallic4 + WetMetallicOffset4, FLTMAX), rW4 = min(Roughness4 - WetRoughnessOffset4, FLTMAX);
+	mv = WetA * (mW - mv) + mv;
+	M4 = WetA * (mW4 - M4) + M4;
+	rv = WetA * (rW - rv) + rv;
+	R4 = WetA * (rW4 - R4) + R4;
+	mv = (mW - mv) * WetT1 + mv;
+	M4 = (mW4 - M4) * WetT1 + M4;
+	rv = (rW - rv) * WetT1 + rv;
+	R4 = (rW4 - R4) * WetT1 + R4;
+	float4 sLo = float4(idLo == 0 ? 1.0 : 0.0, idLo == 1 ? 1.0 : 0.0, idLo == 2 ? 1.0 : 0.0, idLo == 3 ? 1.0 : 0.0);
+	float  lo4 = (idLo == 4) ? 1.0 : 0.0;
+	float2 prLo = float2(M4 * lo4 + dot(mv, sLo), R4 * lo4 + dot(rv, sLo));
+	float4 sHi = float4(idHi == 0 ? 1.0 : 0.0, idHi == 1 ? 1.0 : 0.0, idHi == 2 ? 1.0 : 0.0, idHi == 3 ? 1.0 : 0.0);
+	float  hi4 = (idHi == 4) ? 1.0 : 0.0;
+	float2 prHi = float2(M4 * hi4 + dot(mv, sHi), R4 * hi4 + dot(rv, sHi));
+	prHi = float2(hasHi ? prHi.x : 0.0, hasHi ? prHi.y : 0.0);           // per-component selects (no vector ?:)
+	float2 pr = tmGA.y * (prHi - prLo) + prLo;
+	pr = float2(hasHi ? pr.x : prLo.x, hasHi ? pr.y : prLo.y);
+	float  ms = pr.x + tmGA.x;
+	float  metal = (UseIDMetallicParam * (pr.x - ms) + ms) * MetallicIntensityDebug;
+
+	// ---- L215-236: face solid ratio, AniSwitch atlas band and weight -----------------------------------------------------------
+	float  solid = min(ShadowPart, SolidShadowProcess) / max(SolidShadowProcess, asfloat(0x3A83126Fu));
+	float2 cell  = float2(floor(AniSwitch_FaceShadow - 1.0), floor((AniSwitch_FaceShadow - 1.0) / 2.0));   // preshader
+	float2 aniUV = frac((UV0 + cell) * float2(0.5, 0.25));
+	float  aniOn = (AniSwitch_FaceShadow >= asfloat(0x3DCCCCCDu)) ? 1.0 : 0.0;                   // 0.1
+	float2 mUV   = aniOn * (aniUV - UV0) + UV0;
+	float  aniG  = aniOn * (MaskTexAtlas.Sample(MaskTexAtlasSampler, mUV).g + -1.0) + 1.0;
+	float  awh   = AniSwitch_ShadowWidth * 0.5;                                                  // preshaders
+	float  awHi  = saturate(AniSwitch_ShadowWidthOffset + awh), awLo = saturate(AniSwitch_ShadowWidthOffset - awh);
+	float  as    = saturate((1.0 / (awHi - awLo)) * (aniG - awLo));
+	float  as2   = as * as, as3 = as * -2.0 + 3.0;
+	float  aniW  = AniSwitch_ShadowColorWeight * (as3 * as2 + -1.0) + 1.0;
+	float  solid2 = solid * aniW;
+
+	// ---- L237-248: region select, SDF band half-width ----------------------------------------------------------------------------
+	float4 sel = float4(id == 0.0 ? 1.0 : 0.0, id == 1.0 ? 1.0 : 0.0, id == 2.0 ? 1.0 : 0.0, id == 3.0 ? 1.0 : 0.0);
+	float  is4 = (id == 4.0) ? 1.0 : 0.0;
+	float  SPp = (0.0 + ShadowProcess) + 0.0;                                                     // preshader
+	float  swid = WuwaV2ShadowWidthByID(id, ShadowWidth, ShadowWidthUseID, float4(ShadowWidth0, ShadowWidth1, ShadowWidth2, ShadowWidth3), ShadowWidth4);
+	float  bLo = SPp - swid, bHi = SPp + swid;
+
+	// ---- L249-312: light direction (point-light vector targets the head position CPD23..25) -------------------------------------
+	float3 L = WuwaBPMainLightDir(LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, CPD_HeadPos, CPD13, CPD1, LightDirVS);
+
+	// ---- L313-362: head frame, SDF sample, SDF shadow band -> Shadow = solid2 * S -------------------------------------------------
+	FWuwaFaceSDFSetup S = WuwaFaceSDFSetup(L, CPD_HeadForward, CPD_HeadSide, CPD11, CPD12, UV0, SDFPitchPosition);
+	float3 SDF = MaskTexSDF.Sample(MaskTexSDFSampler, S.SdfUV).rba;
+	// this map's fxc form (L341-354): ((1 - (a + r) * 0.5) - T) + 1, not the bef70fd2 form -(a + r) * 0.5 - T + 2
+	float  q0 = -(SDF.z + SDF.x) * 0.5 + 1.0;
+	precise float q1 = q0 - S.T;
+	q1 = q1 + 1.0;
+	float  q = -q1 * 0.5 + 1.0;
+	float  s = saturate((1.0 / (bHi - bLo)) * (q - bLo));
+	s = (s * s) * (s * -2.0 + 3.0);
+	float  Shadow = solid2 * s;
+
+	// ---- L363-431: metal weights, roughness, per-region specular, UseDoubleSpecular lobe on the mirrored light -------------------
+	float  metal9 = metal * asfloat(0x3F8E38E3u);                                               // 1/0.9
+	float  nonMetal = saturate(metal * -10.0 + 10.0);
+	float  litMetal = saturate(Shadow) * (1.0 - nonMetal) + nonMetal;
+	float  metalF = saturate(metal9);
+	float  rTex = Normal_Roughness_Metallic.Sample(Normal_Roughness_MetallicSampler, UV0).a;
+	float  rs = pr.y + rTex;
+	float  rough = (UseIDRoughnessParam * (pr.y - rs) + rs) * RoughnessIntensityDebug;
+	float  rC = min(max(rough, 0.0), asfloat(0x3F666666u));                                      // 0..0.9
+	float  rC2 = min(max(rough, asfloat(0x3F666666u)), 1.0);
+	float  r9 = rC * asfloat(0x3F8E38E4u);
+	float3 NL = RaytracingReflectionFix * (-N + Nv) + N;
+	float  NoV = dot(NL, V);
+	float  si = Spec_Int4 * is4 + dot(float4(Spec_Int0, Spec_Int1, Spec_Int2, Spec_Int3), sel);
+	float  si67 = si * asfloat(0x40D66666u);                                                     // 6.7
+	float  sInt = r9 * (-si * asfloat(0x40D66666u) + asfloat(0x3C23D70Au)) + si67;               // lerp(6.7 si, 0.01, r)
+	float  sW = 1.0 - (Spec_Width4 * is4 + dot(float4(Spec_Width0, Spec_Width1, Spec_Width2, Spec_Width3), sel));
+	float  sS = Spec_Smooth4 * is4 + dot(float4(Spec_Smooth0, Spec_Smooth1, Spec_Smooth2, Spec_Smooth3), sel);
+	float  ex = exp2(log2(r9) * asfloat(0x3DCCCCCDu)) * asfloat(0xC479C000u) + asfloat(0x447A0000u);   // 1000 - 999 r^0.1
+	ex = (asfloat(0x32E66669u) >= rC) ? asfloat(0x447A0000u) : ex;
+	float3 L2 = L * float3(-1.0, -1.0, 1.0) + (Shadow * L) * float3(2.0, 2.0, 0.0);
+	float3 H2 = V + L2;
+	H2 = H2 / sqrt(dot(H2, H2));
+	float  spNoH = saturate(dot(N, H2));
+	float  sp2 = exp2(log2(spNoH) * ex);
+	float  w = Shadow * 2.0 + -1.0;
+	w = w * w;
+	w = w * w;
+	float  spec = sp2 * w;
+	float  SpecTerm = WuwaV2PBRSpecBand(spec, sW, sS, sInt, litMetal);
+
+	// ---- L432-492: matcap, PBR composite ---------------------------------------------------------------------------------------
+	float  nds = 1.0 - DamageSkin;
+	float2 mcUV = WuwaV2PBRMatcapUV(false, TranslatedWorldPosition, TranslatedWorldToView, UseTexNormal, N, Nv);
+	uint   mcW, mcH;
+	MatCapTex.GetDimensions(mcW, mcH);
+	float3 Matcap = WuwaV2PBRMatcapShade(mcUV, mcW, MatCapTex, MatCapTexSampler, MatcapMaxMip, r9, nds, inExtra, metalF, MetalMatCapBack,
+		MetalMatCapInt, NonMetallicMatCapInt, solid2, s, Shadow, MatcapColor);
+	float3 SpecCol, Spec, Ind, diff;
+	WuwaV2PBRComposite(metalF, Base, EdgeEnvBRDFIntensity, NoV, rC, Matcap, SpecTerm, PBRRateIntensity, PBRSpecularColor, PBRIndirectColor,
+		SpecCol, Spec, Ind, diff);
+
+	// ---- L493-497: wet skin keeps the PBR (skin weight * (1 - wet) * (1 - T1)), highlight overflow ------------------------------
+	float  sfw = WetA * -SkinF + SkinF;
+	sfw = -sfw * WetT1 + sfw;
+	float  nsk = 1.0 - sfw;
+	float3 Overflow = max(Spec * nsk + -1.0, 0.0);
+
+	// ---- L498-580: glitter (mask from the double-specular lobe), emissive -----------------------------------------------------------
+	const float FLTMAX2 = asfloat(0x7F7FFFFFu);
+	float  sv = SparkleRangeMode * (spec - spNoH) + spNoH;
+	float  rLo = min(SparkleRange - SparkleSoft, FLTMAX2), rHi = min(SparkleRange + SparkleSoft, FLTMAX2);   // preshaders
+	float  sx = litMetal * sv;
+	float  sr = saturate((1.0 / (rHi - rLo)) * (sx - rLo));
+	sr = (sr * sr) * (sr * -2.0 + 3.0);
+	float  sMask = max(min(nds, inSpark) * sr, SparkleBaseLuminance);
+	float3 su3 = float3(UV0.x, UV1.x, UV2.x), sv3 = float3(UV0.y, UV1.y, UV2.y);
+	float2 suv = float2(dot(Sparkle_UV_Switch.xzw, su3), dot(Sparkle_UV_Switch.xzw, sv3));
+	float3 Sk = sMask * WuwaV2PBRGlitter(suv, V, GameTime, CommonNoiseMap, CommonNoiseMapSampler, SparkleTiling, SparkleTimeSpeed,
+		SparkleIntensity, SparkleIntensityMax, SparkleColorful, SparkleStep, Base, HueShiftValue, SparkleStrengthFOV, UseSparkleFOVStrength,
+		ClipToView00, WorldCameraOrigin, LocalToWorldRow2, LocalToWorldRow3);
+	float3 E = EmissionColor * specBase + (Sk + Overflow);
+	E = MotionEmissiveMask * E_Motion_Emissive + E;
+	E = SelectionColor.a * (SelectionColor.rgb - E) + E;
+
+	// ---- L581-590: PBR-lit colour (pbrMask from roughness and wet skin), face AniSwitch dark / bright tint of it -----------------
+	float3 sp = Ind * Matcap + Spec;
+	float3 lit = sp + diff;
+	float  pbrMask = nsk * (-(rC2 + asfloat(0xBF666666u)) * asfloat(0x411FFFFEu) + 1.0);       // 1 - (r - 0.9) * 10
+	lit = pbrMask * (lit - Base) + Base;
+	float3 dark  = lit * AniSwitch_ShadowColorDark;
+	float3 Base2 = (as2 * as3) * (lit * AniSwitch_ShadowColorBright - dark) + dark;
+
+	// ---- L591-623: face ramp U (SDF.b^1.5 vs threshold), region ramp row / weight, skin half blend toward the ramp --------------
+	// this map's fxc form (L591-599): ((-p) - T) + 2 with -p = -0.0 below the pow guard, not the bef70fd2 form ((1 - p) - T) + 1
+	float  pw  = exp2(log2(SDF.y) * 1.5);
+	float  np  = (asfloat(0x33000002u) >= SDF.y) ? -0.0 : -pw;
+	precise float ru0 = np - S.T;
+	ru0 = ru0 + 2.0;
+	float  rpre = min(0.5 - SPp, asfloat(0x7F7FFFFFu));       // opaque preshader (see WuwaToonFaceV2BasePass)
+	float  ru  = -ru0 * 0.5 + rpre;
+	ru = saturate(ru + 1.0);
+	float  rc  = min(ru, SolidShadow_RampPosition);
+	float  rampU = solid2 * (ru - rc) + rc;
+	float4 rw = float4(max(1.0 - nds, sel.x), min(float3(nds, nds, nds), sel.yzw));
+	float  rw4 = min(nds, is4);
+	float4 kv = float4(RampID0, RampID1, RampID2, RampID3) * asfloat(0x3E4CCCCDu) + asfloat(0x3DCCCCCDu);   // *0.2 + 0.1
+	float  rampV = (RampID4 * asfloat(0x3E4CCCCDu) + asfloat(0x3DCCCCCDu)) * rw4 + dot(kv, rw);
+	float  rampW = rw4 * RampInt4 + dot(rw, float4(RampInt0, RampInt1, RampInt2, RampInt3));
+	rampW = rampW * ((MPC_GlobalCharSkyLightIntensity >= 0.05) ? 1.0 : 0.0);
+	float3 RampCol = Ramp.Sample(RampSampler, float2(rampU, rampV)).rgb;
+	float3 l3 = rampW * (RampCol - Base2) + (Base2 + Base2);
+	l3 = l3 * 0.5 - Base2;
+	l3 = saturate(SkinF * l3 + Base2);
+	float3 Dry = WuwaBPDesaturate(l3, Desaturation);
+
+	// ---- L624-681: wet colour (E_Link gate with CPU-rotated lines; opacity = max(lum(max(spec, glitter)), TypeMask.r * OI)) ----
+	float  Opacity = max(dot(max(Spec, Sk), float3(0.3, 0.59, 0.11)), TM.x * OpacityIntensity);
+	float  WetT2 = saturate(((WetTex * asfloat(0x3D4CCCCDu) + UV3Y) + WetPre) * 20.0);
+	WetT2 = WetT2 * WetT2;
+	float  gate = WuwaV2LinkGateRot(SvPositionXY, ViewSizeAndInvSize, ViewRectMin, E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis,
+		E_LinkPos, LinkRot0, LinkRot1);
+	G.C.rgb = WuwaV2WetColor(Dry, SkinF, Opacity, gate, CPD_WetAmount, WetT2, Wet_Desaturation, Wet_Lightness,
+		Wet_OpacityInBaseCol_Blend, WetSkin_Desaturation, WetSkin_Lightness);
+	Opacity = WuwaV2WetOpacity(Opacity, CPD_WetAmount, WetT2, Wet_OpacityPowerMin, Wet_OpacityPowerMax, Wet_Opacity);
+
+	// ---- L715-732: emissive -> SceneColor ---------------------------------------------------------------------------------------------
+	G.Emissive = WuwaBPFinalEmissive(E, KuroSkipEmissiveScale, KuroEmissiveScale, OutOfBoundsMask,
+		WorldPosition, ObjectWorldPosition, ObjectBounds);
+
+	// ---- L733-757: shadow colour, GBufferA.z ------------------------------------------------------------------------------------------
+	float3 SSS = SkinF * (SkinSubsurfaceColor - SubsurfaceColor) + SubsurfaceColor;
+	float3 ShadowCol = WuwaBPDesaturate(rampW * (RampCol - SSS) + SSS, Desaturation);
+	G.A.z = WuwaV2ShadowFactorZ(L, V, solid2, Shadow, SolidShadowStrength);
+
+	// ---- L758-778: FFT (spark source = the glitter, specular by region) ---------------------------------------------------------------
+	float FFT = (asfloat(0x3A83126Fu) < FFT_SparkIntensity) ? (max(Sk.z, max(Sk.y, Sk.x)) * 0.02 - FFT_SparkThreshold) * FFT_SparkIntensity : 0.0;
+	if (asfloat(0x3A83126Fu) < FFT_SpecularIntensity)
+	{
+		float inR = ((idP >= FFTMin) ? 1.0 : 0.0) * ((FFTMax >= idM) ? 1.0 : 0.0);
+		float m = max(sp.x, max(sp.z, sp.y));
+		FFT = (max(m - FFT_SpecularThreshold, 0.0) * FFT_SpecularIntensity) * inR + FFT;
+	}
+
+	// ---- L779-856: face encode (GBufferA.w 0 in mode 0) -------------------------------------------------------------------------------
+	WuwaV2EncodeX(G, 0u, N, ShadowCol, Opacity, SkinF, FFT, ToonRimWidth, SSAOSkinIntensity, SSAOIntensity,
+		KuroGBufferMode, LightingChannelMask, 0.0);
+	return G;
+}

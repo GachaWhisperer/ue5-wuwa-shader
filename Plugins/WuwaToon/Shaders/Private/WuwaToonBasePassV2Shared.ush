@@ -1,0 +1,305 @@
+// WuwaToonBasePassV2Shared.ush — helpers shared by the M_CharV2_Com ("CharV2", newer character shader) base-pass ports.
+//
+// Transcribed from the SM5 High DXBC of the roster shader maps (evidence/roster/shadermaps/v2/asm/<idx>_<hash>.asm.txt,
+// exact literal bits in asm_hex/). Line refs: H### = hair PS #008282 (f4214b08), F### = face PS (bef70fd2).
+// research/hlsl/ToonCommonV2_BasePass.hlsl, research/shaders/ToonCommonV2.md.
+//
+// V2 differs from M_Char_Com in the "front end" every V2 pass shares:
+//   * TypeMask (sample_l at LOD = MaterialTextureMipBias): .r opacity (GBufferC.a), .b damage mask (0.5 = none),
+//     .a region ID = floor(min(a, 0.99) * 5) in 0..4 (skin / shadow-width / FFT selection by ID; no vertex colour).
+//   * Damage (DamageIntensity, Damage_Dirty_*, Damage_Skin_*) tints and a skin-by-ID range (SkinMin..SkinMax).
+//   * MainTex.a decode thresholds are shader math, not preshaders; plain Sample() (no explicit mip bias).
+// The rest of the virtual GBuffer contract (FWuwaToonGBuffer, WuwaToonGBuffer.ush) is unchanged: same 7 MRTs, same
+// mode-0 / mode-1 (View[276].x) packing, GBufferB id 12.
+#pragma once
+
+#include "WuwaToonBasePassShared.ush"
+
+// ---------------------------------------------------------------------------------------------------------------
+// Front end (H70-117, F35-80; identical instruction sequence in every V2 PS seen).
+// ---------------------------------------------------------------------------------------------------------------
+struct FWuwaV2Front
+{
+	float  RegionID;       // floor(min(TypeMask.a, 0.99) * 5)
+	float  DamageSkin;     // saturate((DamageIntensity*(b-.5) - .002) * Damage_Skin_Intensity / 0.498)
+	float  Skin;           // max(DamageSkin, region in [SkinMin, SkinMax])  (drives the dirty-tint blend)
+	float  SkinF;          // lerp(Skin, 1, UseFaceAni_SkinMask)            (drives SkinColor / SSS / SSAO)
+	float3 Base;           // SkinTint * (lerp(dirtyTint, 1, w) * lerp(Main.rgb, Damage_Skin_ColorTint, DamageSkin) * BaseColorTint)
+	float  MainA;          // MainTex.a
+	float  ShadowPart;     // clamp(MainTex.a, 0, DecodeShadowThreshold) / DecodeShadowThreshold
+	float  SpecPart;       // (clamp(MainTex.a, DecodeSpecThreshold, 1) - DecodeSpecThreshold) / (1 - DecodeSpecThreshold)
+	float  TypeMaskR;      // opacity source
+};
+
+// TM = TypeMask.SampleLevel(..., MaterialTextureMipBias).rba (sampled as .xzw); Main = MainTex.Sample(...).
+FWuwaV2Front WuwaV2FrontEnd(float3 TM, float4 Main,
+	float DamageIntensity, float Damage_Skin_Intensity, float SkinMin, float SkinMax, float UseFaceAni_SkinMask,
+	float3 SkinColor, float3 Damage_Dirty_SkinColorTint, float3 Damage_Dirty_ColorTint, float Damage_Dirty_Intensity,
+	float3 Damage_Skin_ColorTint, float3 BaseColorTint, float DecodeShadowThreshold, float DecodeSpecThreshold)
+{
+	FWuwaV2Front F;
+	F.TypeMaskR = TM.x;
+	// H71-74: d = DamageIntensity*(b - 0.5); dirty = d + 0.5; skin = sat((d - 0.002) * DSI * 2.008032)
+	float d = DamageIntensity * (TM.y - 0.5);
+	float dirtyIn = d + 0.5;
+	float skinIn  = d + asfloat(0xBB031200u);                       // -0.002 (bits as compiled, not the nearest float)
+	F.DamageSkin = saturate((skinIn * Damage_Skin_Intensity) * asfloat(0x40008399u));   // 2.008032 (1/0.498)
+	// H81-90: region ID and skin-by-ID
+	F.RegionID = floor(min(TM.z, asfloat(0x3F7D70A4u)) * 5.0);    // 0.99
+	float idSkin = ((F.RegionID + 0.5 >= SkinMin) ? 1.0 : 0.0) * ((SkinMax >= F.RegionID - 0.5) ? 1.0 : 0.0);
+	F.Skin  = max(F.DamageSkin, idSkin);
+	F.SkinF = UseFaceAni_SkinMask * (1.0 - F.Skin) + F.Skin;
+	// H93-107: base colour
+	float3 SkinTint = F.SkinF * (SkinColor + -1.0) + 1.0;
+	float3 dirty = F.Skin * (Damage_Dirty_SkinColorTint - Damage_Dirty_ColorTint) + Damage_Dirty_ColorTint;
+	float  dw = saturate(-(1.0 - saturate(dirtyIn + dirtyIn)) * Damage_Dirty_Intensity + 1.0);
+	dirty = dw * (1.0 - dirty) + dirty;
+	float3 albedo = F.DamageSkin * (Damage_Skin_ColorTint - Main.rgb) + Main.rgb;
+	F.Base = SkinTint * ((dirty * albedo) * BaseColorTint);
+	// H108-116: MainTex.a decode
+	F.MainA = Main.a;
+	F.ShadowPart = min(max(Main.a, 0.0), DecodeShadowThreshold) / DecodeShadowThreshold;
+	F.SpecPart = (min(max(Main.a, DecodeSpecThreshold), 1.0) - DecodeSpecThreshold) / (1.0 - DecodeSpecThreshold);
+	return F;
+}
+
+// H55-69 / F30-34: shading normal (lerp(vertex N, vertex N, View[144].w), normalised) and its unnormalised form.
+void WuwaV2ShadingNormal(float3 WorldNormal, float4 NormalOverrideParameter, out float3 Nu, out float NuRsq, out float3 N)
+{
+	float k = NormalOverrideParameter.w;
+	Nu = (1.0 - k) * WorldNormal;
+	Nu = WorldNormal * k + Nu;
+	NuRsq = rsqrt(dot(Nu, Nu));
+	N = NuRsq * Nu;
+}
+
+// pow(|x|, P) as compiled for the material Power node feeding a saturate: 0 for |x| <= 2.98e-8, else min(x^P, 1).
+float WuwaV2PowSat(float X, float P)
+{
+	float r = min(exp2(log2(abs(X)) * P), 1.0);
+	return (asfloat(0x33000002u) >= abs(X)) ? 0.0 : r;
+}
+
+// Solid-shadow ratio from MainTex.a's shadow part (H239-244, F203-207 style):
+//   r = min(sp, SSP) / max(SSP, 0.001); r = (clamp(r, 0.5 - SSW/2, 0.5 + SSW/2) - (0.5 - SSW/2)) / max(width, 1e-4)
+// SolidShadowWidth preshaders are re-derived here (cb4: SSW*0.5, 0.5+h, 0.5-h, max((0.5+h)-(0.5-h), 1e-4)).
+float WuwaV2SolidRatio(float ShadowPart, float SolidShadowProcess, float SolidShadowWidth)
+{
+	float h  = SolidShadowWidth * 0.5;
+	float hi = 0.5 + h;
+	float lo = 0.5 - h;
+	float wd = max(hi - lo, asfloat(0x38D1B717u));                  // 1e-4
+	float r = min(ShadowPart, SolidShadowProcess) / max(SolidShadowProcess, asfloat(0x3A83126Fu));   // 0.001
+	r = min(max(r, lo), hi);
+	return (r - lo) / wd;
+}
+
+// Back-light solid-shadow lift + GBufferA.z (H459-476): b = ((clamp(dot(nL.xy, nV.xy), -1, -0.25) + 1) * 4/3)^2,
+// AO = 1 - (1 - (b*(1 - solid) + solid)) * SolidShadowStrength; A.z = AO * (shadow*0.5 + 0.5).
+float WuwaV2ShadowFactorZ(float3 L, float3 V, float Solid, float Shadow, float SolidShadowStrength)
+{
+	float2 l = L.xy / sqrt(dot(L.xy, L.xy));
+	float2 v = V.xy / sqrt(dot(V.xy, V.xy));
+	float  b = min(max(dot(l, v), -1.0), -0.25) + 1.0;
+	b = b * asfloat(0x3FAAAAABu);                                   // 1.333333
+	b = b * b;
+	float s2 = b * (1.0 - Solid) + Solid;
+	float ao = -(1.0 - s2) * SolidShadowStrength + 1.0;
+	return ao * (Shadow * 0.5 + 0.5);
+}
+
+// Round 6: the AO factor of WuwaV2ShadowFactorZ alone (same statements; A.z = AO * (Shadow * 0.5 + 0.5)). The forward-translucent
+// V2 bodies (PS 78f4974f L609-626) hand AO and Shadow separately to the Kuro forward toon lighting.
+float WuwaV2ShadowAO(float3 L, float3 V, float Solid, float SolidShadowStrength)
+{
+	float2 l = L.xy / sqrt(dot(L.xy, L.xy));
+	float2 v = V.xy / sqrt(dot(V.xy, V.xy));
+	float  b = min(max(dot(l, v), -1.0), -0.25) + 1.0;
+	b = b * asfloat(0x3FAAAAABu);                                   // 1.333333
+	b = b * b;
+	float s2 = b * (1.0 - Solid) + Solid;
+	return -(1.0 - s2) * SolidShadowStrength + 1.0;
+}
+
+// Shadow band half-width by region ID (H245-256): ShadowWidth * lerp(1, k_ID, ShadowWidthUseID), k = {0..4}_ShadowWidth.
+float WuwaV2ShadowWidthByID(float RegionID, float ShadowWidth, float ShadowWidthUseID, float4 ShadowWidth0123, float ShadowWidth4)
+{
+	float4 sel = float4(RegionID == 0.0 ? 1.0 : 0.0, RegionID == 1.0 ? 1.0 : 0.0, RegionID == 2.0 ? 1.0 : 0.0, RegionID == 3.0 ? 1.0 : 0.0);
+	float  is4 = (RegionID == 4.0) ? 1.0 : 0.0;
+	float  k = ShadowWidth4 * is4 + dot(ShadowWidth0123, sel);
+	k = ShadowWidth * k - ShadowWidth;
+	return ShadowWidthUseID * k + ShadowWidth;
+}
+
+// FFT ("GBufferD.w" low nibble) for V2 (H477-496): sparkle from highlight overflow + specular by region ID range.
+float WuwaV2FFT(float3 Overflow, float RegionID, float FFTMin, float FFTMax, float FFT_SparkThreshold, float FFT_SparkIntensity,
+	float FFT_SpecularThreshold, float FFT_SpecularIntensity)
+{
+	float f = 0.0;
+	if (asfloat(0x3A83126Fu) < FFT_SparkIntensity)
+	{
+		float m = max(Overflow.z, max(Overflow.y, Overflow.x));
+		f = (m * asfloat(0x3CA3D70Au) - FFT_SparkThreshold) * FFT_SparkIntensity;   // 0.02
+	}
+	if (asfloat(0x3A83126Fu) < FFT_SpecularIntensity)
+	{
+		float inR = ((RegionID + 0.5 >= FFTMin) ? 1.0 : 0.0) * ((FFTMax >= RegionID - 0.5) ? 1.0 : 0.0);
+		f = (max(-FFT_SpecularThreshold, 0.0) * FFT_SpecularIntensity) * inR + f;
+	}
+	return f;
+}
+
+// GBuffer encode tail (H497-565). OpacityMode: 0 = rim byte with LSB 0 in mode 1 (Hair/Face/Body),
+// 1 = HETA (mode 1: opacity byte with LSB 1; mode 0: C.a = opacity). Mode0AW = GBufferA.w written in mode 0
+// (hair/body 0.99999 = WUWA_099999, face 0).
+void WuwaV2Encode(inout FWuwaToonGBuffer G, const uint OpacityMode, float3 N, float3 ShadowCol, float Opacity,
+	float SkinF, float FFT, float ToonRimWidth, float SSAOSkinIntensity, float SSAOIntensity,
+	float KuroGBufferMode, uint LightingChannelMask, float Mode0AW)
+{
+	G.A.xy  = WuwaBPOctEncode(N);
+	G.B.rgb = sqrt(saturate(ShadowCol));
+	G.B.a   = WuwaBPShadingModelByte(LightingChannelMask, 12u);
+	if (KuroGBufferMode == 1.0)
+	{
+		if (OpacityMode == 1u)
+		{
+			uint op = (uint)floor(min(Opacity, 1.0) * 255.0 + 0.5);
+			G.C.a = (float)(op | 1u) * WUWA_INV255;
+		}
+		else
+		{
+			G.C.a = WuwaBPRimByteEven(ToonRimWidth);
+		}
+		G.D   = float4(0.0, 0.0, 0.0, 0.0);
+		G.A.w = 1.0;
+	}
+	else
+	{
+		G.C.a = Opacity;
+		float ao = saturate(SkinF * (SSAOSkinIntensity - SSAOIntensity) + SSAOIntensity);
+		G.D   = float4(ToonRimWidth, WUWA_240OVER255, 0.0, WuwaPackU8Lo4(ao, saturate(FFT)));
+		G.A.w = Mode0AW;
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Round 6 (research/roster/round6/v2.md): the V2 body PBR blocks as functions for the PBR face
+// (WuwaToonFaceV2PBRDSSparkleWetBasePass, WuwaToonBasePass_V2HairFace.ush, PS 52814e28). The body graph
+// (WuwaToonBodyV2BasePass_Impl, WuwaToonBasePass_V2Body.ush) calls WuwaV2PBRMatcapUV / WuwaV2PBRMatcapShade / WuwaV2PBRGlitter;
+// it keeps inline copies of WuwaV2PBRSpecBand / WuwaV2PBRComposite (same statements), because calling those as well changed fxc's
+// instruction schedule of the precise-compiled fur entries 5cc6b5a3 / bd79aa07 (asm identity of the earlier entries comes first,
+// round6/v2/asm_identity_r6.json). Line refs B### = body PS 63db5573, F6 = 52814e28 #208972.
+// ---------------------------------------------------------------------------------------------------------------
+
+// Specular band (B386-400, F6 L416-431): smoothstep of the lobe between (1 - w) -+ smoothness, times the per-region intensity and
+// the lit-metal weight. sW = 1 - Spec_Width(region), sS = Spec_Smooth(region), sInt = lerp(6.7 * Spec_Int, 0.01, r).
+float WuwaV2PBRSpecBand(float spec, float sW, float sS, float sInt, float litMetal)
+{
+	float  wA = 1.0 - sW;
+	float  spHi = min(-wA * sS + (sW + sS), 1.0);
+	float  sLo2 = max(wA * sS + (sW - sS), 0.0);
+	float  st = saturate((1.0 / (spHi - sLo2)) * (spec - sLo2));
+	st = (st * st) * (st * -2.0 + 3.0);
+	return litMetal * (st * sInt);
+}
+
+// Matcap (B401-433, F6 L432-466), in two halves around the caller's MatCapTex.GetDimensions (kept in the caller so the DXIL of the
+// earlier body entries is unchanged). WuwaV2PBRMatcapUV: view-space cross UV of the view position and the (UseTexNormal) normal;
+// bMcDotXYZ = WUWA_V2F_MCDOT (precise-compiled fur maps: length dot in x, y, z order; otherwise y, z, x).
+float2 WuwaV2PBRMatcapUV(const bool bMcDotXYZ, float3 TranslatedWorldPosition, float4x4 TranslatedWorldToView, float UseTexNormal,
+	float3 N, float3 Nv)
+{
+	float3 pv = TranslatedWorldPosition.y * TranslatedWorldToView[1].xyz + TranslatedWorldPosition.x * TranslatedWorldToView[0].xyz;
+	pv = TranslatedWorldPosition.z * TranslatedWorldToView[2].xyz + pv;
+	pv = pv + TranslatedWorldToView[3].xyz;
+	float3 pvYZX = min(pv.yzx, asfloat(0x7F7FFFFFu));                                            // keep the (y, z, x) dp3 order
+	if (bMcDotXYZ)
+		pv = pv / sqrt(dot(pv, pv));                                                               // precise compile: x, y, z
+	else
+		pv = pv / sqrt(dot(pvYZX, pvYZX));
+	float3 Nm = UseTexNormal * (N - Nv) + Nv;
+	float3 nvv = Nm.y * TranslatedWorldToView[1].xyz + Nm.x * TranslatedWorldToView[0].xyz;
+	nvv = Nm.z * TranslatedWorldToView[2].xyz + nvv;
+	return float2(pv.z * nvv.x - pv.x * nvv.z, pv.y * nvv.z - pv.z * nvv.y) * 0.5 + 0.5;
+}
+
+// WuwaV2PBRMatcapShade: LOD from the roughness and the MatCapTex size (preshader (log2(TexSize.x) - 8) + MatcapMaxMip;
+// MatCapTexWidth = GetDimensions width), alpha blend inside [ExtraMatcapMin, Max] (min(nds, inExtra), nds = 1 - DamageSkin),
+// metal / non-metal intensity by the shadow (oms = 1 - Solid * S, Shadow = Solid * S).
+float3 WuwaV2PBRMatcapShade(float2 mcUV, uint MatCapTexWidth, Texture2D MatCapTex, SamplerState MatCapTexSampler, float MatcapMaxMip,
+	float r9, float nds, float inExtra, float metalF, float MetalMatCapBack, float MetalMatCapInt, float NonMetallicMatCapInt,
+	float Solid, float S, float Shadow, float3 MatcapColor)
+{
+	// fxc folds the later -1 into the preshader (LOD-only, does not change values with a full mip chain beyond float rounding)
+	float  mipPre = (log2((float)MatCapTexWidth) + -8.0) + MatcapMaxMip;
+	float  lod = (mipPre + -1.0) - (-log2(max(r9, asfloat(0x3A83126Fu))) * asfloat(0x3F99999Au) + 1.0);   // 1.2
+	float4 mc = MatCapTex.SampleLevel(MatCapTexSampler, mcUV, lod);
+	float3 mcol = min(nds, inExtra) * (mc.a - mc.rgb) + mc.rgb;
+	float2 mInt = metalF * (float2(MetalMatCapBack, MetalMatCapInt) - NonMetallicMatCapInt) + NonMetallicMatCapInt;
+	float  oms = -Solid * S + 1.0;
+	float  mI = Shadow * (-mInt.x * oms + mInt.y) + oms * mInt.x;
+	return (mcol * mI) * MatcapColor;
+}
+
+// PBR composite (B434-473, F6 L467-492): F0 / specular colour, UE EnvBRDFApprox (sat(50 * SpecularColor.g)), specular and indirect
+// terms, metal-darkened diffuse. edge = lerp(EdgeEnvBRDFIntensity, 0, fresnel region); rC = clamp(roughness, 0, 0.9).
+void WuwaV2PBRComposite(float metalF, float3 Base2, float edge, float NoV, float rC, float3 Matcap, float SpecTerm,
+	float PBRRateIntensity, float3 PBRSpecularColor, float3 PBRIndirectColor,
+	out float3 SpecCol, out float3 Spec, out float3 Ind, out float3 diff)
+{
+	float  f0h = metalF * 0.5 + 0.5;
+	float3 baseM = Base2 * metalF;
+	float  F0 = f0h * asfloat(0x3DA3D70Au);                                                     // 0.08
+	SpecCol = metalF * (-f0h * asfloat(0x3DA3D70Au) + Base2) + F0;
+	float  nvE = edge * (NoV + -1.0) + 1.0;
+	float4 rb = rC * float4(asfloat(0xBF8E38E4u), asfloat(0xBCFA4FA6u), asfloat(0xBF22B3C6u), asfloat(0x3CC83FB8u))
+		+ float4(1.0, asfloat(0x3D2E147Bu), asfloat(0x3F851EB8u), asfloat(0xBD23D70Au));
+	float  a004 = min(exp2(nvE * asfloat(0xC1147AE1u)), rb.x * rb.x) * rb.x + rb.y;             // -9.28
+	float2 AB = a004 * float2(asfloat(0xBF851EB8u), asfloat(0x3F851EB8u)) + rb.zw;
+	float3 env = SpecCol * AB.x + saturate(SpecCol.y * 50.0) * AB.y;                        // UE EnvBRDFApprox: sat(50 * SpecularColor.g)
+	float3 mlerp = metalF * (SpecCol * Matcap + -1.0) + 1.0;
+	Spec = SpecTerm * (((SpecCol * mlerp) * PBRRateIntensity) * PBRSpecularColor);
+	Ind = (env * PBRRateIntensity) * PBRIndirectColor;
+	diff = PBRRateIntensity * -baseM + Base2;
+}
+
+// UseSparkle glitter colour (PS b318cdb4 L502-560, F6 L510-574; non-legacy): CommonNoiseMap.xy sampled twice (bias -2) at
+// UV * Tiling and UV * Tiling + 0.2 V.xy (+ time pan) + 0.4; brightness grows with the camera distance to LocalToWorld * (0, 0, 80);
+// colour = Base * HueShiftValue hue-rotated by noise.y * SparkleColorful * 2pi, gated by noise.x >= step; FOV strength
+// (4/pi * atan(ClipToView[0][0]))^5. Returned before the mask (Sk = mask * colour).
+float3 WuwaV2PBRGlitter(float2 suv, float3 V, float GameTime, Texture2D CommonNoiseMap, SamplerState CommonNoiseMapSampler,
+	float SparkleTiling, float SparkleTimeSpeed, float SparkleIntensity, float SparkleIntensityMax, float SparkleColorful, float SparkleStep,
+	float3 Base2, float3 HueShiftValue, float SparkleStrengthFOV, float UseSparkleFOVStrength, float ClipToView00, float3 WorldCameraOrigin,
+	float3 LocalToWorldRow2, float3 LocalToWorldRow3)
+{
+	float2 n1 = CommonNoiseMap.SampleBias(CommonNoiseMapSampler, suv * SparkleTiling, -2.0).xy;
+	float2 po = V.xy * asfloat(0x3E4CCCCDu);                                                    // 0.2
+	float2 uv2 = suv * SparkleTiling + float2(po.x, GameTime * SparkleTimeSpeed + po.y);
+	uv2 = uv2 + asfloat(0x3ECCCCCDu);                                                           // 0.4
+	float2 n2 = CommonNoiseMap.SampleBias(CommonNoiseMapSampler, uv2, -2.0).xy;
+	float2 nn = n1 * n2;
+	float3 anc = LocalToWorldRow2 * 80.0 + LocalToWorldRow3;
+	float3 dc = WorldCameraOrigin - anc;
+	float  dist = min(sqrt(dot(dc, dc)) * asfloat(0x3A83126Fu), 1.0);                         // 0.001
+	float  sI = dist * (SparkleIntensityMax - SparkleIntensity) + SparkleIntensity;
+	nn = sI * nn;
+	nn = n1 * nn;
+	float  ang = (nn.y * SparkleColorful) * asfloat(0x40C90FDBu);                              // 2pi
+	float3 c = Base2 * HueShiftValue;
+	float  stp = (nn.x >= SparkleStep) ? 1.0 : 0.0;
+	const float3 kGrey = float3(asfloat(0x3F13CD3Au), asfloat(0x3F13CD3Au), asfloat(0x3F13CD3Au));   // 0.57735
+	float  hd = dot(kGrey, stp * c);
+	float3 hU = c * stp - hd * asfloat(0x3F13CD3Au);
+	float3 hT = hU.zxy * kGrey;
+	float3 hV = hU.zxy * kGrey - hT.zxy;
+	float  hs, hc;
+	sincos(ang, hs, hc);
+	float3 sc = hd * kGrey + (hU * hc + hs * hV);
+	sc = sI * sc;
+	float3 s32 = sc * asfloat(0x4200EB85u);                                                     // 32.23
+	float  fv = atan(ClipToView00) * asfloat(0x3FA30EB2u);                                      // 4/pi
+	float  fv4 = fv * fv;
+	fv4 = fv4 * fv4;
+	float  fs = saturate(fv * fv4) * SparkleStrengthFOV;
+	return UseSparkleFOVStrength * (sc * fs - s32) + s32;
+}

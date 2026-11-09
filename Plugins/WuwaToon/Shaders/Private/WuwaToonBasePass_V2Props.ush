@@ -1,0 +1,133 @@
+// WuwaToonBasePass_V2Props.ush — M_CharV2_Com prop / weapon base passes that the generic V2 body Impl does not cover (round 7).
+//
+// Transcribed from the SM5 High DXBC of the roster shader maps (evidence/roster/shadermaps/v2/asm/<idx>_<hash>.asm.txt, exact
+// literal bits in asm_hex/). Only includes the V2 headers (read-only): WuwaToonBasePass_V2Body.ush (FWuwaFXOutput, the E_Link gate)
+// and through it WuwaToonBasePassV2Shared.ush (front end, solid ratio, shadow AO / width) and WuwaToonBasePassShared.ush (main light
+// direction). research/roster/round7/singletons.md.
+#pragma once
+
+#include "WuwaToonBasePass_V2Body.ush"
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// 87519bc1 (#283257, MI_ELuoselaFilmMd10011_Tou_Inst, Rossela film-cut prop): forward-translucent (Kuro BLEND_Translucent) V2 body
+// WITHOUT UsePBR / normal map / ramp texture: lit colour = desat(sat(Base * AniSwitch_ShadowColorBright)), shadow colour =
+// desat(lerp(SubsurfaceColor, SkinSubsurfaceColor, SkinF)); UseVDLShadowoffset, TwoSided, UseEffectMaterial second layer (UV switch /
+// screen UV, rotation, time scroll, UseBumpOffset, refine, R_Noise_A_Mask.b ^ (1 - Effect_Progress) mask), emissive
+// EmissionColor * Base * SpecPart, UseTranslucent opacity min(E_Link gate, max(TypeMask.r * OpacityIntensity, 0)).
+// Material part = asm L63-216 and L265-387; the Kuro engine tail (primitive fade L217-220, volumetric / vertex fog L221-242, emissive
+// max 0 / scale / OOB L243-264, screen shadow mask / CSM L388-462, the forward toon lighting of the main light L463-534 and of the
+// local-light list b4 L535-637, pre-exposure L638-641) is NOT ported: in UE the lit-translucent template (DefaultLit,
+// BLEND_Translucent) lights Emissive / Opacity / OutBaseColor (approximation). Verified: material part bit-exact
+// (tools/shaderdiff/basepass_v2/trans_tdiff_r7.py: transpiled original with the material registers overwritten by these values).
+// Textures: TypeMask t4 (sample_l at MaterialTextureMipBias, s4), MainTex t5 (s0), Second_RGB t6 (bias, s5), R_Noise_A_Mask t7 (bias,
+// s6); E_Tex_NoiseTex is bound by the map but never sampled.
+// The original adds the preshader Second_NoiseStrength * 0 to the second-layer UV (L148, no UseNoise); omitted as in
+// WuwaToonBodyV2BasePass_Impl (adding +0 is the identity for every finite UV; -0 -> +0 samples the same texel).
+FWuwaFXOutput WuwaToonBodyV2PropTransNoPBRSecondBump2SBasePass(
+	float TwoSidedSign,
+	Texture2D TypeMask, SamplerState TypeMaskSampler, Texture2D MainTex, SamplerState MainTexSampler,
+	Texture2D Second_RGB, SamplerState Second_RGBSampler, Texture2D R_Noise_A_Mask, SamplerState R_Noise_A_MaskSampler,
+	float2 UV0, float2 UV1, float2 UV2, float3 WorldTangent, float3 WorldNormal, float TangentSign, float3 WorldPosition,
+	float3 CameraVector, float3 LightDirVS, float MotionEmissiveMask,
+	float DamageIntensity, float Damage_Skin_Intensity, float SkinMin, float SkinMax, float UseFaceAni_SkinMask,
+	float3 SkinColor, float3 Damage_Dirty_SkinColorTint, float3 Damage_Dirty_ColorTint, float Damage_Dirty_Intensity,
+	float3 Damage_Skin_ColorTint, float3 BaseColorTint, float DecodeShadowThreshold, float DecodeSpecThreshold,
+	float RaytracingReflectionFix,
+	float SolidShadowProcess, float SolidShadowWidth, float LightOffset_Pitch, float ShadowProcess,
+	float ShadowWidth, float ShadowWidthUseID, float ShadowWidth0, float ShadowWidth1, float ShadowWidth2, float ShadowWidth3, float ShadowWidth4,
+	float AniSwitch_ShadowColorBright, float Desaturation, float3 SkinSubsurfaceColor, float3 SubsurfaceColor, float SolidShadowStrength,
+	float3 EmissionColor, float3 E_Motion_Emissive, float4 SelectionColor, float OpacityIntensity,
+	float CPD1, float CPD13, float3 MPC_GlobalCharacterAmbientSkinColor, float3 MPC_GlobalCharacterDebugLightDirection,
+	float4 ToonLight0, float4 ToonLight1, float4 ToonLight2, float4 ToonLight3,
+	float MaterialTextureMipBias, float4 NormalOverrideParameter, float3 ObjectWorldPosition, float GameTime,
+	float2 SvPositionXY, float4 ViewSizeAndInvSize, float2 ViewRectMin,
+	float4 SecondTex_UVSwitch, float Second_UseScreenUV, float Second_RotCos, float Second_RotSin, float4 Second_UV, float4 Second_UV_Offset,
+	float4 Second_Refine, float3 Second_ColorTint, float EffectMaskTexUV2Switch, float Effect_Progress,
+	float Second_BumpHeightRadio, float Second_BumpHeight,
+	float E_Link_UseSplitScreen, float4 E_Link_AngleLinePosLineDis, float E_LinkPos, float2 LinkRot0, float2 LinkRot1,
+	out float3 OutBaseColor, out float3 OutNormal, out float3 OutShadowColor, out float OutShadow, out float OutShadowAO)
+{
+	// L63-65: bitangent of the second-layer bump offset (unnormalised interpolants)
+	float3 Bt = cross(WorldNormal, WorldTangent) * TangentSign;
+	// L84-127, L270-272: V2 front end (TypeMask .r / .b / .a at LOD MaterialTextureMipBias, MainTex)
+	float3 TM = TypeMask.SampleLevel(TypeMaskSampler, UV0, MaterialTextureMipBias).rba;
+	float4 Main = MainTex.Sample(MainTexSampler, UV0);
+	FWuwaV2Front F = WuwaV2FrontEnd(TM, Main, DamageIntensity, Damage_Skin_Intensity, SkinMin, SkinMax, UseFaceAni_SkinMask,
+		SkinColor, Damage_Dirty_SkinColorTint, Damage_Dirty_ColorTint, Damage_Dirty_Intensity, Damage_Skin_ColorTint, BaseColorTint,
+		DecodeShadowThreshold, DecodeSpecThreshold);
+	// L89-94: shading normal (View NormalOverrideParameter lerp, normalised)
+	float3 Nu, N;
+	float  NuRsq;
+	WuwaV2ShadingNormal(WorldNormal, NormalOverrideParameter, Nu, NuRsq, N);
+
+	// L128-172: UseEffectMaterial second layer
+	float3 su = float3(UV0.x, UV1.x, UV2.x);
+	float3 sv = float3(UV0.y, UV1.y, UV2.y);
+	float2 suv = float2(dot(SecondTex_UVSwitch.xzw, su), dot(SecondTex_UVSwitch.xzw, sv));
+	suv = Second_UseScreenUV * ((SvPositionXY - ViewRectMin) * ViewSizeAndInvSize.zw - suv) + suv;
+	suv = suv + -0.5;
+	suv = float2(dot(suv, float2(Second_RotCos, Second_RotSin * -1.0)), dot(suv, float2(Second_RotSin, Second_RotCos))) + 0.5;
+	float  q  = GameTime * asfloat(0x3ADA740Eu);                                                       // fmod(time, 600)
+	float  fq = frac(abs(q));
+	float  tm = ((q >= -q) ? fq : -fq) * asfloat(0x44160000u);
+	suv = suv * Second_UV.xy + tm * Second_UV.zw;
+	suv = suv + Second_UV_Offset.xy;
+	float  bh = Second_BumpHeightRadio * Second_BumpHeight + Second_BumpHeightRadio * -0.5;           // UseBumpOffset (L149-153)
+	suv = float2(dot(WorldTangent, CameraVector), dot(Bt, CameraVector)) * bh + suv;
+	float3 sc = Second_RGB.SampleBias(Second_RGBSampler, suv, MaterialTextureMipBias).rgb;
+	float3 sp = exp2(log2(sc) * Second_Refine.x);                                                     // Power node, guard 2.98e-8
+	sp = float3((asfloat(0x33000002u) >= sc.x) ? 0.0 : sp.x, (asfloat(0x33000002u) >= sc.y) ? 0.0 : sp.y,
+		(asfloat(0x33000002u) >= sc.z) ? 0.0 : sp.z);
+	sp = sp * Second_Refine.y;
+	float3 sec = Second_Refine.w * (sc * Second_Refine.z - sp) + sp;
+	sec = sec * Second_ColorTint;
+	float2 muv = EffectMaskTexUV2Switch * (UV1 - UV0) + UV0;
+	float  mk = R_Noise_A_Mask.SampleBias(R_Noise_A_MaskSampler, muv, MaterialTextureMipBias).b;       // t7.zxyw -> .x = blue
+	float  mp = exp2(log2(mk) * (1.0 - Effect_Progress));
+	mp = (asfloat(0x33000002u) >= mk) ? 0.0 : mp;
+	sec = sec * mp;
+	// L127, L173-176: emissive (EmissionColor on the MainTex.a spec part) + motion emissive, selection tint
+	float3 E = EmissionColor * (F.SpecPart * F.Base) + (MotionEmissiveMask * E_Motion_Emissive + sec);
+	E = SelectionColor.w * (SelectionColor.rgb - E) + E;
+	// L177-180: lit colour (no PBR), desaturated
+	float3 lit = saturate(F.Base * AniSwitch_ShadowColorBright);
+	float  ll = dot(lit, float3(asfloat(0x3E99999Au), asfloat(0x3F170A3Du), asfloat(0x3DE147AEu)));
+	lit = Desaturation * (ll - lit) + lit;
+	// L181-216: UseTranslucent opacity
+	float gate = WuwaV2BodyLinkGate(SvPositionXY, ViewSizeAndInvSize, ViewRectMin, E_Link_UseSplitScreen, E_Link_AngleLinePosLineDis,
+		E_LinkPos, LinkRot0, LinkRot1);
+	float Opacity = min(gate, max(F.TypeMaskR * OpacityIntensity, 0.0));
+
+	// L265-269: shadow colour (no ramp texture), desaturated
+	float3 shc = F.SkinF * (SkinSubsurfaceColor - SubsurfaceColor) + SubsurfaceColor;
+	float  sl = dot(shc, float3(asfloat(0x3E99999Au), asfloat(0x3F170A3Du), asfloat(0x3DE147AEu)));
+	shc = Desaturation * (sl - shc) + shc;
+	// L270-278: solid-shadow ratio from MainTex.a
+	float solid = WuwaV2SolidRatio(F.ShadowPart, SolidShadowProcess, SolidShadowWidth);
+	// L279-339: toon main light direction
+	float3 L = WuwaBPMainLightDir(LightOffset_Pitch, MPC_GlobalCharacterAmbientSkinColor, MPC_GlobalCharacterDebugLightDirection,
+		ToonLight0, ToonLight1, ToonLight2, ToonLight3, ObjectWorldPosition, WorldPosition, WorldPosition, CPD13, CPD1, LightDirVS);
+	// L340-355: back-light solid lift (AO)
+	float AO = WuwaV2ShadowAO(L, CameraVector, solid, SolidShadowStrength);
+	// L356-365: UseVDLShadowoffset threshold on the two-sided shading normal
+	float  vdl = (dot(L, CameraVector) * (1.0 - abs(CameraVector.z)) + 1.0) * 0.25 + asfloat(0xBDCCCCCDu);   // -0.1
+	float3 NL = RaytracingReflectionFix * (-N * TwoSidedSign + WorldNormal) + TwoSidedSign * N;
+	float  thr = vdl * (1.0 - saturate(dot(NL, CameraVector))) + ShadowProcess;
+	// L366-385: band smoothstep x solid
+	float  w  = WuwaV2ShadowWidthByID(F.RegionID, ShadowWidth, ShadowWidthUseID, float4(ShadowWidth0, ShadowWidth1, ShadowWidth2, ShadowWidth3), ShadowWidth4);
+	float  lo = thr - w;
+	float  hi = thr + w;
+	float  hl = dot(NL, L) * 0.5 + 0.5;
+	float  t  = saturate((1.0 / (hi - lo)) * (hl - lo));
+	float  S  = ((t * t) * (t * -2.0 + 3.0)) * solid;
+
+	FWuwaFXOutput X;
+	X.Emissive = E;                 // material Emissive Color (Kuro: before max(0) / emissive scale / OOB)
+	X.Opacity = Opacity;            // material Opacity (Kuro: then * the primitive fade, engine)
+	OutBaseColor = lit;             // toon lit colour (desaturated) = the albedo of the Kuro forward toon lighting
+	OutNormal = N;                  // world-space normal of the Kuro local-light loop (no two-sided sign, asm r7)
+	OutShadowColor = shc;           // Kuro toon-lighting inputs (GBufferB.rgb / A.z equivalents; not used by UE)
+	OutShadow = S;
+	OutShadowAO = AO;
+	return X;
+}

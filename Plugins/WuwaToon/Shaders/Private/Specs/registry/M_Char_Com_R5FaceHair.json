@@ -1,0 +1,94 @@
+{
+ "root_material": "M_Char_Com",
+ "variants": [
+  {
+   "spec": "ToonFace_TypeMaskRampMaskXingHen.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "95605fd29c0f6b025dd0f52bfb2e6f2c446376aa"
+    ],
+    "base_pass_vs_hash": [
+     "e51127192b5ad68374d21a5bb4aac89869210d78"
+    ]
+   },
+   "verified": "research/roster/round5/facehair_eye_special.md; evidence/validation/shaderdiff/roster_charcom/round5/facehair/results_facehair.json variants.r5fh_face_tmrm_xinghen_232938 (524288/524288 px bit-exact, 0 discard mismatches); VS #232956 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 232938,
+   "vs_archive_index": [
+    232956
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1KatixiyaMd10011Face"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseXingHen": true,
+    "UseRotate180UV": false
+   },
+   "added_by": "round5_facehair"
+  },
+  {
+   "spec": "ToonFace_TypeMaskRampMaskMainTexABreathXingHen.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "1d52378faca7514603f4e74ab5875d96550a52e7"
+    ],
+    "base_pass_vs_hash": [
+     "87f448848ab861c2c3372464e6701d75b622d402"
+    ]
+   },
+   "verified": "research/roster/round5/facehair_eye_special.md; evidence/validation/shaderdiff/roster_charcom/round5/facehair/results_facehair.json variants.r5fh_face_tmrm_maintexa_breath_xinghen_96448 (655360/655360 px bit-exact, 0 discard mismatches); VS #96472 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 96448,
+   "vs_archive_index": [
+    96472
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_R2T1KanteleilaMd10011Face"
+   ],
+   "static_switches_informational": {
+    "UseTypeMask": true,
+    "UseRampMask": true,
+    "UseMainTexA": true,
+    "UseBreathLight": true,
+    "UseXingHen": true,
+    "UseRotate180UV": false
+   },
+   "added_by": "round5_facehair"
+  },
+  {
+   "spec": "ToonHair_NormalMapSecondEffect.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "8f67f3ec9a53ff0dbb7276beffcfd1a21afb72db"
+    ],
+    "base_pass_vs_hash": [
+     "836afb3222d1a7f13649c81cf99bfdcc33c7e335"
+    ]
+   },
+   "verified": "research/roster/round5/facehair_eye_special.md; evidence/validation/shaderdiff/roster_charcom/round5/facehair/results_facehair.json variants.r5fh_hair_normalmap_second_effect_82156 (524288/524288 px bit-exact, 0 discard mismatches); VS #82151 == #35570 (symbolic, vs_equiv.json)",
+   "ps_archive_index": 82156,
+   "vs_archive_index": [
+    82151
+   ],
+   "roster_mis": 2,
+   "example_mis": [
+    "MI_R2T1ChangLiMd10011Hair",
+    "MI_R2T1ChangLiMd20011Hair"
+   ],
+   "static_switches_informational": {
+    "UseNormalMap": true,
+    "UseHairVCGradient": true,
+    "UseSecond": true,
+    "UseEffectMaterial": true,
+    "UseNoise": false,
+    "UseFlowEffectEdge": false
+   },
+   "added_by": "round5_facehair"
+  }
+ ],
+ "generated_by": "tools/shaderdiff/roster_charcom/register_round5_facehair.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 5, group facehair_eye_special (research/roster/round5/facehair_eye_special.md): split registry file, merged by root_material"
+}

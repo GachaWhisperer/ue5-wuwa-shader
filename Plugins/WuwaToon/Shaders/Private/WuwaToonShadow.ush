@@ -1,0 +1,202 @@
+// WuwaToonShadow.ush — Kuro's main-light shadow mask for toon pixels (FKuroToonShadingPS t5), reproduced on a
+// plugin-owned light-space depth capture.
+//
+// Provenance: research/hlsl/ToonShadow.hlsl §1 and research/shaders/ToonShadow.md (asm line citations there).
+// Recovered from FShadowSinglePassCSMPS (Global SM5 archive 5819/5825/5829). That is the PC CSM projection,
+// selected by r.Shadow.SinglePass=1 in evidence/config/ClientWindowsEngine.ini.
+//
+// What t5 is: UE4's sqrt-encoded LightAttenuation (screen shadow mask) of the main directional light.
+//   .x = whole-scene CSM term
+//   .z = per-object x light function. Per-object never shadows toon receivers: FAkiPerObjectShadowPS returns
+//        1.0 for SM 12..15 in every permutation, and the STENCIL_TOON_BODY exclusion is on by default.
+// FKuroToonShadingPS decodes S = x^2 * z^2 * View[286].z. WuwaToonResolve.ush already performs that decode
+// (ShadowMaskXZ). This file only replaces the producer.
+//
+// Differences from the stand-in WuwaToonShadowMask() in WuwaToonResolve.ush (left untouched):
+//   stand-in                              Kuro (this file)
+//   3x3 box of binary compares            5x5 bilinear-weighted PCF on a 6x6 footprint, weights /25, each texel
+//                                         saturate((D - z) * TS + 1) (soft transition, not binary)
+//   constant receiver-side bias           no receiver offset. A transition scale TS = SoftTransitionScale *
+//                                         lerp(ReceiverBias, 1, saturate(N.L)) widens the soft band at grazing
+//                                         angles. The constant + slope bias belongs to the caster's depth.
+//   sqrt(shadow) directly                 ShadowSharpen, then lerp(1, s^2, fade), then sqrt (UE encoding:
+//                                         a PCF of 0.5 encodes as 0.5, not sqrt(0.5))
+//   one map, hard edge at capture bounds  up to 2 cascades (r.Shadow.ToonShadowCascadeIndex = 1 at
+//                                         High/VeryHigh/Cine), fade-plane blend near*(1-b) + far*b, and lit
+//                                         beyond the last toon cascade
+//
+// Tags: [O] observed in asm/config, [I] inferred, [U] unknown (a plugin default; tune against game captures).
+#pragma once
+
+// ---- Evidence constants ------------------------------------------------------------------------------------
+#define WUWA_KURO_CSM0_DISTANCE        800.0    // [O] r.Shadow.CSM0Distance (DefaultScalability.ini L226), cm
+#define WUWA_KURO_CSM1_DISTANCE        2000.0   // [O] r.Shadow.CSM1Distance (L227); toon gets cascades 0..1 (L210)
+#define WUWA_KURO_TOON_CASCADES        2        // [O] r.Shadow.ToonShadowCascadeIndex=1 -> cascades 0 and 1
+#define WUWA_KURO_MAX_CSM_RESOLUTION   2048.0   // [O] r.Shadow.MaxCSMResolution at ShadowQuality@3 (L203)
+#define WUWA_KURO_CSM_SLOPE_SCALE_BIAS 10.0     // [O] r.Shadow.CSMSlopeScaleDepthBias (DefaultEngine.ini L267)
+#define WUWA_KURO_CSM0_FIXED_BIAS      10.0     // [O] r.Shadow.CSM0FixedDepthBias (L234); CPU units/scaling [U]
+#define WUWA_KURO_TRANSITION_FRACTION  0.1      // [I] stock CascadeTransitionFraction x r.Shadow.CSM.TransitionScale(1.0, L207)
+#define WUWA_KURO_RECEIVER_BIAS_FLOOR  0.1      // [I] stock 1 - r.Shadow.CSMReceiverBias(0.9); the cvar is unset in the ini
+#define WUWA_KURO_SHADOW_SHARPEN       1.0      // [I] stock light ShadowSharpen 0 -> 0*7+1
+#define WUWA_KURO_MAX_SLOPE            1.0      // [I] stock r.Shadow.ShadowMaxSlopeScaleDepthBias
+
+// One shadow cascade = one orthographic SCS_SceneDepth capture along the main light (AWuwaToonEnvironment).
+// The capture stores linear depth (cm) along Forward, measured from Origin.
+struct FWuwaKuroShadowCascade
+{
+	float3 Origin;            // capture location (world, cm)
+	float3 Forward;           // capture +X = light travel direction (normalized)
+	float3 Right;             // capture +Y
+	float3 Up;                // capture +Z
+	float  OrthoWidth;        // capture ortho width, cm (<= 0 disables the cascade -> lit)
+	float  DepthRange;        // subject depth range, cm. Kuro's InvMaxSubjectDepth = 1/DepthRange. Use the
+	                          //   capture's ShadowDistance
+	float4 BufferSize;        // render-target (w, h, 1/w, 1/h), like Kuro cb0[1]
+	float  SplitFar;          // view depth (cm) where this cascade ends (CSM0/CSM1 distance)
+	float  FadeLength;        // fade-plane length, cm. Kuro FadePlaneOffset = SplitFar - FadeLength.
+	                          //   Default [I]: WUWA_KURO_TRANSITION_FRACTION * (SplitFar - SplitNear)
+	float  TransitionSizeCm;  // soft transition width at N.L = 1, cm. Kuro TS = DepthRange / TransitionSizeCm.
+	                          //   [U] (CPU ComputeTransitionSize). Plugin default: 2 x world texel
+	                          //   (OrthoWidth * BufferSize.z * 2)
+	float  ReceiverBias;      // ProjectionDepthBiasParameters.z lerp floor. Default WUWA_KURO_RECEIVER_BIAS_FLOOR [I]
+	float  Sharpen;           // ShadowSharpens[s]. Default WUWA_KURO_SHADOW_SHARPEN [I]
+	float  CasterBiasCm;      // caster constant depth bias, cm [U value]. Kuro adds it to the CASTER depth (VS)
+	float  CasterSlopeBiasCm; // caster slope bias, cm per unit tan(theta) [U]. Stock: CasterBiasCm *
+	                          //   WUWA_KURO_CSM_SLOPE_SCALE_BIAS [I]
+	float  MaxSlope;          // clamp on tan(theta). Default WUWA_KURO_MAX_SLOPE [I]
+};
+
+// Kuro per-texel compare, written in the compiled form: saturate(D*TS - (z*TS - 1)). Single-pass L146-147. [O]
+float WuwaKuroShadowCompare(float D, float z, float TS) { return saturate(D * TS - (z * TS - 1.0)); }
+
+// 5x5 PCF = 6x6 texel footprint around floor(uv*size - 0.5). Outer columns/rows are weighted (1-f) / f,
+// inner texels 1, result * 0.04. Single-pass L140-184, L307. [O]
+// The in-game version uses 9 gather4 at offsets {-2,0,2}^2. Explicit Loads give the identical texel set
+// and weights, and need no gather or sampler state in a material Custom node.
+// DepthScale/DepthOffset map the stored value into Kuro's normalized light depth.
+float WuwaKuroPCF5x5(Texture2D DepthTex, float2 uv, float4 BufferSize, float zRecv, float TS,
+	float DepthScale, float DepthOffset)
+{
+	float2 t = uv * BufferSize.xy - 0.5;
+	float2 f = frac(t);
+	int2   b = (int2)floor(t);
+	int2   hi = (int2)BufferSize.xy - 1;
+	float  sum = 0.0;
+	[unroll] for (int j = -2; j <= 3; ++j)
+	{
+		float wy = (j == -2) ? (1.0 - f.y) : ((j == 3) ? f.y : 1.0);
+		[unroll] for (int i = -2; i <= 3; ++i)
+		{
+			float wx = (i == -2) ? (1.0 - f.x) : ((i == 3) ? f.x : 1.0);
+			int2  c  = clamp(b + int2(i, j), int2(0, 0), hi);
+			float D  = DepthTex.Load(int3(c, 0)).r * DepthScale + DepthOffset;
+			sum += WuwaKuroShadowCompare(D, zRecv, TS) * (wx * wy);
+		}
+	}
+	return sum * 0.04;
+}
+
+// Light-attenuation encode of one cascade: ShadowSharpen, then fade, then sqrt. Single-pass L307-314. [O]
+// Fade = ShadowFadeFraction * PerObjectDistanceFade. For whole-scene CSM the per-object fade is 1 [I].
+float WuwaKuroEncodeShadow(float Pcf, float Sharpen, float Fade)
+{
+	float s = saturate((Pcf - 0.5) * Sharpen + 0.5);
+	return sqrt((s * s - 1.0) * Fade + 1.0);   // == sqrt(lerp(1, s^2, Fade)), same operand order as L310-311
+}
+
+// Evaluate one cascade. Returns the sqrt-encoded CSM term (1 = lit).
+// N = TOON receiver normal: the octahedral-decoded GBufferA normal the toon base pass writes, as Kuro's
+// patched projection decodes it (L86-102). L = unit vector toward the light (Kuro: -LightDirection).
+float WuwaKuroShadowCascade(Texture2D DepthTex, FWuwaKuroShadowCascade C, float3 WorldPos, float3 N, float3 L,
+	float ShadowFadeFraction)
+{
+	if (C.OrthoWidth <= 0.0 || C.DepthRange <= 0.0) return 1.0;
+	float3 p  = WorldPos - C.Origin;
+	float2 uv = float2(dot(p, C.Right) / C.OrthoWidth + 0.5, 0.5 - dot(p, C.Up) / C.OrthoWidth);
+	if (any(uv < 0.0) || any(uv > 1.0)) return 1.0;      // outside the capture: treated as lit (substitute)
+
+	float invRange = 1.0 / C.DepthRange;
+	float z   = min(dot(p, C.Forward) * invRange, 0.99999);                           // L124 receiver depth, no bias
+	float NoL = saturate(dot(N, L));
+	float TS  = (C.DepthRange / max(C.TransitionSizeCm, 1e-3)) * lerp(C.ReceiverBias, 1.0, NoL);   // L136-139
+
+	// Caster bias. Kuro adds ShadowParams.x + ShadowParams.y*clamp(tan,0,Max) to the caster depth (character
+	// shadow-depth VS L155-169). A SceneCapture cannot do that, so the slope is taken from the receiver normal
+	// against the light axis: exact for self-shadowing, approximate otherwise. [substitute]
+	float c     = abs(dot(N, C.Forward));
+	float slope = (c > 0.0) ? sqrt(max(1.0 - c * c, 0.0)) / c : C.MaxSlope;
+	slope       = min(max(slope, 0.0), C.MaxSlope);
+	float casterBiasN = (C.CasterBiasCm + C.CasterSlopeBiasCm * slope) * invRange;
+
+	float pcf = WuwaKuroPCF5x5(DepthTex, uv, C.BufferSize, z, TS, invRange, casterBiasN);
+	return WuwaKuroEncodeShadow(pcf, C.Sharpen, ShadowFadeFraction);
+}
+
+// Drop-in producer for FWuwaToonResolveInputs.ShadowMaskXZ (t5 .x, .z).
+//   Depth0/C0 = cascade 0 (0..800 cm), Depth1/C1 = cascade 1 (800..2000 cm). NumCascades 0..2
+//     (WUWA_KURO_TOON_CASCADES).
+//   SceneDepth = linear view depth of the pixel (cm), used for cascade selection like Kuro's fade planes.
+//   ShadowFadeFraction = Kuro cb0[26].y (1 unless the light fades its shadow) [I].
+//   LightFunction = light-function attenuation (1 if none). It lands in .z as sqrt(LF) [I stock layout].
+//   bZCarriesCSM = U2 switch in ToonShadow.md. false (default) = stock CW_RG routing, .z excludes the CSM.
+//     true = assume the single-pass draw wrote RGBA, so .z also holds the CSM and the toon decode squares it.
+// Kuro cascade selection (single-pass L42-74, L315-319) [O]:
+//   - pick the nearest cascade with SceneDepth < SplitFar
+//   - b = saturate((SceneDepth - (SplitFar - FadeLength)) / FadeLength)
+//   - if 0 < b < 1 and a farther cascade exists: result = near*(1-b) + far*b
+//   - beyond the last cascade's SplitFar the pixel is discarded in game, i.e. stays lit (clear = 1) [I for toon]
+float2 WuwaToonShadowMaskKuro(
+	Texture2D Depth0, FWuwaKuroShadowCascade C0,
+	Texture2D Depth1, FWuwaKuroShadowCascade C1,
+	int NumCascades, float SceneDepth, float3 WorldPos, float3 N, float3 L,
+	float ShadowFadeFraction, float LightFunction, bool bZCarriesCSM)
+{
+	float zEnc = sqrt(saturate(LightFunction));
+	if (NumCascades <= 0) return float2(1.0, zEnc);          // r.Shadow.ToonShadowCascadeIndex = -1
+
+	float b0 = (SceneDepth - (C0.SplitFar - C0.FadeLength)) / max(C0.FadeLength, 1e-3);
+	float b1 = (SceneDepth - (C1.SplitFar - C1.FadeLength)) / max(C1.FadeLength, 1e-3);
+
+	float x = 1.0;
+	if (b0 < 1.0)                                             // cascade 0 selected
+	{
+		x = WuwaKuroShadowCascade(Depth0, C0, WorldPos, N, L, ShadowFadeFraction);
+		if (NumCascades > 1 && b0 > 0.0)                      // fade band into cascade 1
+		{
+			float xFar = WuwaKuroShadowCascade(Depth1, C1, WorldPos, N, L, ShadowFadeFraction);
+			x = x * (1.0 - b0) + xFar * b0;
+		}
+	}
+	else if (NumCascades > 1 && b1 < 1.0)                     // cascade 1 is the last toon cascade: no fade-out
+	{
+		x = WuwaKuroShadowCascade(Depth1, C1, WorldPos, N, L, ShadowFadeFraction);
+	}
+	// else: beyond the toon cascades -> lit
+
+	return float2(x, bZCarriesCSM ? x * zEnc : zEnc);
+}
+
+// Single-capture convenience overload, matching the current AWuwaToonEnvironment (one ortho capture).
+// The parameters mirror WuwaToonShadowMask() so the material wiring can switch over directly. Kuro defaults
+// are filled in here.
+//   Origin.w  = OrthoWidth (0 disables)
+//   Forward.w = DepthRange (the capture's ShadowDistance, cm). Note: the stand-in used Forward.w as a bias.
+//   SplitFar  = WUWA_KURO_CSM1_DISTANCE for the combined 0..20 m toon range
+float2 WuwaToonShadowMaskKuroSingle(Texture2D ShadowDepth, float3 WorldPos, float SceneDepth, float3 N, float3 L,
+	float4 Origin, float4 Forward, float3 Right, float3 Up, float2 TexelSize,
+	float CasterBiasCm, float SplitFar)
+{
+	FWuwaKuroShadowCascade C;
+	C.Origin = Origin.xyz; C.Forward = Forward.xyz; C.Right = Right; C.Up = Up;
+	C.OrthoWidth = Origin.w; C.DepthRange = Forward.w;
+	C.BufferSize = float4(1.0 / TexelSize, TexelSize);
+	C.SplitFar = SplitFar;
+	C.FadeLength = WUWA_KURO_TRANSITION_FRACTION * SplitFar;
+	C.TransitionSizeCm = 2.0 * Origin.w * TexelSize.x;                       // [U] plugin default
+	C.ReceiverBias = WUWA_KURO_RECEIVER_BIAS_FLOOR;
+	C.Sharpen = WUWA_KURO_SHADOW_SHARPEN;
+	C.CasterBiasCm = CasterBiasCm;
+	C.CasterSlopeBiasCm = CasterBiasCm * WUWA_KURO_CSM_SLOPE_SCALE_BIAS;    // [I] stock slope = const * scale
+	C.MaxSlope = WUWA_KURO_MAX_SLOPE;
+	return WuwaToonShadowMaskKuro(ShadowDepth, C, ShadowDepth, C, 1, SceneDepth, WorldPos, N, L, 1.0, 1.0, false);
+}

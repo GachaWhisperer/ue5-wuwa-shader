@@ -1,0 +1,379 @@
+{
+ "source": "Wuthering Waves MPC assets (Client/Content/Aki/Render/Data), read via CUE4Parse; EyesParameter (Client/Content/Aki/Character/Role/Common/Data/DA)",
+ "scalars": {
+  "GlobalWindSpeed": 1.0,
+  "GlobalWindPower": 1.0,
+  "GlobalCharacterMainLightYaw": 0.0,
+  "GlobalCameraInteractionIntensity": 1.0,
+  "GloablCameraInteractionHardness": 0.5,
+  "GlobalUIMapScale": 1.0,
+  "GlobalDayNightFactor": 0.0,
+  "GlobalCharSkyLightIntensity": 0.75,
+  "GlobalBlackStoneErosion": 0.0,
+  "GlobalCharacterGlobalShadowIntensity": 1.0,
+  "GlobalSnowIntensity": 0.0,
+  "GlobalRainIntensity": 0.0,
+  "GlobalExtremeWeatherWeight": 0.0,
+  "GlobalCameraRadius": 200.0,
+  "GlobalTimeHour": 7.059767,
+  "GlobalTimeMinutes": 12.108855,
+  "GlobalGravity": 0.0,
+  "GlobalSoundPower": 0.0,
+  "GroundBrigthenIntensty": 1.25,
+  "GroundBrigthenDistance": 150.0,
+  "GlobalRockAO": 1.0,
+  "GlobalShouldRenderCloud": 1.0,
+  "RoughnessDensity": 0.0,
+  "MixRoughness": 0.0,
+  "MobileMixRoughness": 0.3,
+  "GlobalCharacterVerticalRotation": 0.0,
+  "GlobalTimeControl": 1.0,
+  "GlobalGrassAO": 1.0,
+  "LensflareDensity": 0.0,
+  "ShadowDistance": 20000.0,
+  "MobileShadowDistance": 8000.0,
+  "GlobalDayNightSmoothFactor": 0.0,
+  "GlobalGrassTrailWorldSizeX": 8000.0,
+  "GlobalGrassTrailWorldSizeY": 8000.0,
+  "GlobalGrassTrailRTSizeX": 512.0,
+  "GlobalGrassTrailRTSizeY": 512.0,
+  "GlobalGrassDepthOffset": 400.0,
+  "MobileDepthError_K40_magic3pro_oppofindx5": 1.0,
+  "EnableMobileScreenAO": 1.0,
+  "SceneTimeScale": 1.0,
+  "GrassNearCameReduce": 1.0,
+  "CloudOceanOpacity": 0.0,
+  "CloudOceanHeight": 100000000000.0,
+  "BossBattleEmssiveSwitch": 0.0,
+  "GlobalCharacterOnGround": 0.0,
+  "VolumeCloudOpacity": 1.0,
+  "VolumeCloudCustomLighting": 0.0,
+  "GlobalWaterRippleCaptureSize": 700.0,
+  "VolumeCloudNearFadeDistance": 400.0,
+  "SingleCloudOpacity": 1.0,
+  "TODTime": 0.0,
+  "VolumeMaterialOpacity": 1.0,
+  "GlobalRainRippleIntensity": 0.0,
+  "CustomWPOInfluenceWithereScalar": 0.0,
+  "FoliageDitherState": 1.0,
+  "CommonFluidRTSize": 500.0,
+  "RainRippleNormalIntensity": 1.0,
+  "BurstDissolveThreshold_InSeq": 0.0,
+  "BurstDissolveSmooth_InSeqObj": 0.1,
+  "RoughnessPowIntensity": 1.0,
+  "RoughnessPowIntensityThreshold": 1.0,
+  "KuroMaterialQualityLevel": 4.0,
+  "RoughnessIntensity": 1.0,
+  "MetallicIntensity": 1.0,
+  "MetallicIntensityThreshold": 0.5,
+  "KuroEffectColorGradingDesaturate": 0.0,
+  "GlobalDailyRandom": 0.0,
+  "KuroVolumeCloudVRSQuality": 0.0,
+  "IceEmissiveControl_3_1": 1.0,
+  "UseLineaLerpEmissiveSwitch": 0.0,
+  "GlobalEmssiveIntensitySwitch": 0.0,
+  "HasVehicle": 0.0,
+  "CharWetRenderFootPrintInt": 0.0,
+  "CharWetReflectIntensity": 1.0,
+  "CharWetDarkenIntensity": 1.0,
+  "MovementSpeed": 42000.0,
+  "KuroMountainRuntimeDitherFadeEnable": 1.0,
+  "SceneObjectSaturation": 1.0,
+  "CharWetRenderBlackRainInt": 0.0,
+  "GlobalShadowIntensity": 0.0,
+  "DirColorSaturation": 0.0,
+  "DirColorValue": 0.0,
+  "RotateAngle": 0.0,
+  "EyeScale": 0.8,
+  "ColorChange": 0.0,
+  "RotateSpeed": 1.0,
+  "FlipBook": 0.0,
+  "MotionBlur": 0.0,
+  "MotionBlurShapeScale": 0.0,
+  "MotionBlurShapeRotate": 0.0,
+  "TransTimeSpeed": 0.0,
+  "LightPositionX": 0.0,
+  "LightPositionY": 0.0,
+  "LightNormlScale": 0.0,
+  "LightDifferentScale": 1.0,
+  "LightShakeScale": 0.01,
+  "LightShakeSpeed": 10.0,
+  "LightShakPositionX": 0.0,
+  "LightShakPositionY": 0.0,
+  "LightDisable": 0.0,
+  "EyeEmissive": 0.0,
+  "LightDisableSwitch": 1.0
+ },
+ "vectors": {
+  "GlobalSceneMainLightDirection": [
+   0.072236,
+   0.687278,
+   -0.722794,
+   1.0
+  ],
+  "GlobalSceneMainLightColor": [
+   1.0,
+   1.0,
+   1.0,
+   1.0
+  ],
+  "GlobalCharacterAmbientColor": [
+   1.0,
+   1.0,
+   1.0,
+   1.0
+  ],
+  "GlobalCharacterAmbientSkinColor": [
+   1.0,
+   1.0,
+   1.0,
+   1.0
+  ],
+  "GlobalCharacterPreviousWP": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "GlobalCharacterWorldPosition": [
+   10000.0,
+   10000.0,
+   10000.0,
+   0.0
+  ],
+  "GlobalCharacterWorldForwardDirection": [
+   1.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "GlobalSunLightDirection": [
+   1.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "GlobalMoonLightDirection": [
+   -1.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "GlobalWaterLightDirection": [
+   -0.0568,
+   0.9,
+   -0.4257,
+   1.0
+  ],
+  "GlobalWindDirection": [
+   1.0,
+   1.0,
+   1.0,
+   0.0
+  ],
+  "GlobalWindRightDirection": [
+   0.0,
+   1.0,
+   0.0,
+   0.0
+  ],
+  "GlobalGrassInteractionPosAndSize": [
+   0.0,
+   0.0,
+   0.0,
+   2000.0
+  ],
+  "GlobalWaterInteractionPosAndSize": [
+   0.0,
+   0.0,
+   0.0,
+   2000.0
+  ],
+  "GlobalCameraPosAndRadius": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "GlobalLandscapeCenterAndIntensity": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "GlobalLandscapeRadiusAndHardness": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "GlobalWetMetalRoughnessUsage": [
+   0.0,
+   1.0,
+   0.0,
+   0.0
+  ],
+  "GlobalLensFlareColorTint": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "WindTextureUVScaleSpeed": [
+   0.0003,
+   0.0003,
+   -0.1,
+   0.0
+  ],
+  "WindTextureOffset": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "GlobalGrassTrailPosition": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "GlobalCharacterDebugLightDirection": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "GlobalCharacterTickLightDirection": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "VolumeCloudLight": [
+   1.0,
+   1.0,
+   1.0,
+   0.0
+  ],
+  "VolumeCloudShadow": [
+   0.046875,
+   0.046875,
+   0.046875,
+   0.0
+  ],
+  "VolumeCloudSpeed": [
+   0.001,
+   0.001,
+   0.0,
+   0.0
+  ],
+  "GlobalRippleCameraPosAndSize": [
+   0.0,
+   0.0,
+   0.0,
+   2000.0
+  ],
+  "GravityDirection": [
+   0.0,
+   0.0,
+   -1.0,
+   0.0
+  ],
+  "VolumeCloudPosition": [
+   0.0,
+   0.0,
+   150000.0,
+   1.0
+  ],
+  "GlobalRainGradualData": [
+   1.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "GlobalRainLerpData": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "GlobalCameraPosAndRadiusShifted": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "CustomWPOParameters": [
+   -1.0,
+   100.0,
+   1.0,
+   500.0
+  ],
+  "LightningCatchFirePosition": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "KuroEffectColorGradingTint": [
+   1.0,
+   1.0,
+   1.0,
+   0.0
+  ],
+  "GlobalCharacterWeaponPosition": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "ShachongPosAndRTSize": [
+   0.0,
+   0.0,
+   0.0,
+   40000.0
+  ],
+  "KuroWorldOriginOffset": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "GlobalMoonDiscColor": [
+   1.0,
+   1.0,
+   1.0,
+   1.0
+  ],
+  "IceRiderPosition": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "KuroVolumeColor": [
+   1.0,
+   1.0,
+   1.0,
+   1.0
+  ],
+  "RainHeightNoiseData": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "MovementColor": [
+   1.0,
+   1.0,
+   1.0,
+   0.0
+  ],
+  "FluidSimCenter": [
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ]
+ }
+}

@@ -1,0 +1,54 @@
+{
+ "root_material": "M_Char_XinHen",
+ "generated_by": "tools/shaderdiff/roster_charcom/build_registry.py",
+ "contract": "Specs/registry/README.md",
+ "note": "one variant per verified (PS, VS set); MIs whose PS/VS pair is not listed fall back to M_Wuwa_Unported. research/roster/Port_CharCom_Coverage.md",
+ "variants": [
+  {
+   "spec": "ToonStar_XinHen.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "e84780ce92e41a254cad907499efd066000b3472"
+    ],
+    "base_pass_vs_hash": [
+     "f35cb1f533a32d5d1c4c5728905e83941820f456"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.auto_116382 (83732/83732 px bit-exact); VS #12148",
+   "ps_archive_index": 116382,
+   "vs_archive_index": [
+    12148
+   ],
+   "roster_mis": 3,
+   "example_mis": [
+    "MI_3XingStar",
+    "MI_5XingStar",
+    "MI_6XingStar"
+   ],
+   "static_switches_informational": {}
+  },
+  {
+   "spec": "ToonStar_XinHen_UVScale.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "ab81fc597dd1f69bb9ede29c415d449bb2110270"
+    ],
+    "base_pass_vs_hash": [
+     "f35cb1f533a32d5d1c4c5728905e83941820f456"
+    ]
+   },
+   "verified": "research/roster/Port_CharCom_Coverage.md#verified-variants; evidence/validation/shaderdiff/roster_charcom/results.json variants.xinhen_uvscale_233683 (93233/93233 px bit-exact); VS #12148",
+   "ps_archive_index": 233683,
+   "vs_archive_index": [
+    12148
+   ],
+   "roster_mis": 1,
+   "example_mis": [
+    "MI_3XingStar_Bailian"
+   ],
+   "static_switches_informational": {
+    "UseUVScale": true
+   }
+  }
+ ]
+}

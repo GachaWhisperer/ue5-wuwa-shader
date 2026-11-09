@@ -1,0 +1,70 @@
+{
+ "root_material": "M_AdvancedEffect_ParallaxSubUV_CM",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "AdvancedEffect_ParallaxSubUV_CM_Dissolve.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0f3490a90b70b67820a438c655354a4a98351b8a"
+    ],
+    "base_pass_vs_hash": [
+     "2f6587b614f78c3c9db69231fc83eb0addd34a15"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/waterfx/results_multi_final.json summary.waterfx_0f3490 (27 runs, o0 442368/442368 o1 442368/442368 bit-exact); VS #13853 gated_wpo (E_Absorbed WPO (+ WPOIntensity) only, branched on E_Absorbed_Enable > 0.5 = 0 at every roster MI (evidence/validation/shaderdiff/weapons/round3/waterfx/vs_status_waterfx.json); TEXCOORD2 = world position x Primitive WorldToLocal)",
+   "ps_archive_index": 13850,
+   "vs_archive_index": [
+    13853
+   ],
+   "vs_status": {
+    "2f6587b614f78c3c9db69231fc83eb0addd34a15": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Suisui",
+    "skin:Halcyon Days of Harvest"
+   ],
+   "example_mis": [
+    "MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains"
+   ],
+   "notes": "MI_ESuisuixiaoShuishanMd10011_Shanmian_Mountains; screen derivatives are constant per pixel quad in the harness"
+  },
+  {
+   "spec": "AdvancedEffect_ParallaxSubUV_CM_Base.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "3ccea0cf6a40437936b3d6dbf4c09f58846f8ff5"
+    ],
+    "base_pass_vs_hash": [
+     "d37b96c93dfdb0d7b02268d53bcbc1523253d979"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/waterfx/results_multi_final.json summary.waterfx_3ccea0 (27 runs, o0 442368/442368 o1 442368/442368 bit-exact); VS #328087 gated_wpo (E_Absorbed WPO (+ WPOIntensity) only, branched on E_Absorbed_Enable > 0.5 = 0 at every roster MI (evidence/validation/shaderdiff/weapons/round3/waterfx/vs_status_waterfx.json); TEXCOORD2 = world position x Primitive WorldToLocal)",
+   "ps_archive_index": 328084,
+   "vs_archive_index": [
+    328087
+   ],
+   "vs_status": {
+    "d37b96c93dfdb0d7b02268d53bcbc1523253d979": "gated_wpo"
+   },
+   "blend_mode": "BLEND_Translucent",
+   "resolve": false,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Suisui",
+    "skin:Halcyon Days of Harvest"
+   ],
+   "example_mis": [
+    "MI_ESuisuidaShuishanMd10011_Shanmian_Mountains"
+   ],
+   "notes": "MI_ESuisuidaShuishanMd10011_Shanmian_Mountains"
+  }
+ ]
+}

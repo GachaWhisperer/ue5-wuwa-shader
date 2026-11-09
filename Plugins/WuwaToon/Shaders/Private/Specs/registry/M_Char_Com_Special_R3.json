@@ -1,0 +1,261 @@
+{
+ "root_material": "M_Char_Com_Special",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "Char_Com_Special_TranslucentCloth.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "1b16763cceded56bb63e872b4423e45aae072b42"
+    ],
+    "base_pass_vs_hash": [
+     "8f697cc816b7d4d10a4ee2f32ec40117fba25370"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/cloth/results_multi_final.json summary.cloth_1b1676 (36 runs, o0 589824/589824 o1 589824/589824 o2 589824/589824 o3 589824/589824 o6 589824/589824 bit-exact); VS #122057 symbolic (evidence/validation/shaderdiff/weapons/round3/cloth/vs_status_cloth.json (r3/cloth_vs_status.py: symexec DAG identical to the verified Face VS #35570 on TEXCOORD2.xyzw + SV_POSITION.xyzw, 8/8 components))",
+   "ps_archive_index": 282533,
+   "vs_archive_index": [
+    122057
+   ],
+   "vs_status": {
+    "8f697cc816b7d4d10a4ee2f32ec40117fba25370": "symbolic"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Iuno",
+    "skin:The Unmeasured One"
+   ],
+   "example_mis": [
+    "MI_R2T1YounuoMd10011Alpha"
+   ],
+   "notes": "Iuno main mesh MI_R2T1YounuoMd10011Alpha (UseTranslucent + UseTranslucentCloth); entry discards inside (folded clip)"
+  },
+  {
+   "spec": "Char_Com_Special_TranslucentCloth_HETA.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "603d5394faa3be5559c8d0722b018b81643a7c83"
+    ],
+    "base_pass_vs_hash": [
+     "8f697cc816b7d4d10a4ee2f32ec40117fba25370"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/cloth/results_multi_final.json summary.cloth_603d53 (36 runs, o0 589824/589824 o1 589824/589824 o2 589824/589824 o3 589824/589824 o6 589824/589824 bit-exact); VS #122057 symbolic (evidence/validation/shaderdiff/weapons/round3/cloth/vs_status_cloth.json (r3/cloth_vs_status.py: symexec DAG identical to the verified Face VS #35570 on TEXCOORD2.xyzw + SV_POSITION.xyzw, 8/8 components))",
+   "ps_archive_index": 122043,
+   "vs_archive_index": [
+    122057
+   ],
+   "vs_status": {
+    "8f697cc816b7d4d10a4ee2f32ec40117fba25370": "symbolic"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Iuno",
+    "skin:The Unmeasured One"
+   ],
+   "example_mis": [
+    "MI_R2T1YounuoMd10011Alpha_HETA"
+   ],
+   "notes": "Iuno main mesh MI_R2T1YounuoMd10011Alpha_HETA (mode-1 C.a = opacity byte | 1); entry discards inside (folded clip)"
+  },
+  {
+   "spec": "Char_Com_Special_DiamondToonPlus.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "13da21c481803ab10ac2ce9ab5ee13a1c94dacfb"
+    ],
+    "base_pass_vs_hash": [
+     "f80c96371d475d48452ed1f9ced5e3ef34cfb845"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/diamond/results_multi_final.json summary.diamond_13da21 (33 runs, o0 540672/540672 o1 540672/540672 o2 540672/540672 o3 540672/540672 o6 540672/540672 bit-exact); VS #158153 symbolic (evidence/validation/shaderdiff/weapons/round3/diamond/vs_status_diamond.json (r3/diamond_vs_status.py: symexec DAG identical to the verified Body VS #35700 on TEXCOORD2.xyzw (light dir + motion mask) and SV_POSITION, every MI))",
+   "ps_archive_index": 158105,
+   "vs_archive_index": [
+    158153
+   ],
+   "vs_status": {
+    "f80c96371d475d48452ed1f9ced5e3ef34cfb845": "symbolic"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 2,
+   "roster_slot_uses": 4,
+   "entities": [
+    "character:Carlotta",
+    "skin:Splashing Summer",
+    "skin:Trendsetter"
+   ],
+   "example_mis": [
+    "MI_R2T1KamolaMd10011Bangs_2",
+    "MI_R2T1KamolaMd20011Bangs_2"
+   ],
+   "notes": "MI_R2T1KamolaMd10011Bangs_2, MI_R2T1KamolaMd20011Bangs_2 (Carlotta + skin). 33 runs, o0/o1/o2/o3/o6 540672/540672 bit-exact. Uniform expressions Diamond_RefractDir, DiamondFlash_Period."
+  },
+  {
+   "spec": "Char_Com_Special_DiamondToonPlusToonSpecEffectMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "2fbca3b2ffe5d6d0dda78789c9aad839c217ee1d"
+    ],
+    "base_pass_vs_hash": [
+     "ead4964138769adf263b969913a25cab4816f61e"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/diamond/results_multi_final.json summary.diamond_2fbca3 (33 runs, o0 540672/540672 o1 540672/540672 o2 540672/540672 o3 540672/540672 o6 540672/540672 bit-exact); VS #30482 symbolic (evidence/validation/shaderdiff/weapons/round3/diamond/vs_status_diamond.json (r3/diamond_vs_status.py: symexec DAG identical to the verified Body VS #35700 on TEXCOORD2.xyzw (light dir + motion mask) and SV_POSITION, every MI))",
+   "ps_archive_index": 30441,
+   "vs_archive_index": [
+    30482
+   ],
+   "vs_status": {
+    "ead4964138769adf263b969913a25cab4816f61e": "symbolic"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 2,
+   "roster_slot_uses": 4,
+   "entities": [
+    "character:Carlotta",
+    "skin:Splashing Summer",
+    "skin:Trendsetter"
+   ],
+   "example_mis": [
+    "MI_R2T1KamolaMd10011Hair_2",
+    "MI_R2T1KamolaMd20011Hair_2"
+   ],
+   "notes": "MI_R2T1KamolaMd10011Hair_2, MI_R2T1KamolaMd20011Hair_2 (Carlotta + skin). 33 runs, o0/o1/o2/o3/o6 540672/540672 bit-exact."
+  },
+  {
+   "spec": "Char_Com_Special_DiamondMatCap.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "0278a11b3f41f56d5d6c7304103ec2a75fbefd56"
+    ],
+    "base_pass_vs_hash": [
+     "a50e1b8efd2eea0e1d0c8232498bb212030243f8"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/diamond/results_multi_final.json summary.diamond_0278a1 (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #332368 symbolic (evidence/validation/shaderdiff/weapons/round3/diamond/vs_status_diamond.json (r3/diamond_vs_status.py: symexec DAG identical to the verified Body VS #35700 on TEXCOORD2.xyzw (light dir + motion mask) and SV_POSITION, every MI))",
+   "ps_archive_index": 332331,
+   "vs_archive_index": [
+    332368
+   ],
+   "vs_status": {
+    "a50e1b8efd2eea0e1d0c8232498bb212030243f8": "symbolic"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 4,
+   "entities": [
+    "character:Carlotta",
+    "skin:Splashing Summer",
+    "skin:Trendsetter"
+   ],
+   "example_mis": [
+    "MI_R2T1KamolaMd10011Bangs_3"
+   ],
+   "notes": "MI_R2T1KamolaMd10011Bangs_3 (Carlotta). 30 runs, o0/o1/o2/o3/o6 491520/491520 bit-exact."
+  },
+  {
+   "spec": "Char_Com_Special_DiamondMatCapEffectMask.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "b191fc1de001c52c66f6e18f5144e87d84336cd3"
+    ],
+    "base_pass_vs_hash": [
+     "76ca3324c1d0954cae7188cf0d389f2e7a1108ce"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/diamond/results_multi_final.json summary.diamond_b191fc (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #1447 symbolic (evidence/validation/shaderdiff/weapons/round3/diamond/vs_status_diamond.json (r3/diamond_vs_status.py: symexec DAG identical to the verified Body VS #35700 on TEXCOORD2.xyzw (light dir + motion mask) and SV_POSITION, every MI))",
+   "ps_archive_index": 1461,
+   "vs_archive_index": [
+    1447
+   ],
+   "vs_status": {
+    "76ca3324c1d0954cae7188cf0d389f2e7a1108ce": "symbolic"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 4,
+   "entities": [
+    "character:Carlotta",
+    "skin:Splashing Summer",
+    "skin:Trendsetter"
+   ],
+   "example_mis": [
+    "MI_R2T1KamolaMd10011Hair_3"
+   ],
+   "notes": "MI_R2T1KamolaMd10011Hair_3 (Carlotta). 30 runs, o0/o1/o2/o3/o6 491520/491520 bit-exact."
+  },
+  {
+   "spec": "Char_Com_Special_StarryTexPBRRamp2SAlpha.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "742ecd442287088251b25913bb2ae9c56648ce5a"
+    ],
+    "base_pass_vs_hash": [
+     "89a3f6cdb1967dccaea90977bd3051adceb27e0e"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/starry2/results_starry2_742ecd_starry2_04597b_final.json summary.starry2_742ecd (39 runs, o0 638976/638976 o1 638976/638976 o2 638976/638976 o3 638976/638976 o6 638976/638976 bit-exact); VS #110510 symbolic (symexec (r3/starry2_vs_status.py -> round3/starry2/vs_status_starry2.json): DAG-identical to the verified Face VS #35570 on TEXCOORD2.xyzw (motion mask + light direction) and SV_POSITION.xyzw with the MI preshader formulas)",
+   "ps_archive_index": 110504,
+   "vs_archive_index": [
+    110510
+   ],
+   "vs_status": {
+    "89a3f6cdb1967dccaea90977bd3051adceb27e0e": "symbolic"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 1,
+   "entities": [
+    "character:Cartethyia"
+   ],
+   "example_mis": [
+    "MI_R2T1FuludelisiMd10011Alpha"
+   ],
+   "notes": "MI_R2T1FuludelisiMd10011Alpha (Cartethyia). 39 runs, o0/o1/o2/o3/o6 638976/638976 bit-exact, 262895 discarded px matched. In-entry clip (folded clip constant): material Opacity Mask = 1.0. Engine texture DitherNoiseTex = Good64x64TilingNoiseHighFreq; TemporalAAParamsX = View.TemporalAAParams.x."
+  },
+  {
+   "spec": "Char_Com_Special_StarryNoPBRRamp.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "04597b249a7e9ddf86306fcecb94b61ce94afa56"
+    ],
+    "base_pass_vs_hash": [
+     "7263acafbd21361f3fc475831c0c9fb8683742d2"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/starry2/results_starry2_742ecd_starry2_04597b_final.json summary.starry2_04597b (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #243360 symbolic (symexec (r3/starry2_vs_status.py -> round3/starry2/vs_status_starry2.json): DAG-identical to the verified Face VS #35570 on TEXCOORD2.xyzw (motion mask + light direction) and SV_POSITION.xyzw with the MI preshader formulas)",
+   "ps_archive_index": 243343,
+   "vs_archive_index": [
+    243360
+   ],
+   "vs_status": {
+    "7263acafbd21361f3fc475831c0c9fb8683742d2": "symbolic"
+   },
+   "blend_mode": "BLEND_Opaque",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Shorekeeper",
+    "skin:Always and Ever"
+   ],
+   "example_mis": [
+    "MI_R2T1ShouanrenMd10011Up02"
+   ],
+   "notes": "MI_R2T1ShouanrenMd10011Up02 (Shorekeeper). 30 runs, o0/o1/o2/o3/o6 491520/491520 bit-exact."
+  }
+ ]
+}

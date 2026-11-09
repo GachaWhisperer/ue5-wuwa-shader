@@ -1,0 +1,79 @@
+// WuwaToonGBuffer.ush — the contract between ported base passes and ported deferred passes.
+//
+// Kuro's renderer splits toon shading across the base pass (writes MRTs) and deferred passes
+// (FDeferredLightPS toon branch, FKuroToonShadingPS, indirect composites) that decode them.
+// Launcher UE 5.8 cannot add GBuffer channels, so WuwaToon keeps Kuro's MRT layout *in registers*:
+// a ported base pass fills FWuwaToonGBuffer channel-for-channel, and the ported deferred code decodes
+// it with the same arithmetic it uses on the real render targets. Quantization to each target's
+// storage format is emulated so 8-bit packing (shading-model id, nibbles, sqrt colour) behaves as in game.
+//
+// MRT map (research/shaders/ToonCommon.md, ToonHair.md, ToonOutline.md):
+//   o0 Emissive (SceneColor)   o1 GBufferA   o2 GBufferB   o3 GBufferC   o4 velocity (unused here)
+//   o5 SV_Position.z copy (consumer unknown)   o6 "GBufferD" read by FKuroToonShadingPS as t4
+#pragma once
+
+#include "WuwaToonCommon.ush"
+
+struct FWuwaToonGBuffer
+{
+	float3 Emissive;   // o0.rgb
+	float4 A;          // o1: xy octahedral normal, z shadow factor, w class flag
+	float4 B;          // o2: rgb sqrt(shadow/ramp colour), a ((LightingChannelMask & 7) << 5 | ShadingModelId) / 255
+	float4 C;          // o3: rgb lit colour, a MainTex.a / encoded rim width (View[276] packing mode)
+	float4 D;          // o6: x ToonRimWidth, y packed PBR / GI-tint nibble, z ?, w packed AO/FFT
+};
+
+// Storage-format emulation. Kuro's GBufferA/B/C/D are 8-bit UNORM in the SM5 path (inferred from the
+// 1/255 packing arithmetic in the base passes); SceneColor is float.
+float  WuwaQuantizeUnorm8(float v)  { return round(saturate(v) * 255.0) / 255.0; }
+float4 WuwaQuantizeUnorm8(float4 v) { return round(saturate(v) * 255.0) / 255.0; }
+
+FWuwaToonGBuffer WuwaToonGBufferStore(FWuwaToonGBuffer G)
+{
+	G.A = WuwaQuantizeUnorm8(G.A);
+	G.B = WuwaQuantizeUnorm8(G.B);
+	G.C = WuwaQuantizeUnorm8(G.C);
+	G.D = WuwaQuantizeUnorm8(G.D);
+	return G;
+}
+
+float WuwaPackShadingModel(uint ShadingModelId, uint LightingChannelMask)
+{
+	return (float)(((LightingChannelMask & 7) << 5) | (ShadingModelId & 15)) / 255.0;
+}
+
+// Decoded view, matching the register names used in research/hlsl/KuroToonShading_Deferred.hlsl.
+struct FWuwaToonSurface
+{
+	uint   ShadingModelId;   // packedB & 15 (12 common, 13 outline; face/hair base passes also write 12)
+	uint   SelectiveBits;    // packedB & 0xF0
+	float3 N;                // octahedral decode of A.xy
+	float3 ShadowColor;      // B.rgb^2
+	float3 Albedo;           // C.rgb
+	float  FactorZ;          // A.z
+	float  FlagW;            // A.w
+	float  RimParam;         // D.x
+	float  GITintWeight;     // (D.y*255 & 15)/15, gated by View[289].y and not outline
+	float  AmbShadowFactor;  // D.z
+};
+
+FWuwaToonSurface WuwaToonDecode(FWuwaToonGBuffer G, bool bGITintEnable)
+{
+	FWuwaToonSurface S;
+	uint packedB = (uint)round(G.B.a * 255.0);
+	S.ShadingModelId  = packedB & 15;
+	S.SelectiveBits   = packedB & 0xFFFFFFF0;
+	// L66-118: toon ids 12..15 decode the octahedral normal (normalized, L77-79); other ids use A.xyz*2-1 (L110);
+	// both paths are normalized again after the merge (L116-118). Kept as a select so the second normalize is not
+	// folded away by the compiler (it is not bit-identical to a single normalize).
+	float3 nEnc       = (S.ShadingModelId >= 12) ? WuwaOctDecode(G.A.xy) : (G.A.xyz * 2.0 - 1.0);
+	S.N               = normalize(nEnc);
+	S.ShadowColor     = G.B.rgb * G.B.rgb;
+	S.Albedo          = G.C.rgb;
+	S.FactorZ         = G.A.z;
+	S.FlagW           = G.A.w;
+	S.RimParam        = G.D.x;
+	S.GITintWeight    = (bGITintEnable && S.ShadingModelId != 13) ? (float)((uint)round(G.D.y * 255.0) & 15) * (1.0 / 15.0) : 0.0;   // 0x3d888889 (asm prints 0.066667)
+	S.AmbShadowFactor = G.D.z;
+	return S;
+}

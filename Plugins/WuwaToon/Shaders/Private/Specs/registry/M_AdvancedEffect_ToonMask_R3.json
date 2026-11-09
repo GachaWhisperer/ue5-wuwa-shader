@@ -1,0 +1,39 @@
+{
+ "root_material": "M_AdvancedEffect_ToonMask",
+ "generated_by": "tools/shaderdiff/weapons/r3/build_registry_r3.py",
+ "contract": "Specs/registry/README.md",
+ "note": "round 3 of research/roster/Port_Weapons_Specials.md: one variant per WARP-verified base-pass PS hash, keyed with the VS hashes whose status is established (engine_only / symbolic / verified_binary / gated_wpo / ported_wpo_verified). The importer merges registry files by root_material.",
+ "variants": [
+  {
+   "spec": "AdvancedEffect_ToonMask_UV4NoiseSecondDissolveMaskDither2S.json",
+   "match": {
+    "base_pass_ps_hash": [
+     "f3fda1d579753b2b763a9e1f52eedf4f714b623c"
+    ],
+    "base_pass_vs_hash": [
+     "f35cb1f533a32d5d1c4c5728905e83941820f456"
+    ]
+   },
+   "verified": "research/roster/Port_Weapons_Specials.md#round-3; evidence/validation/shaderdiff/weapons/round3/crystal/results_multi_final.json summary.crystal_f3fda1 (30 runs, o0 491520/491520 o1 491520/491520 o2 491520/491520 o3 491520/491520 o6 491520/491520 bit-exact); VS #12148 verified_binary (evidence/validation/shaderdiff/weapons/vs_status.json (round 1, ToonMask_9595ae: stock GPU-skin passthrough VS = verified XinHen / Star VS binary))",
+   "ps_archive_index": 194720,
+   "vs_archive_index": [
+    12148
+   ],
+   "vs_status": {
+    "f35cb1f533a32d5d1c4c5728905e83941820f456": "verified_binary"
+   },
+   "blend_mode": "BLEND_Masked",
+   "resolve": true,
+   "roster_mis": 1,
+   "roster_slot_uses": 2,
+   "entities": [
+    "character:Shorekeeper",
+    "skin:Always and Ever"
+   ],
+   "example_mis": [
+    "MI_EShouanrenHudieMd10011"
+   ],
+   "notes": "MI_EShouanrenHudieMd10011 (Shorekeeper butterfly). Masked toon id 12; entry clips (folded DitherTemporalAA + clip constant -0.8333, primitive dither) and returns OpacityMask = 1. 30 runs, o0/o1/o2/o3/o6 491520/491520 bit-exact, discards identical."
+  }
+ ]
+}
